@@ -1,0 +1,154 @@
+// SharkPit — Prisma schema
+// Single hardcoded user for v1 (no auth). Pattern memory + skill snapshots
+// are architected from day one to support the cross-session coaching loop.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// A user of SharkPit. v1 uses a single hardcoded user (no auth yet).
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions         Session[]
+  upcomingMoments  UpcomingMoment[]
+  patternMemories  PatternMemory[]
+  skillSnapshots   SkillSnapshot[]
+}
+
+/// A real-world high-stakes moment the user is preparing for.
+/// Drives the Home countdown + urgency.
+model UpcomingMoment {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String   // e.g., "Thesis Defense"
+  detail    String?  // e.g., "Defense of my dissertation on X"
+  date      DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// A sparring session. The core unit of the product.
+model Session {
+  id              String   @id @default(cuid())
+  userId          String
+  scenario        String   // 'thesis_defense' | 'investor_pitch' | 'board_update' | 'performance_review' | 'grant_defense' | 'client_presentation' | 'custom'
+  mode            String   // 'with_material' | 'without_material'
+  rawMaterial     String?  // pasted or extracted text content the user is defending
+  materialTitle   String?  // optional title for the material
+  extractedClaims String?  // JSON array of { claim, evidence } — 3-5 key claims LLM extracted
+  status          String   @default("configured") // 'configured' | 'active' | 'ended' | 'debriefed'
+  startedAt       DateTime?
+  endedAt         DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Live telemetry computed during the session (JSON): hedgeCount, responseTimes, wordCounts, etc.
+  telemetry       String?
+
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  personas  SessionPersona[]
+  messages  SessionMessage[]
+  summary   SessionSummary?
+  skills    SkillSnapshot?
+}
+
+/// A configured persona in a specific session.
+model SessionPersona {
+  id            String   @id @default(cuid())
+  sessionId     String
+  archetype     String   // 'skeptic' | 'nitpicker' | 'so_what' | 'timekeeper' | 'ally'
+  name          String   // user-editable; defaults to "The Skeptic" etc.
+  behaviorStyle String   @default("moderate") // 'gentle' | 'moderate' | 'aggressive'
+  seatOrder     Int      // 0, 1, 2 — left to right
+  createdAt     DateTime @default(now())
+
+  session  Session          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  messages SessionMessage[]
+}
+
+/// A single message in the session transcript.
+model SessionMessage {
+  id        String   @id @default(cuid())
+  sessionId String
+  personaId String?
+  role      String   // 'user' | 'persona' | 'system' | 'coach'
+  content   String
+  // 'normal' | 'interruption' | 'coach_whisper' | 'opening'
+  type      String   @default("normal")
+  // Optional: which extracted claim this message references (for grounding audit)
+  claimRef  Int?
+  createdAt DateTime @default(now())
+
+  session Session        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  persona SessionPersona? @relation(fields: [personaId], references: [id], onDelete: SetNull)
+}
+
+/// The 6-section coaching debrief generated after a session ends.
+/// This is the hero artifact of the product.
+model SessionSummary {
+  id                  String   @id @default(cuid())
+  sessionId           String   @unique
+  // Section 1: The Moment — narrative of the most challenging exchange
+  momentDescription   String
+  // Section 2: What You Did Well — 2-3 evidence-based observations (JSON array of strings)
+  whatWentWell        String
+  // Section 3: The Pattern — recurring behavior noted
+  thePattern          String
+  // Section 4: One Thing to Practice — single actionable focus
+  oneThingToPractice  String
+  // Section 5: Telemetry (Framed as Insight) — metrics with interpretation (JSON)
+  telemetryInsights   String
+  // Section 6: Save or Share — a markdown summary the user can copy/export
+  shareableSummary    String
+  createdAt           DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+/// Accumulated insights across sessions — the cross-session memory that
+/// feeds the next session's persona system prompts. THE wedge.
+model PatternMemory {
+  id        String   @id @default(cuid())
+  userId    String
+  // Short tag like "hedges_under_pressure", "over-explains_methodology", " deflects_on_financials"
+  tag       String
+  // Human-readable description of the pattern
+  description String
+  // How many sessions this pattern has appeared in
+  occurrences Int     @default(1)
+  // Last time this pattern was observed
+  lastSeen  DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tag])
+}
+
+/// Snapshot of the 5 skill dimensions after each session.
+/// Used to track growth over time on the (future) Progress screen.
+model SkillSnapshot {
+  id         String   @id @default(cuid())
+  userId     String
+  sessionId  String   @unique
+  clarity    Float    // 0-100
+  recovery   Float
+  concision  Float
+  presence   Float
+  evidence   Float
+  createdAt  DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}

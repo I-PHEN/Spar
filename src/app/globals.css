@@ -1,0 +1,206 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* SharkPit design language — deep charcoal + slate + ONE accent blue.
+   No neon. No gradients-for-fun. No gamey language. Premium, calm, focused. */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/* SharkPit is dark by default — premium training-app feel.
+   We do NOT support a light mode in v1. The whole product is the dark "room". */
+:root {
+  --radius: 0.5rem;
+
+  /* Deep charcoal base */
+  --background: oklch(0.16 0.008 250);          /* #0B0E14-ish, deep charcoal with cool tint */
+  --foreground: oklch(0.93 0.005 250);          /* #E8EAEF, soft white */
+
+  /* Slate surfaces */
+  --card: oklch(0.21 0.008 250);                /* #151921 */
+  --card-foreground: oklch(0.93 0.005 250);
+  --popover: oklch(0.19 0.008 250);             /* #121620 */
+  --popover-foreground: oklch(0.93 0.005 250);
+
+  /* Primary accent — the ONE blue. Sophisticated, cool, premium.
+     #5B8DEF-ish in hex. Used for CTAs, active states, primary highlights. */
+  --primary: oklch(0.68 0.13 250);
+  --primary-foreground: oklch(0.16 0.008 250);  /* dark text on blue */
+
+  /* Secondary — slightly lifted slate for hover/secondary surfaces */
+  --secondary: oklch(0.25 0.008 250);           /* #1E232E */
+  --secondary-foreground: oklch(0.93 0.005 250);
+
+  /* Muted — for secondary text and subtle backgrounds */
+  --muted: oklch(0.25 0.008 250);               /* #1E232E */
+  --muted-foreground: oklch(0.62 0.012 250);    /* #8A93A3, slate gray */
+
+  /* Accent — same family as primary, slightly different role */
+  --accent: oklch(0.28 0.02 250);                /* #232936 */
+  --accent-foreground: oklch(0.93 0.005 250);
+
+  --destructive: oklch(0.62 0.18 25);            /* muted red */
+  --destructive-foreground: oklch(0.98 0 0);
+
+  /* Borders — very subtle */
+  --border: oklch(0.30 0.008 250);               /* #2A3140 */
+  --input: oklch(0.25 0.008 250);
+  --ring: oklch(0.68 0.13 250);                  /* matches primary */
+
+  /* Chart colors — muted, coherent with palette */
+  --chart-1: oklch(0.68 0.13 250);   /* primary blue */
+  --chart-2: oklch(0.65 0.08 180);   /* muted teal */
+  --chart-3: oklch(0.70 0.10 60);    /* muted amber */
+  --chart-4: oklch(0.62 0.10 145);    /* muted sage */
+  --chart-5: oklch(0.65 0.12 15);     /* muted rose */
+
+  --sidebar: oklch(0.18 0.008 250);
+  --sidebar-foreground: oklch(0.93 0.005 250);
+  --sidebar-primary: oklch(0.68 0.13 250);
+  --sidebar-primary-foreground: oklch(0.16 0.008 250);
+  --sidebar-accent: oklch(0.25 0.008 250);
+  --sidebar-accent-foreground: oklch(0.93 0.005 250);
+  --sidebar-border: oklch(0.30 0.008 250);
+  --sidebar-ring: oklch(0.68 0.13 250);
+}
+
+/* The brief specifies dark mode only. We hardcode the dark palette into :root.
+   (No light mode in v1.) */
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    /* Subtle film-grain texture via radial gradient — almost imperceptible,
+       adds depth without being "gradient for fun". */
+    background-image:
+      radial-gradient(circle at 0% 0%, oklch(0.68 0.13 250 / 0.04) 0%, transparent 35%),
+      radial-gradient(circle at 100% 100%, oklch(0.68 0.13 250 / 0.03) 0%, transparent 40%);
+    background-attachment: fixed;
+  }
+
+  /* Custom scrollbar — slim, slate, premium */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.30 0.008 250);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.38 0.008 250);
+  }
+
+  /* Selection — primary blue tint */
+  ::selection {
+    background: oklch(0.68 0.13 250 / 0.25);
+    color: oklch(0.98 0 0);
+  }
+}
+
+/* Custom animations for the Sparring Room — subtle, purposeful */
+
+/* Persona "about to interrupt" pulse — subtle, breath-like */
+@keyframes sharkpit-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 oklch(0.68 0.13 250 / 0.35);
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 0 6px oklch(0.68 0.13 250 / 0);
+    opacity: 0.85;
+  }
+}
+.sharkpit-pulse {
+  animation: sharkpit-pulse 1.4s ease-in-out infinite;
+}
+
+/* Persona "thinking" — three dots that breathe */
+@keyframes sharkpit-thinking {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-2px); }
+}
+.sharkpit-thinking-dot {
+  animation: sharkpit-thinking 1.2s ease-in-out infinite;
+}
+.sharkpit-thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+.sharkpit-thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* Interruption slide-in */
+@keyframes sharkpit-interrupt {
+  0% { transform: translateX(-12px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+.sharkpit-interrupt-in {
+  animation: sharkpit-interrupt 0.35s ease-out;
+}
+
+/* Subtle fade-up for new messages */
+@keyframes sharkpit-fade-up {
+  0% { transform: translateY(6px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+.sharkpit-fade-up {
+  animation: sharkpit-fade-up 0.3s ease-out;
+}
+
+/* Caret blink for streaming text */
+@keyframes sharkpit-caret {
+  0%, 50% { opacity: 1; }
+  50.01%, 100% { opacity: 0; }
+}
+.sharkpit-caret::after {
+  content: '';
+  display: inline-block;
+  width: 0.5em;
+  height: 1.1em;
+  background: oklch(0.68 0.13 250);
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: sharkpit-caret 1s steps(1) infinite;
+}
