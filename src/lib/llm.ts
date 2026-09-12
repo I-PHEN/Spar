@@ -1,4 +1,4 @@
-// SharkPit — LLM orchestration (SERVER-SIDE ONLY)
+// Spar — LLM orchestration (SERVER-SIDE ONLY)
 //
 // This module wraps z-ai-web-dev-sdk and provides three core capabilities:
 //   1. extractClaims — pull 3-5 key claims from uploaded/pasted material
@@ -79,11 +79,11 @@ interface RawClaim {
  */
 export async function extractClaims(material: string): Promise<ExtractedClaim[]> {
   const trimmed = material.trim();
-  if (trimmed.length < 30) return [];
+  if (trimmed.length < 10) return [];
 
   const zai = await getZai();
 
-  const systemPrompt = `You are an analytical reader for SharkPit, a sparring platform that helps people defend their ideas under pressure.
+  const systemPrompt = `You are an analytical reader for Spar, a sparring platform that helps people defend their ideas under pressure.
 
 Given a piece of material (a thesis abstract, a pitch deck transcript, a strategy memo, a proposal, etc.), extract the 3-5 KEY CLAIMS the author is making — the claims they would have to defend if challenged.
 
@@ -318,7 +318,7 @@ interface RawDebrief {
 }
 
 /**
- * Generate the 6-section coaching debrief — the hero artifact of SharkPit.
+ * Generate the 6-section coaching debrief — the hero artifact of Spar.
  * This is what differentiates us from Yoodli's per-session feedback: we
  * write a *narrative*, not a scorecard.
  */
@@ -327,7 +327,7 @@ export async function generateDebrief(
 ): Promise<DebriefPayload> {
   const zai = await getZai();
 
-  const systemPrompt = `You are SharkPit's coaching engine. After every sparring session, you write a debrief for the user.
+  const systemPrompt = `You are Spar's coaching engine. After every sparring session, you write a debrief for the user.
 
 Your voice:
 - Honest, specific, forward-looking. Like a coach who has just watched the tape with you.
@@ -358,7 +358,7 @@ The debrief has 6 sections. You produce the first 5; section 6 (shareableSummary
 # RULES
 - Reference SPECIFIC moments from the transcript. "At one point you said X" — not "you tended to X."
 - Do not invent. If you can't find evidence for an observation, don't make it.
-- The Pattern must connect to the user's previous patterns (if provided) — this is what makes SharkPit feel like it KNOWS them.
+- The Pattern must connect to the user's previous patterns (if provided) — this is what makes Spar feel like it KNOWS them.
 - One Thing to Practice must be CONCRETE and doable in the next session.`;
 
   const telemetrySummary = `# TELEMETRY

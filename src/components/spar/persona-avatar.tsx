@@ -38,7 +38,7 @@ export function PersonaAvatar({
     state === "speaking"
       ? "ring-2 ring-offset-2 ring-offset-background"
       : state === "about-to-interrupt"
-      ? "sharkpit-pulse"
+      ? "spar-pulse"
       : state === "thinking"
       ? "ring-1 ring-border"
       : "ring-1 ring-border/50";

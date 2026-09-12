@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SharkPit — The sparring room for your next big moment",
+  title: "Spar — The sparring room for your next big moment",
   description:
-    "Enter a room with AI personas who challenge you, interrupt you, and probe your weak spots. Then get coached — not scored, but developed. Over time, SharkPit learns your patterns and builds you toward the real room.",
+    "Enter a room with AI personas who challenge you, interrupt you, and probe your weak spots. Then get coached — not scored, but developed. Over time, Spar learns your patterns and builds you toward the real room.",
   keywords: [
     "presentation practice",
     "pitch practice",
@@ -25,12 +25,12 @@ export const metadata: Metadata = {
     "sparring",
     "communication training",
   ],
-  authors: [{ name: "SharkPit" }],
+  authors: [{ name: "Spar" }],
   icons: {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
   },
   openGraph: {
-    title: "SharkPit — The sparring room for your next big moment",
+    title: "Spar — The sparring room for your next big moment",
     description:
       "Practice defending your ideas under live AI pressure. Get coached, not scored.",
     type: "website",

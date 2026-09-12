@@ -1,4 +1,4 @@
-// SharkPit — fetch the debrief for a session
+// Spar — fetch the debrief for a session
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";

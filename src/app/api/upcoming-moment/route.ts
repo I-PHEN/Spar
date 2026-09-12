@@ -1,4 +1,4 @@
-// SharkPit — upcoming moment (drives the Home countdown)
+// Spar — upcoming moment (drives the Home countdown)
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";

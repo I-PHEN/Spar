@@ -1,4 +1,4 @@
-// SharkPit — shared types
+// Spar — shared types
 
 export type ArchetypeKey =
   | "skeptic"

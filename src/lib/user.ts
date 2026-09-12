@@ -1,11 +1,11 @@
-// SharkPit — default user helper
+// Spar — default user helper
 //
 // v1 has no auth. We use a single hardcoded "default user" for all sessions.
 // When auth is added later, this becomes a real lookup.
 
 import { db } from "./db";
 
-const DEFAULT_USER_EMAIL = "founder@sharkpit.local";
+const DEFAULT_USER_EMAIL = "founder@spar.local";
 const DEFAULT_USER_NAME = "Founder";
 
 let cachedUserId: string | null = null;

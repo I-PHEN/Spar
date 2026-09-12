@@ -1,4 +1,4 @@
-// SharkPit — sessions list + create
+// Spar — sessions list + create
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
   // Extract claims if material was provided.
   let extractedClaims: string | null = null;
   const rawMaterial = body.rawMaterial?.trim() || null;
-  if (body.mode === "with_material" && rawMaterial && rawMaterial.length > 30) {
+  if (body.mode === "with_material" && rawMaterial && rawMaterial.length >= 10) {
     try {
       const claims = await extractClaims(rawMaterial);
       if (claims.length > 0) {

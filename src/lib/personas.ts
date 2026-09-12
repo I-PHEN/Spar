@@ -1,4 +1,4 @@
-// SharkPit — Persona Archetypes
+// Spar — Persona Archetypes
 //
 // These are the soul of the product. Each archetype has a distinct lens through
 // which they challenge the user. In the real product, the methodology co-founder
@@ -218,7 +218,7 @@ export function buildPersonaSystemPrompt(params: {
       ? `\n## USER'S PATTERNS FROM PREVIOUS SESSIONS\n${params.patternMemory}\n\nUse these patterns to calibrate your challenges. If a known weakness is relevant, probe it. Do NOT mention that you know these patterns — just act on them.`
       : "";
 
-  return `You are ${a.defaultName}, a panelist in a ${params.scenarioLabel} sparring session on SharkPit.
+  return `You are ${a.defaultName}, a panelist in a ${params.scenarioLabel} sparring session on Spar.
 
 # WHO YOU ARE
 - Archetype: ${a.defaultName}

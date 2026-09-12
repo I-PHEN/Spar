@@ -1,4 +1,4 @@
-// SharkPit — fetch a full session (with personas, messages, summary)
+// Spar — fetch a full session (with personas, messages, summary)
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";

@@ -1,4 +1,4 @@
-// SharkPit — Scenario definitions
+// Spar — Scenario definitions
 // Per brief section 3.2: Thesis Defense, Investor Pitch, Board Update,
 // Performance Review, Grant Defense, Client Presentation, Custom.
 

@@ -167,3 +167,56 @@ Stage Summary:
 - File upload (PPTX/PDF) — currently paste-text only. PDF parsing is a quick add.
 - Programs feature — the brief specifies a "Thesis Defense Sprint" 4-session structured program.
 - Auth — currently single hardcoded user.
+
+---
+Task ID: 4
+Agent: general-purpose (rename)
+Task: Rename SharkPit → Spar across the entire codebase
+
+Work Log:
+- Read worklog.md to absorb project context (Tasks 1–3 — research, architecture, MVP build).
+- Ran ripgrep case-insensitive across `src/` — confirmed 22 files contain `sharkpit` (any case). No `Sharkpit` (title-case) or `SHARKPIT` (uppercase) variants existed; only `SharkPit` (camelCase, in code/comments/strings) and `sharkpit` (lowercase, in CSS class names + one email address).
+- Renamed the folder `src/components/sharkpit/` → `src/components/spar/` via `mv`. All 9 component files (nav, home-view, practice-view, sparring-room, debrief-view, persona-avatar, persona-card, transcript, telemetry-bar) moved cleanly. No path collision with the pre-existing `src/app/api/sessions/[id]/spar/` route handler (different tree branch).
+- For each of the 22 files, applied `Edit` with `replace_all: true`:
+  - 16 files needed only `SharkPit` → `Spar` (lib/llm.ts, lib/personas.ts, lib/scenarios.ts, lib/types.ts, lib/telemetry.ts, app/layout.tsx, app/api/stats/route.ts, app/api/upcoming-moment/route.ts, app/api/sessions/route.ts, app/api/sessions/[id]/route.ts, app/api/sessions/[id]/end/route.ts, app/api/sessions/[id]/debrief/route.ts, app/api/sessions/[id]/open/route.ts, app/api/sessions/[id]/spar/route.ts, app/api/user/route.ts, components/spar/nav.tsx).
+  - 3 component files needed only `sharkpit` → `spar` (persona-avatar.tsx, persona-card.tsx, transcript.tsx — all CSS class usages).
+  - 3 files needed both replacements via `MultiEdit` (lib/user.ts — comment + `founder@sharkpit.local` email → `founder@spar.local`; app/page.tsx — footer string + 5 `@/components/sharkpit/` import paths → `@/components/spar/`; app/globals.css — design-language comments + all custom animation/keyframe names).
+- CSS class renames in `globals.css`: `sharkpit-pulse` → `spar-pulse`, `sharkpit-thinking` / `sharkpit-thinking-dot` → `spar-*`, `sharkpit-interrupt` / `sharkpit-interrupt-in` → `spar-*`, `sharkpit-fade-up` → `spar-fade-up`, `sharkpit-caret` → `spar-caret`. Both `@keyframes` names and selector class names were updated in lockstep.
+- Verified all component usages of those classes (in persona-avatar.tsx, persona-card.tsx, transcript.tsx) were renamed in the same pass — no orphaned `sharkpit-*` class references remain.
+- Re-ran ripgrep on `src/`: 0 matches for `sharkpit` (any case). 0 matches for `@/components/sharkpit`. Confirmed `spar-*` classes appear in both globals.css (definitions) and the 3 component files (usages).
+- Ran `bun run lint` — passes clean, no errors. No broken imports.
+
+Stage Summary:
+- Files changed: 22 (all under `src/`).
+- Folder renamed: `src/components/sharkpit/` → `src/components/spar/` (9 component files moved).
+- Import paths updated: 5 in `src/app/page.tsx` (`@/components/sharkpit/*` → `@/components/spar/*`). No other absolute `@/components/sharkpit/` imports existed — sibling imports inside the folder use relative paths (e.g. `./persona-avatar`) and were unaffected by the folder rename.
+- CSS: 7 custom animation/keyframe names renamed from `sharkpit-*` to `spar-*`; all 8 usage sites in component files updated in lockstep.
+- Email updated: `founder@sharkpit.local` → `founder@spar.local` (in `src/lib/user.ts`). NOTE: this is the DEFAULT_USER_EMAIL used by `getDefaultUserId()` to look up / create the v1 hardcoded user row. Existing rows in the SQLite DB still have `founder@sharkpit.local` as their email — `getDefaultUserId()` will now create a NEW user row on next call (since `findUnique({ where: { email } })` won't match the old email). Previous sessions tied to the old user id will become orphaned from the new default user's perspective. If the founder wants to preserve continuity with existing test data, a one-time DB UPDATE on the User table (`UPDATE User SET email = 'founder@spar.local' WHERE email = 'founder@sharkpit.local'`) is needed. Did NOT touch `prisma/schema.prisma` or run any DB migration, per task constraints.
+- Lint: passes clean (no errors, no warnings).
+- Issues encountered: none mechanical. The only subtle thing is the email-change vs. existing-DB-row concern noted above — flagged for the founder to decide whether to migrate the user row.
+
+---
+Task ID: 5
+Agent: main (engineering)
+Task: Fix "Start Sparring" never enabling + rename SharkPit → Spar
+
+Work Log:
+- Reproduced the bug via Agent Browser: pasted short material (22 chars) → button stayed disabled. Root cause: the material threshold was 30 chars, too strict for typical testing inputs.
+- Fixed in 3 places (threshold lowered from 30 → 10 chars):
+  - `src/components/spar/practice-view.tsx` — `materialValid` threshold + helper text now shows "Ready — paste more for richer claim extraction" between 10-60 chars
+  - `src/lib/llm.ts` — `extractClaims()` threshold lowered
+  - `src/app/api/sessions/route.ts` — claim extraction trigger threshold lowered
+- Added a clear `disabledReason` computed value shown in the UI when the button is disabled, so users know exactly what's missing ("Add at least 10 characters of material to start" / "Add a topic (10+ chars) to start" / "Add at least one panelist").
+- Delegated the SharkPit → Spar rename to a subagent (Task ID 4): 22 files modified, folder `src/components/sharkpit/` → `src/components/spar/`, all CSS classes `sharkpit-*` → `spar-*`, all imports updated, lint passes clean.
+- Critical data preservation: the rename changed the default user email from `founder@sharkpit.local` → `founder@spar.local`. The running dev server had already created an empty new user with the new email. Wrote a Prisma migration script that:
+  1. Verified the new user was empty (0 sessions, 0 patterns, 0 moments)
+  2. Deleted the empty new user
+  3. Renamed the old user's email to `founder@spar.local` (preserving user ID `cmtazbfxr...` with 2 sessions, 1 pattern memory, 2 skill snapshots)
+- Restarted the dev server to clear the stale `cachedUserId` in-memory cache.
+- Browser-verified end-to-end: pasted 22-char material → button enabled → session created → claims extracted → panel's opening challenge delivered referencing Claim 2. Product title is now "Spar — The sparring room for your next big moment."
+
+Stage Summary:
+- **Bug fixed**: Start Sparring button now enables with as little as 10 chars of material (was 30). Clear disabled-state messaging tells users exactly what to add.
+- **Rename complete**: Product is now "Spar" everywhere — UI, metadata, system prompts, CSS classes, folder structure, internal comments. Zero remaining "sharkpit" references in `src/`.
+- **Data preserved**: Existing user's 2 sessions + 1 pattern memory + 2 skill snapshots survived the email migration. The cross-session coaching loop continues to work.
+- Lint passes clean. No errors in dev log.

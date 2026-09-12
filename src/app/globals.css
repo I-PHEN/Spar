@@ -3,7 +3,7 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* SharkPit design language — deep charcoal + slate + ONE accent blue.
+/* Spar design language — deep charcoal + slate + ONE accent blue.
    No neon. No gradients-for-fun. No gamey language. Premium, calm, focused. */
 
 @theme inline {
@@ -46,7 +46,7 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* SharkPit is dark by default — premium training-app feel.
+/* Spar is dark by default — premium training-app feel.
    We do NOT support a light mode in v1. The whole product is the dark "room". */
 :root {
   --radius: 0.5rem;
@@ -146,7 +146,7 @@
 /* Custom animations for the Sparring Room — subtle, purposeful */
 
 /* Persona "about to interrupt" pulse — subtle, breath-like */
-@keyframes sharkpit-pulse {
+@keyframes spar-pulse {
   0%, 100% {
     box-shadow: 0 0 0 0 oklch(0.68 0.13 250 / 0.35);
     opacity: 1;
@@ -156,45 +156,45 @@
     opacity: 0.85;
   }
 }
-.sharkpit-pulse {
-  animation: sharkpit-pulse 1.4s ease-in-out infinite;
+.spar-pulse {
+  animation: spar-pulse 1.4s ease-in-out infinite;
 }
 
 /* Persona "thinking" — three dots that breathe */
-@keyframes sharkpit-thinking {
+@keyframes spar-thinking {
   0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
   40% { opacity: 1; transform: translateY(-2px); }
 }
-.sharkpit-thinking-dot {
-  animation: sharkpit-thinking 1.2s ease-in-out infinite;
+.spar-thinking-dot {
+  animation: spar-thinking 1.2s ease-in-out infinite;
 }
-.sharkpit-thinking-dot:nth-child(2) { animation-delay: 0.2s; }
-.sharkpit-thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+.spar-thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+.spar-thinking-dot:nth-child(3) { animation-delay: 0.4s; }
 
 /* Interruption slide-in */
-@keyframes sharkpit-interrupt {
+@keyframes spar-interrupt {
   0% { transform: translateX(-12px); opacity: 0; }
   100% { transform: translateX(0); opacity: 1; }
 }
-.sharkpit-interrupt-in {
-  animation: sharkpit-interrupt 0.35s ease-out;
+.spar-interrupt-in {
+  animation: spar-interrupt 0.35s ease-out;
 }
 
 /* Subtle fade-up for new messages */
-@keyframes sharkpit-fade-up {
+@keyframes spar-fade-up {
   0% { transform: translateY(6px); opacity: 0; }
   100% { transform: translateY(0); opacity: 1; }
 }
-.sharkpit-fade-up {
-  animation: sharkpit-fade-up 0.3s ease-out;
+.spar-fade-up {
+  animation: spar-fade-up 0.3s ease-out;
 }
 
 /* Caret blink for streaming text */
-@keyframes sharkpit-caret {
+@keyframes spar-caret {
   0%, 50% { opacity: 1; }
   50.01%, 100% { opacity: 0; }
 }
-.sharkpit-caret::after {
+.spar-caret::after {
   content: '';
   display: inline-block;
   width: 0.5em;
@@ -202,5 +202,5 @@
   background: oklch(0.68 0.13 250);
   margin-left: 2px;
   vertical-align: text-bottom;
-  animation: sharkpit-caret 1s steps(1) infinite;
+  animation: spar-caret 1s steps(1) infinite;
 }

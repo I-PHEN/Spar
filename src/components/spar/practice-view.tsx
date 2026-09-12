@@ -74,10 +74,21 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
   const materialValid =
     mode === "without_material"
       ? topic.trim().length >= 10
-      : material.trim().length >= 30;
+      : material.trim().length >= 10;
 
   const panelValid = panel.length >= 1 && panel.length <= 3;
   const canStart = materialValid && panelValid && !creating;
+
+  // Compute a clear reason for why the button is disabled (for the UI hint)
+  const disabledReason = creating
+    ? null
+    : !materialValid
+    ? mode === "with_material"
+      ? "Add at least 10 characters of material to start"
+      : "Add a topic (10+ chars) to start"
+    : !panelValid
+    ? "Add at least one panelist"
+    : null;
 
   async function handleStart() {
     if (!canStart) return;
@@ -184,8 +195,10 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
                 />
                 <div className="flex items-center justify-between text-[11px] text-muted-foreground/70">
                   <span>
-                    {material.trim().length < 30
-                      ? `${30 - material.trim().length} more characters needed`
+                    {material.trim().length < 10
+                      ? `${10 - material.trim().length} more characters needed to start`
+                      : material.trim().length < 60
+                      ? "Ready — paste more for richer claim extraction"
                       : "3-5 key claims will be auto-extracted"}
                   </span>
                   <span>{material.length} chars</span>
@@ -277,7 +290,9 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
         {/* Start */}
         <div className="flex flex-col items-center gap-3 border-t border-border/60 pt-6 sm:flex-row sm:justify-between">
           <p className="text-xs text-muted-foreground/70">
-            When you start, the panel speaks first. Be ready to defend.
+            {canStart
+              ? "When you start, the panel speaks first. Be ready to defend."
+              : disabledReason}
           </p>
           <Button
             onClick={handleStart}

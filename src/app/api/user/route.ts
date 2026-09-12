@@ -1,4 +1,4 @@
-// SharkPit — current user endpoint (v1: single hardcoded user)
+// Spar — current user endpoint (v1: single hardcoded user)
 
 import { NextResponse } from "next/server";
 import { getDefaultUser } from "@/lib/user";

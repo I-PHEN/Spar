@@ -87,7 +87,7 @@ function UserMessage({
   streaming?: boolean;
 }) {
   return (
-    <div className="flex justify-end sharkpit-fade-up">
+    <div className="flex justify-end spar-fade-up">
       <div className="max-w-[80%]">
         <div className="mb-1 text-right text-[10px] uppercase tracking-wider text-muted-foreground/60">
           You
@@ -95,7 +95,7 @@ function UserMessage({
         <div
           className={cn(
             "rounded-2xl rounded-br-sm bg-primary/10 border border-primary/20 px-4 py-2.5 text-sm text-foreground/90",
-            streaming && "sharkpit-caret"
+            streaming && "spar-caret"
           )}
         >
           {content}
@@ -119,7 +119,7 @@ function PersonaMessage({
   const accent = def?.accentHue || "oklch(0.68 0.13 250)";
 
   return (
-    <div className="flex gap-3 sharkpit-fade-up">
+    <div className="flex gap-3 spar-fade-up">
       <div className="flex-shrink-0 pt-1">
         <PersonaAvatar
           archetype={archetype || "skeptic"}
@@ -127,7 +127,7 @@ function PersonaMessage({
           state={message.streaming ? "speaking" : avatarState}
         />
       </div>
-      <div className={cn("min-w-0 flex-1", isInterruption && "sharkpit-interrupt-in")}>
+      <div className={cn("min-w-0 flex-1", isInterruption && "spar-interrupt-in")}>
         <div className="mb-1 flex items-center gap-2">
           <span className="text-xs font-medium text-foreground/90">
             {message.personaName}
@@ -162,7 +162,7 @@ function PersonaMessage({
               : undefined
           }
         >
-          <span className={message.streaming ? "sharkpit-caret" : ""}>{message.content}</span>
+          <span className={message.streaming ? "spar-caret" : ""}>{message.content}</span>
         </div>
         {isOpening && (
           <p className="mt-1.5 text-[10px] uppercase tracking-wider text-muted-foreground/50">

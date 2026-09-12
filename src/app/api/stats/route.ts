@@ -1,4 +1,4 @@
-// SharkPit — Home screen quick stats
+// Spar — Home screen quick stats
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";

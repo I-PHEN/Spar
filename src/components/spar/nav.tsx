@@ -35,7 +35,7 @@ export function Nav({ current, onNavigate }: NavProps) {
         </div>
         <div className="flex items-baseline gap-1.5">
           <span className="font-semibold tracking-tight text-foreground">
-            SharkPit
+            Spar
           </span>
           <span className="hidden sm:inline text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60">
             Sparring Room

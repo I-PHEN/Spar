@@ -1,4 +1,4 @@
-// SharkPit — sparring turn
+// Spar — sparring turn
 //
 // Receives a user message (or a "continue" signal), generates the next
 // persona's response, returns it. The frontend calls this repeatedly until

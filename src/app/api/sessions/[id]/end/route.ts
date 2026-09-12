@@ -1,4 +1,4 @@
-// SharkPit — end session + generate debrief + update pattern memory
+// Spar — end session + generate debrief + update pattern memory
 //
 // This is the most important endpoint in v1. It:
 //   1. Marks the session as ended

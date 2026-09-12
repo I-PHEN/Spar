@@ -1,4 +1,4 @@
-// SharkPit — panel's opening challenge
+// Spar — panel's opening challenge
 //
 // When the user enters the Sparring Room, the panel speaks first.
 // The first persona (seat 0) delivers a sharp opening that goes straight

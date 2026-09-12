@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Nav, type NavView } from "@/components/sharkpit/nav";
-import { HomeView } from "@/components/sharkpit/home-view";
-import { PracticeView } from "@/components/sharkpit/practice-view";
-import { SparringRoom } from "@/components/sharkpit/sparring-room";
-import { DebriefView } from "@/components/sharkpit/debrief-view";
+import { Nav, type NavView } from "@/components/spar/nav";
+import { HomeView } from "@/components/spar/home-view";
+import { PracticeView } from "@/components/spar/practice-view";
+import { SparringRoom } from "@/components/spar/sparring-room";
+import { DebriefView } from "@/components/spar/debrief-view";
 import { SCENARIOS } from "@/lib/scenarios";
 import { GraduationCap, TrendingUp, Hammer } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -140,7 +140,7 @@ function Footer() {
     <footer className="mt-auto border-t border-border/40 bg-background/40 px-4 py-4 sm:px-6">
       <div className="mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-muted-foreground/60">
         <span>
-          SharkPit — the sparring room for your next big moment.
+          Spar — the sparring room for your next big moment.
         </span>
         <span className="font-mono">v1.0 — text sparring MVP</span>
       </div>

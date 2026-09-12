@@ -1,4 +1,4 @@
-// SharkPit — Text-derived telemetry
+// Spar — Text-derived telemetry
 //
 // In voice mode (v2), we'd capture WPM, filler words, pause time, etc. from audio.
 // In text mode (v1), we derive equivalent signals from the text itself.

@@ -115,9 +115,9 @@ export function PersonaCard({
           {thinking ? (
             <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
               <span className="flex gap-0.5">
-                <span className="sharkpit-thinking-dot inline-block h-1 w-1 rounded-full bg-muted-foreground/80" />
-                <span className="sharkpit-thinking-dot inline-block h-1 w-1 rounded-full bg-muted-foreground/80" />
-                <span className="sharkpit-thinking-dot inline-block h-1 w-1 rounded-full bg-muted-foreground/80" />
+                <span className="spar-thinking-dot inline-block h-1 w-1 rounded-full bg-muted-foreground/80" />
+                <span className="spar-thinking-dot inline-block h-1 w-1 rounded-full bg-muted-foreground/80" />
+                <span className="spar-thinking-dot inline-block h-1 w-1 rounded-full bg-muted-foreground/80" />
               </span>
               <span className="uppercase tracking-wider">Thinking</span>
             </span>
