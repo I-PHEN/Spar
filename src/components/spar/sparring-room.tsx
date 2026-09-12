@@ -142,8 +142,14 @@ export function SparringRoom({
   const [captions, setCaptions] = useState<CaptionEntry[]>([]);
   // Defense flow state
   const [isPresenting, setIsPresenting] = useState(false);
+  const [settling, setSettling] = useState(false);
   const [coachRead, setCoachRead] = useState<string | null>(null);
   const [analyzingPresentation, setAnalyzingPresentation] = useState(false);
+  // Drill re-attempt state: when a drill interrupt fires, the user should see
+  // "Try again" instead of a normal mic button, and the system should send
+  // the same question context (not advance to a new question).
+  const [drillRetry, setDrillRetry] = useState(false);
+  const [connectionError, setConnectionError] = useState(false);
   const [personaStates, setPersonaStates] = useState<Record<string, PersonaState>>({});
   const [personaMoods, setPersonaMoods] = useState<Record<string, PersonaMood>>({});
   const [loading, setLoading] = useState(true);
@@ -275,11 +281,21 @@ export function SparringRoom({
           );
           setIsUserTurn(true);
         } else if (oData.defenseMode) {
-          // ─── Defense flow: user presents first ────────────────────────
-          // Don't generate an opening. Show "The floor is yours" and
-          // wait for the user to present.
+          // ─── Defense/Boardroom flow: user presents first ────────────────
+          // Show the room with all personas in "listening" state.
+          // After a 2-second settle beat, show "The floor is yours."
+          // This gives the user a moment to see the room before being asked to speak.
           setIsPresenting(true);
-          setIsUserTurn(true); // user's turn to speak (present)
+          setIsUserTurn(false); // not the user's turn yet — settling
+          setSettling(true);
+
+          // Settle beat: 2 seconds of the room being visible before the prompt appears
+          setTimeout(() => {
+            if (mounted) {
+              setSettling(false);
+              setIsUserTurn(true); // now it's the user's turn to present
+            }
+          }, 2000);
         } else if (oData.message) {
           const m = oData.message;
           // Mark the speaking persona
@@ -558,10 +574,15 @@ export function SparringRoom({
         if (resumePresenting) {
           setIsPresenting(true);
         }
+        // Clear drill retry if the response was NOT an interrupt (user answered cleanly)
+        if (!isInterrupt) {
+          setDrillRetry(false);
+        }
         setIsUserTurn(true);
         setIsProcessing(false);
       } catch (e) {
         setError(String(e));
+        setConnectionError(true);
         setIsUserTurn(true);
         setIsProcessing(false);
       } finally {
@@ -729,6 +750,10 @@ export function SparringRoom({
       console.log(`[agitation] Interrupt fired: ${personaId} (${reason})`);
       // For Boardroom: interrupt during presenting → resume presenting after
       const shouldResume = experience === "boardroom" && isPresenting;
+      // For Drill: set retry state so the user sees "Try again" instead of a new question
+      if (experience === "drill") {
+        setDrillRetry(true);
+      }
       submitTurn(true, personaId, shouldResume);
     },
     [submitTurn, experience, isPresenting]
@@ -921,18 +946,35 @@ export function SparringRoom({
               {/* Presenting prompt (Defense & Boardroom) */}
               {isPresenting && captions.length === 0 && (
                 <div className="spar-fade-up rounded-md border border-[#1a1a1a] bg-[#0f0f0f] px-5 py-6 text-center">
-                  <p className="text-sm text-neutral-300 mb-1">
-                    {experience === "boardroom"
-                      ? "Present. They will interrupt you."
-                      : "The floor is yours."}
-                  </p>
-                  <p className="text-xs text-neutral-600">
-                    {experience === "boardroom"
-                      ? "Present your material. The panel will cut in when they detect weakness. Click "
-                      : "Present your material. The panel is listening. Click "}
-                    <span className="text-neutral-400">Done Presenting</span>
-                    {" "}when you're ready for Q&A.
-                  </p>
+                  {settling ? (
+                    <>
+                      <div className="flex items-center justify-center gap-2 mb-2">
+                        {personas.map((p) => (
+                          <div key={p.id} className="flex flex-col items-center gap-1">
+                            <div className="h-2 w-2 animate-pulse rounded-full bg-neutral-500" />
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-neutral-600">
+                        The panel is taking their seats...
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-neutral-300 mb-1">
+                        {experience === "boardroom"
+                          ? "Present. They will interrupt you."
+                          : "The floor is yours."}
+                      </p>
+                      <p className="text-xs text-neutral-600">
+                        {experience === "boardroom"
+                          ? "Present your material. The panel will cut in when they detect weakness. Click "
+                          : "Present your material. The panel is listening. Click "}
+                        <span className="text-neutral-400">Done Presenting</span>
+                        {" "}when you're ready for Q&A.
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -1039,6 +1081,19 @@ export function SparringRoom({
                   Voice needs Chrome or Edge
                 </p>
               </div>
+            ) : connectionError ? (
+              // Error recovery: show a retry button
+              <button
+                onClick={() => {
+                  setConnectionError(false);
+                  setError(null);
+                  handleStartSpeaking();
+                }}
+                className="flex items-center gap-2 px-4 h-10 rounded-md border border-[#3a3a3a] bg-[#171717] text-xs font-medium text-neutral-200 hover:bg-[#1a1a1a] transition-all"
+              >
+                <Loader2 className="h-3.5 w-3.5" />
+                Retry
+              </button>
             ) : analyzingPresentation ? (
               <div className="flex items-center gap-3">
                 <Loader2 className="h-5 w-5 animate-spin text-neutral-400" />
@@ -1070,6 +1125,31 @@ export function SparringRoom({
                   {voice.isListening
                     ? "Presenting... click Done when finished"
                     : "Click to present"}
+                </span>
+              </div>
+            ) : drillRetry && isUserTurn && !isProcessing ? (
+              // Drill retry: show "Try again" instead of normal mic button
+              <div className="flex items-center gap-3">
+                {voice.isListening ? (
+                  <button
+                    onClick={handleStopSpeaking}
+                    className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-black transition-transform active:scale-95"
+                    aria-label="Stop speaking"
+                  >
+                    <Square className="h-4 w-4 fill-current" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleStartSpeaking}
+                    className="group flex items-center gap-2 px-4 h-10 rounded-md bg-neutral-100 text-black text-xs font-medium hover:bg-white transition-all"
+                    aria-label="Try again"
+                  >
+                    <Mic className="h-3.5 w-3.5" />
+                    Try again
+                  </button>
+                )}
+                <span className="text-[10px] uppercase tracking-wider text-amber-400/70 hidden sm:inline">
+                  {voice.isListening ? "Answering..." : "Answer without hedging"}
                 </span>
               </div>
             ) : isUserTurn && !isProcessing ? (
