@@ -224,7 +224,7 @@ export async function POST(
 
     const experienceContext =
       experience === "defense"
-        ? "\n## EXPERIENCE: DEFENSE\nThe user has already presented their material. The transcript above includes their full presentation. Ask questions about what they actually said — reference specific points from their presentation."
+        ? "\n## EXPERIENCE: DEFENSE\nThe user has ALREADY presented their material. The transcript above includes their FULL presentation (the first User: message).\n\nYour FIRST question MUST reference something specific they said in their presentation. Do NOT ask a generic question. Quote or paraphrase a specific claim, number, or statement from their presentation, then challenge it.\n\nBad: 'What evidence supports your central claim?'\nGood: 'You said the market is \"poised for 40% growth\" — what's your source for that number?'\n\nIf the presentation had a clear weakness (hedge, vague number, unsupported claim), attack that FIRST."
         : experience === "boardroom"
         ? "\n## EXPERIENCE: BOARDROOM\nYou are in a high-pressure boardroom. The user is presenting and you WILL interrupt mid-speech when they show weakness. Your interrupts should feel SHARP and AGGRESSIVE — 'Wait, where did that number come from?' not 'What evidence supports your claim?' Cut them off. Don't let them finish the sentence if the claim is weak. After your interrupt, the user will answer briefly, then RESUME presenting. Stay hostile."
         : experience === "drill"

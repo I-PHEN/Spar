@@ -12,6 +12,7 @@ import {
   Hand,
   FileText,
   Pause,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -143,7 +144,15 @@ export function SparringRoom({
   // Defense flow state
   const [isPresenting, setIsPresenting] = useState(false);
   const [settling, setSettling] = useState(false);
-  const [coachRead, setCoachRead] = useState<string | null>(null);
+  // Full coach analysis (strengths, weakness, anticipatedAttack, coachRead) —
+  // shown in an expanded card with a "Begin Q&A" button. Replaces the old
+  // 6s auto-dismiss timer — the user controls when Q&A begins.
+  const [coachAnalysis, setCoachAnalysis] = useState<{
+    strengths: string[];
+    weakness: string;
+    anticipatedAttack: string;
+    coachRead: string;
+  } | null>(null);
   const [analyzingPresentation, setAnalyzingPresentation] = useState(false);
   // Drill re-attempt state: when a drill interrupt fires, the user sees
   // "Try again" instead of a normal mic button. The system sends the
@@ -183,6 +192,13 @@ export function SparringRoom({
   const [audioPlaying, setAudioPlaying] = useState(false);
 
   const sparInFlight = useRef(false);
+  // Stores the presentation transcript when handleDonePresenting runs, so
+  // that if the present endpoint or spar-stream fails, the user can retry
+  // without having to re-present from scratch.
+  const pendingPresentation = useRef<string | null>(null);
+  // Set to true when beginQA fails — so the retry button knows to retry
+  // beginQA (not submitPresentation). Cleared on successful retry.
+  const qaFailedRef = useRef(false);
   const captionsEndRef = useRef<HTMLDivElement>(null);
 
   // Timer
@@ -630,6 +646,8 @@ export function SparringRoom({
   // ─── Defense flow: Done Presenting ────────────────────────────────────
   // Called when the user clicks "Done Presenting" in a Defense session.
   // Saves the presentation, analyzes it, shows the coach read, then Q&A begins.
+  // If the present endpoint fails, the transcript is saved in pendingPresentation
+  // so the user can retry without re-presenting.
   async function handleDonePresenting() {
     voice.stop();
 
@@ -646,15 +664,25 @@ export function SparringRoom({
       return;
     }
 
+    pendingPresentation.current = transcript;
+    await submitPresentation(transcript);
+  }
+
+  // Submit the presentation transcript to the present endpoint and begin Q&A.
+  // Separated from handleDonePresenting so it can be retried on failure.
+  async function submitPresentation(transcript: string) {
     setIsPresenting(false);
     setAnalyzingPresentation(true);
+    setConnectionError(false);
+    setError(null);
     setIsUserTurn(false);
 
-    // Add the presentation as a caption
+    // Add the presentation as a caption (if not already added)
+    const presentationId = `presentation-${Date.now()}`;
     setCaptions((prev) => [
-      ...prev.filter((c) => !c.isLive),
+      ...prev.filter((c) => !c.isLive && !c.id.startsWith("presentation-")),
       {
-        id: `presentation-${Date.now()}`,
+        id: presentationId,
         role: "user",
         content: transcript,
         type: "normal",
@@ -671,16 +699,45 @@ export function SparringRoom({
       if (!res.ok) throw new Error("Failed to process presentation");
       const data = await res.json();
 
-      // Show the coach read (if coaching is enabled)
-      if (data.coachRead?.coachRead) {
-        setCoachRead(data.coachRead.coachRead);
-        // Wait a few seconds for the user to read the coach's comment
-        await new Promise((r) => setTimeout(r, 6000));
+      // Show the coach analysis card (if coaching is enabled and analysis exists).
+      // The user reads it, then clicks "Begin Q&A" to start the questioning.
+      // This replaces the old 6-second auto-dismiss timer — the user controls
+      // when Q&A begins, giving them time to absorb the coach's read.
+      if (data.coachRead) {
+        setCoachAnalysis(data.coachRead);
+      } else {
+        // No coach analysis — go straight to Q&A
+        await beginQA();
+        return;
       }
-
+    } catch (e) {
+      console.error("[present] Failed to process presentation:", e);
+      setError(
+        "Couldn't process your presentation. The panel didn't respond — try again."
+      );
       setAnalyzingPresentation(false);
-      setCoachRead(null);
+      setConnectionError(true);
+      // Don't set isUserTurn — we want the retry button to handle the next action
+    }
+  }
 
+  // Retry the presentation submission after a failure. Uses the saved
+  // transcript from pendingPresentation so the user doesn't have to
+  // re-present from scratch.
+  async function retryPresentation() {
+    if (!pendingPresentation.current) return;
+    await submitPresentation(pendingPresentation.current);
+  }
+
+  // Begin the Q&A phase — called when the user clicks "Begin Q&A" on the
+  // coach card, or immediately if no coach analysis was produced.
+  // Pulled out as its own function so the user controls the timing.
+  async function beginQA() {
+    setAnalyzingPresentation(false);
+    setCoachAnalysis(null);
+    setIsUserTurn(false);
+
+    try {
       // Now Q&A begins — use the streaming endpoint for the first question
       const sparResponse = await fetch(`/api/sessions/${sessionId}/spar-stream`, {
         method: "POST",
@@ -766,9 +823,13 @@ export function SparringRoom({
 
       setIsUserTurn(true);
     } catch (e) {
-      setError(String(e));
+      console.error("[beginQA] Failed to start Q&A:", e);
+      setError("The panel didn't respond. Try again.");
       setAnalyzingPresentation(false);
-      setIsUserTurn(true);
+      setConnectionError(true);
+      // Mark that Q&A failed (not presentation) so the retry button retries
+      // beginQA instead of submitPresentation.
+      qaFailedRef.current = true;
     }
   }
 
@@ -902,6 +963,11 @@ export function SparringRoom({
               {experience === "boardroom" && (
                 <span className="flex-shrink-0 rounded border border-amber-500/20 bg-amber-500/[0.06] px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-amber-300/80">
                   Boardroom
+                </span>
+              )}
+              {experience === "defense" && (
+                <span className="flex-shrink-0 rounded border border-[#2a2a2a] bg-[#171717] px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-neutral-300">
+                  Defense
                 </span>
               )}
             </div>
@@ -1074,22 +1140,71 @@ export function SparringRoom({
                 </div>
               )}
 
-              {/* Coach read (shown after presentation, before Q&A) */}
-              {coachRead && (
+              {/* Coach analysis card (shown after presentation, before Q&A).
+                  Shows the full read: strengths, weakness, anticipated attack,
+                  and the coach's headline read. The user clicks "Begin Q&A"
+                  when they're ready — no auto-dismiss timer. */}
+              {coachAnalysis && (
                 <div className="spar-fade-up rounded-md border border-[#2a2a2a] bg-[#171717] px-4 py-4">
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-3 mb-3">
                     <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md border border-[#2a2a2a] bg-[#1a1a1a]">
                       <span className="text-[10px] font-bold text-neutral-300">CO</span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[10px] uppercase tracking-wider text-neutral-500 mb-1.5">
-                        Coach
+                        Coach read
                       </p>
                       <p className="text-sm text-neutral-200 leading-relaxed">
-                        {coachRead}
+                        {coachAnalysis.coachRead}
                       </p>
                     </div>
                   </div>
+
+                  {/* Strengths */}
+                  {coachAnalysis.strengths.length > 0 && (
+                    <div className="mb-2.5">
+                      <p className="text-[10px] uppercase tracking-wider text-neutral-600 mb-1">
+                        What worked
+                      </p>
+                      <ul className="space-y-1">
+                        {coachAnalysis.strengths.map((s, i) => (
+                          <li key={i} className="text-xs text-neutral-400 flex items-start gap-1.5">
+                            <span className="text-neutral-600 mt-0.5">·</span>
+                            <span>{s}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Weakness */}
+                  {coachAnalysis.weakness && (
+                    <div className="mb-2.5">
+                      <p className="text-[10px] uppercase tracking-wider text-neutral-600 mb-1">
+                        The weakness
+                      </p>
+                      <p className="text-xs text-neutral-300">{coachAnalysis.weakness}</p>
+                    </div>
+                  )}
+
+                  {/* Anticipated attack */}
+                  {coachAnalysis.anticipatedAttack && (
+                    <div className="mb-3">
+                      <p className="text-[10px] uppercase tracking-wider text-amber-500/60 mb-1">
+                        They'll attack first
+                      </p>
+                      <p className="text-xs text-amber-300/80">{coachAnalysis.anticipatedAttack}</p>
+                    </div>
+                  )}
+
+                  {/* Begin Q&A button */}
+                  <button
+                    onClick={() => beginQA()}
+                    className="w-full flex items-center justify-center gap-2 px-4 h-10 rounded-md bg-neutral-100 text-black text-xs font-medium hover:bg-white transition-all mt-1"
+                  >
+                    Begin Q&A
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               )}
 
@@ -1178,18 +1293,41 @@ export function SparringRoom({
                 </p>
               </div>
             ) : connectionError ? (
-              // Error recovery: show a retry button
+              // Error recovery: smart retry.
+              // - If pendingPresentation exists AND coachAnalysis is null →
+              //   the present endpoint failed → retry submitPresentation.
+              // - If coachAnalysis was set (then cleared by beginQA) but
+              //   beginQA failed → retry beginQA. We detect this with a ref.
+              // - Otherwise → restart the mic.
               <button
                 onClick={() => {
                   setConnectionError(false);
                   setError(null);
-                  handleStartSpeaking();
+                  if (qaFailedRef.current) {
+                    qaFailedRef.current = false;
+                    beginQA();
+                  } else if (pendingPresentation.current) {
+                    retryPresentation();
+                  } else {
+                    handleStartSpeaking();
+                  }
                 }}
                 className="flex items-center gap-2 px-4 h-10 rounded-md border border-[#3a3a3a] bg-[#171717] text-xs font-medium text-neutral-200 hover:bg-[#1a1a1a] transition-all"
               >
                 <Loader2 className="h-3.5 w-3.5" />
                 Retry
               </button>
+            ) : coachAnalysis ? (
+              // Coach analysis card is showing — hint the user to read it
+              // and click "Begin Q&A" in the card above
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#2a2a2a] bg-[#171717]">
+                  <FileText className="h-4 w-4 text-neutral-400" />
+                </div>
+                <span className="text-[10px] uppercase tracking-wider text-neutral-500 hidden sm:inline">
+                  Read the coach read above — then begin Q&amp;A
+                </span>
+              </div>
             ) : analyzingPresentation ? (
               <div className="flex items-center gap-3">
                 <Loader2 className="h-5 w-5 animate-spin text-neutral-400" />
