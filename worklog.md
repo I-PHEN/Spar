@@ -404,3 +404,55 @@ Stage Summary:
 - **Accent colors** (blue/amber/red/emerald/violet) appear only as the left border on the active speaker's card — useful signal without re-colorizing the room.
 - **Bottom bar** is now one narrow row (was two rows). Mic button is h-12 (was h-16). Status text is inline.
 - Lint passes clean. No errors in dev log.
+
+---
+Task ID: 10
+Agent: main (engineering)
+Task: Redesign Practice config UI — 4-step flow, seating chart, mode selector (Pure UI, no backend changes)
+
+Work Log:
+- **Full rewrite of practice-view.tsx** (~640 lines). Replaced the old single-page stacked-card config with a 4-step guided flow.
+- **4-step stepper** at the top:
+  - Step indicators with numbers 1-4, labels (Defend / Room / Panel / Mode)
+  - Completed steps show a checkmark with white bg
+  - Current step shows white border
+  - Future steps are disabled (can't skip ahead without completing prerequisites)
+  - Clickable to jump back to any completed step
+  - Labels hidden on mobile (just numbers), shown on sm+
+- **Step 1 — What are you defending?**: Toggle between "Bring material" and "Topic only". Material mode has title + paste textarea. Topic mode has a single textarea. Same validation as before (10+ chars).
+- **Step 2 — What's the room?**: Visual scenario grid (7 cards: Thesis Defense, Investor Pitch, Board Update, Performance Review, Grant Defense, Client Presentation, Custom). Selected card gets white border + ring. Custom scenario reveals a room-context textarea.
+- **Step 3 — Arrange your panel (seating chart)**: 
+  - "YOU" position at top (white circle with arrow pointing down)
+  - 3 seats in a horizontal row below
+  - Each seat card: number badge, geometric avatar (icon in rounded square), full name, archetype label, intensity dots (●●○), intensity label
+  - Click a seat → opens the Seat Editor modal
+  - Empty seats show as dashed outline ("Click to fill")
+  - Hover effect: card scales up 1.03, edit pencil appears
+  - Horizontal scroll on mobile
+- **Seat Editor modal**:
+  - Name input (with archetype default as placeholder)
+  - Archetype visual picker: 5 cards in a 3-col grid, each with icon + name (Skeptic, Nitpicker, So-What, Timekeeper, Ally). Click to select — no dropdown.
+  - Intensity toggle: 3 buttons (Gentle / Moderate / Aggressive) with dot indicators (●○○ / ●●○ / ●●●). Click to select.
+  - Remove button (if >1 filled seat) + Save Configuration button
+  - Changing archetype auto-updates the name if it was still the default
+- **Step 4 — Choose your mode**:
+  - 3 mode cards: Pure Spar (🥊), Coach Mode (🎯), Drill Mode (🔥)
+  - Each card: icon, title, description, "Best for" hint
+  - Selected card gets white border + ring + checkmark badge
+  - Drill Mode expands to show 4 focus chips: Hedging, Over-explaining, Recovery speed, Evidence gaps
+  - Below the cards: a contextual note explaining what the selected mode does
+- **Navigation**: Back/Next buttons at the bottom. Next is disabled until the current step is valid. On step 4, Next becomes "Start Sparring" with the ready-glow animation.
+- **Sticky Start button on mobile**: When on step 4, a full-width Start button floats above the bottom nav (fixed bottom-20) so it's always reachable on mobile.
+- **No backend changes**: The new UI maps to the same `/api/sessions` POST endpoint. The `coachingMode` and `drillTarget` state are captured but NOT sent to the backend yet (they'll be wired up in solid thing 2 when we build the agitation engine + drill mode backend).
+- Browser-verified end-to-end on both desktop and mobile:
+  - Desktop: All 4 steps navigate correctly. Seat editor modal opens, archetype + intensity changes persist. Drill mode shows focus chips. Start Sparring creates a session and enters the room.
+  - Mobile: Stepper shows as numbers (labels hidden). Seat cards scroll horizontally. Mode cards stack. Sticky Start button appears on step 4.
+  - Changed Seat 1 from Skeptic to Timekeeper (Aggressive) in the editor → verified the change persisted in the seating chart → started session → the Timekeeper delivered the opening (confirming the panel config flows through to the backend).
+
+Stage Summary:
+- **Practice config is now a ritual, not a form.** 4 clear steps, visual seating chart, click-to-edit seats, mode selector with drill focus chips.
+- **No more truncation** — full names show on seat cards (The Skeptic, The So-What, The Nitpicker).
+- **No more dropdowns for panel config** — archetype is a visual picker, intensity is a dot-toggle.
+- **Mode selector is first-class** — Pure Spar / Coach / Drill are now a Step 4 choice, not buried. Drill focus chips appear inline when Drill is selected.
+- **Backend unchanged** — the new UI posts to the same `/api/sessions` endpoint. The `coachingMode` and `drillTarget` are captured in state but not yet sent to the backend (that's solid thing 2 — the agitation engine + drill mode backend).
+- Lint passes clean. No errors in dev log.
