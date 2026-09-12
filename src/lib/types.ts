@@ -9,6 +9,14 @@ export type ArchetypeKey =
 
 export type BehaviorStyle = "gentle" | "moderate" | "aggressive";
 
+export type ExperienceKey = "defense" | "boardroom" | "open_spar" | "drill";
+
+export type DrillTarget =
+  | "hedging"
+  | "over-explaining"
+  | "recovery-speed"
+  | "evidence-gaps";
+
 export type ScenarioKey =
   | "thesis_defense"
   | "investor_pitch"

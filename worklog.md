@@ -557,3 +557,65 @@ Stage Summary:
 - **Content width tightened** to `max-w-2xl` — feels like a deliberate content column, not unused space.
 - **Single coherent navigation** — `← Back  Next →` at the bottom only. No competing top-right Back.
 - Lint passes clean. No errors in dev log. Browser-verified all 4 steps + seat editor + drill chips.
+
+---
+Task ID: 13
+Agent: main (engineering)
+Task: Architecture overhaul — experiences replace scenario+mode, Defense flow, coach identity
+
+Work Log:
+- **Database schema changes** (`prisma/schema.prisma`):
+  - Added `experience` field (defense | boardroom | open_spar | drill)
+  - Added `drillTarget` field (hedging | over-explaining | recovery-speed | evidence-gaps)
+  - Added `coachingEnabled` boolean (default true)
+  - Added `coachingFocus` optional string (user's stated focus)
+  - Added "presenting" to the status enum (for Defense flow)
+- **Created `src/lib/experiences.ts`** — 4 experience definitions:
+  - Defense: present uninterrupted → coach comment → Q&A. Default panel: Skeptic + Nitpicker + So-What
+  - Boardroom: present with mid-speech interruption. Default: Skeptic + Timekeeper + So-What
+  - Open Spar: instant back-and-forth. Default: Skeptic + So-What
+  - Drill: targeted weakness, immediate interrupts. Default: Skeptic + Timekeeper (aggressive)
+  - Each has: label, tagline, description, openingPrompt, roomContext, defaultPanel, userPresentsFirst
+  - Includes DRILL_TARGETS with lead archetype + detection hint per target
+- **Updated types** (`src/lib/types.ts`): added ExperienceKey, DrillTarget types
+- **Rebuilt practice-view** (`src/components/spar/practice-view.tsx`):
+  - 3 steps instead of 4: Defend → Experience → Panel
+  - Step 2 combines experience selection + coaching toggle + optional room description + optional coaching focus
+  - Panel auto-fills based on experience (pre-filled, user can override)
+  - Coaching toggle: simple on/off switch with optional focus field
+  - Removed the old scenario step (7 cards + Custom) and the old mode step (Pure Spar/Coach/Drill)
+  - One choice = one experience = one flow. No redundancy.
+- **Created `src/lib/coach.ts`** — the coach LLM module:
+  - `analyzePresentation()` — analyzes the user's presentation transcript
+  - Returns: strengths (2-3), weakness, anticipatedAttack, coachRead
+  - Coach voice: honest, specific, anticipatory. Focuses on HOW they presented, not WHAT.
+  - Prioritizes the user's coaching focus if provided
+- **Created `src/app/api/sessions/[id]/present/route.ts`** — new endpoint:
+  - Saves the presentation transcript as a user message
+  - Marks session status as "active" (Q&A can begin)
+  - Analyzes the presentation via the coach LLM
+  - Returns the coach's read (strengths, weakness, anticipated attack, coachRead)
+- **Updated open API** (`src/app/api/sessions/[id]/open/route.ts`):
+  - Defense experience: doesn't generate an opening. Returns `defenseMode: true` + openingPrompt
+  - Other experiences: panel speaks first (existing flow)
+  - Session status set to "presenting" for Defense, "active" for others
+- **Updated spar API** (`src/app/api/sessions/[id]/spar/route.ts`):
+  - Added experience context to persona system prompts (defense → "user already presented, reference their presentation"; boardroom → "you may interrupt mid-speech"; drill → "your sole purpose is to force the user to fix [target]")
+  - This makes the personas behave differently based on experience
+- **Updated page.tsx** — passes experience, drillTarget, coachingEnabled, coachingFocus to sparring-room
+- **Rebuilt sparring-room** (`src/components/spar/sparring-room.tsx`):
+  - Defense flow: room opens with "The floor is yours" prompt → user presents → clicks "Done Presenting" → "Panel is reviewing..." → coach read appears → Q&A begins
+  - Coach card: appears in the conversation feed with a distinct "CO" avatar + "Coach" label
+  - Settle beat: in Defense, the room opens silently (no instant panel question)
+  - "Done Presenting" button: replaces the mic button when presenting
+  - Analyzing indicator: "The panel is reviewing your presentation..." while the coach analyzes
+  - Coach read display: bordered card with the coach's comment, shown for 6 seconds before Q&A
+
+Stage Summary:
+- **Scenario + Mode collapsed into Experience.** One choice, one flow. No redundancy.
+- **Defense flow built.** The biggest gap — "present then Q&A" — is now real. User presents uninterrupted, clicks Done, gets a coach read, then Q&A begins.
+- **Coach identity established.** The coach appears as a distinct card (bottom-left position implied by design) with "CO" initials and "Coach" label. The coach is NOT a panelist — they're on the user's side.
+- **Coach analyzes before Q&A.** The coach gives the user a read on their presentation and anticipates what the panel will attack. This is the executive coaching moment.
+- **Experiences change persona behavior.** Defense personas reference the presentation. Boardroom personas know they can interrupt. Drill personas are relentless on the target.
+- **Coaching is a layer, not a mode.** Toggle on/off + optional focus. Applies to all experiences.
+- Lint passes clean. No errors in dev log. Browser-verified: Defense room opens with "The floor is yours", panel is listening, no instant question.

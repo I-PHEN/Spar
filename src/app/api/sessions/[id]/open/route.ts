@@ -52,6 +52,39 @@ export async function POST(
     });
   }
 
+  const claims: ExtractedClaim[] = session.extractedClaims
+    ? safeParse(session.extractedClaims, [])
+    : [];
+
+  const scenario = SCENARIOS[session.scenario as keyof typeof SCENARIOS];
+  const scenarioLabel = scenario?.label || "Custom Session";
+  const roomContext =
+    session.scenario === "custom" && session.roomContext
+      ? session.roomContext
+      : scenario?.roomContext || "";
+
+  // ─── Defense experience: don't generate an opening. ──────────────────
+  // The user presents first. The session stays in "presenting" status.
+  // The frontend shows "The floor is yours" and waits for the user to
+  // present, then calls /present to analyze + start Q&A.
+  if (session.experience === "defense") {
+    await db.session.update({
+      where: { id },
+      data: {
+        status: "presenting",
+        startedAt: new Date(),
+      },
+    });
+    return NextResponse.json({
+      defenseMode: true,
+      openingPrompt: "The floor is yours. Present your material.",
+      claims,
+      scenarioLabel,
+      roomContext,
+    });
+  }
+
+  // ─── Other experiences: panel speaks first (existing flow) ────────────
   // Mark session as active.
   await db.session.update({
     where: { id },
@@ -61,17 +94,6 @@ export async function POST(
     },
   });
 
-  const claims: ExtractedClaim[] = session.extractedClaims
-    ? safeParse(session.extractedClaims, [])
-    : [];
-
-  const scenario = SCENARIOS[session.scenario as keyof typeof SCENARIOS];
-  // For custom scenarios, use the user-provided room context.
-  const scenarioLabel = scenario?.label || "Custom Session";
-  const roomContext =
-    session.scenario === "custom" && session.roomContext
-      ? session.roomContext
-      : scenario?.roomContext || "";
   const firstPersona = session.personas[0];
   if (!firstPersona) {
     return NextResponse.json({ error: "No personas configured" }, { status: 400 });

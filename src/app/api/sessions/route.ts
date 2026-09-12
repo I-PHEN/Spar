@@ -4,18 +4,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getDefaultUserId } from "@/lib/user";
 import { extractClaims } from "@/lib/llm";
-import { SCENARIOS } from "@/lib/scenarios";
 import { ARCHETYPES } from "@/lib/personas";
+import { EXPERIENCES, type ExperienceKey, type DrillTarget } from "@/lib/experiences";
 import type {
   ArchetypeKey,
   BehaviorStyle,
   PersonaConfig,
-  ScenarioKey,
   SessionMode,
 } from "@/lib/types";
 
 interface CreateSessionBody {
-  scenario: ScenarioKey;
+  experience: ExperienceKey;
+  drillTarget?: DrillTarget | null;
+  coachingEnabled?: boolean;
+  coachingFocus?: string | null;
   mode: SessionMode;
   rawMaterial?: string;
   materialTitle?: string;
@@ -41,8 +43,12 @@ export async function POST(req: NextRequest) {
   const userId = await getDefaultUserId();
   const body = (await req.json().catch(() => ({}))) as CreateSessionBody;
 
-  if (!body.scenario || !SCENARIOS[body.scenario]) {
-    return NextResponse.json({ error: "Invalid scenario" }, { status: 400 });
+  // Validate experience
+  if (!body.experience || !EXPERIENCES[body.experience]) {
+    return NextResponse.json(
+      { error: "Invalid experience" },
+      { status: 400 }
+    );
   }
 
   if (
@@ -71,6 +77,12 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Get the experience definition (for the default room context)
+  const exp = EXPERIENCES[body.experience];
+  // Use custom room context if provided, otherwise the experience default
+  const roomContext =
+    body.roomContext?.trim().slice(0, 1000) || exp.roomContext;
+
   // Extract claims if material was provided.
   let extractedClaims: string | null = null;
   const rawMaterial = body.rawMaterial?.trim() || null;
@@ -85,16 +97,24 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // For Defense experience, the session starts in "presenting" status
+  // (user presents first, then Q&A begins). For others, "configured" → "active".
+  const initialStatus = exp.userPresentsFirst ? "presenting" : "configured";
+
   const session = await db.session.create({
     data: {
       userId,
-      scenario: body.scenario,
+      experience: body.experience,
+      drillTarget: body.experience === "drill" ? (body.drillTarget || "hedging") : null,
+      coachingEnabled: body.coachingEnabled ?? true,
+      coachingFocus: body.coachingFocus?.trim().slice(0, 500) || null,
+      scenario: body.experience, // legacy field, kept for backward compat
       mode: body.mode,
       rawMaterial,
       materialTitle: body.materialTitle?.slice(0, 200) || null,
-      roomContext: body.scenario === "custom" ? (body.roomContext?.trim().slice(0, 1000) || null) : null,
+      roomContext,
       extractedClaims,
-      status: "configured",
+      status: initialStatus,
       personas: {
         create: body.personas.map((p, i) => {
           const def = ARCHETYPES[p.archetype as ArchetypeKey];

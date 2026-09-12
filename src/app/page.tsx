@@ -7,7 +7,7 @@ import { PracticeView } from "@/components/spar/practice-view";
 import { SparringRoom } from "@/components/spar/sparring-room";
 import { DebriefView } from "@/components/spar/debrief-view";
 import { SCENARIOS } from "@/lib/scenarios";
-import type { CoachingMode, DrillTarget } from "@/hooks/use-agitation";
+import type { ExperienceKey, DrillTarget } from "@/lib/experiences";
 import { GraduationCap, TrendingUp, Hammer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -18,8 +18,10 @@ export default function Page() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [scenarioLabel, setScenarioLabel] = useState<string | undefined>();
   const [userName, setUserName] = useState<string>("there");
-  const [coachingMode, setCoachingMode] = useState<CoachingMode>("pure-spar");
-  const [drillTarget, setDrillTarget] = useState<DrillTarget>("hedging");
+  const [experience, setExperience] = useState<ExperienceKey>("defense");
+  const [drillTarget, setDrillTarget] = useState<DrillTarget | null>(null);
+  const [coachingEnabled, setCoachingEnabled] = useState(true);
+  const [coachingFocus, setCoachingFocus] = useState("");
 
   // Load user once
   useEffect(() => {
@@ -33,7 +35,6 @@ export default function Page() {
 
   function navigate(v: NavView) {
     if (v === "coach" || v === "progress") {
-      // v1: these are placeholders. Still switch the view to show the placeholder.
       setView(v);
       return;
     }
@@ -42,17 +43,20 @@ export default function Page() {
 
   function handleSessionCreated(
     sessionId: string,
-    mode: CoachingMode = "pure-spar",
-    target: DrillTarget = "hedging"
+    exp: ExperienceKey,
+    target: DrillTarget | null,
+    coaching: boolean,
+    focus: string
   ) {
     setActiveSessionId(sessionId);
-    setCoachingMode(mode);
+    setExperience(exp);
     setDrillTarget(target);
+    setCoachingEnabled(coaching);
+    setCoachingFocus(focus);
     setView("sparring");
   }
 
   function handleSessionEnded() {
-    // Fetch the session to get the scenario label for the debrief header
     if (activeSessionId) {
       fetch(`/api/sessions/${activeSessionId}`)
         .then((r) => r.json())
@@ -82,8 +86,10 @@ export default function Page() {
         sessionId={activeSessionId}
         onSessionEnded={handleSessionEnded}
         onExit={handleBackHome}
-        coachingMode={coachingMode}
+        experience={experience}
         drillTarget={drillTarget}
+        coachingEnabled={coachingEnabled}
+        coachingFocus={coachingFocus}
       />
     );
   }
@@ -112,8 +118,20 @@ export default function Page() {
             onSparAgain={handleSparAgain}
           />
         )}
-        {view === "coach" && <ComingSoonView icon={<GraduationCap className="h-6 w-6" />} title="Coach" description="The development layer. Active programs, skill map, pattern insights, recommended drills. Shipping in the next solid thing." />}
-        {view === "progress" && <ComingSoonView icon={<TrendingUp className="h-6 w-6" />} title="Progress" description="Session history, growth trends, your communication profile. Shipping in the next solid thing." />}
+        {view === "coach" && (
+          <ComingSoonView
+            icon={<GraduationCap className="h-6 w-6" />}
+            title="Coach"
+            description="The development layer. Active programs, skill map, pattern insights, recommended drills. Shipping in the next solid thing."
+          />
+        )}
+        {view === "progress" && (
+          <ComingSoonView
+            icon={<TrendingUp className="h-6 w-6" />}
+            title="Progress"
+            description="Session history, growth trends, your communication profile. Shipping in the next solid thing."
+          />
+        )}
       </main>
       <Footer />
     </div>
@@ -131,14 +149,14 @@ function ComingSoonView({
 }) {
   return (
     <div className="mx-auto flex max-w-2xl flex-col items-center justify-center px-6 py-24 text-center">
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/5 text-white ring-1 ring-white/15">
+      <div className="flex h-16 w-16 items-center justify-center rounded-md border border-[#202020] bg-[#101010] text-neutral-300">
         {icon}
       </div>
-      <h1 className="mt-5 text-2xl font-semibold tracking-tight text-foreground">
+      <h1 className="mt-5 text-2xl font-semibold tracking-tight text-white">
         {title}
       </h1>
-      <p className="mt-2 text-sm text-muted-foreground max-w-md">{description}</p>
-      <div className="mt-6 flex items-center gap-1.5 rounded-md border border-border/60 bg-card/40 px-3 py-2 text-xs text-muted-foreground/70">
+      <p className="mt-2 text-sm text-neutral-400 max-w-md">{description}</p>
+      <div className="mt-6 flex items-center gap-1.5 rounded-md border border-[#1a1a1a] bg-[#0f0f0f] px-3 py-2 text-xs text-neutral-500">
         <Hammer className="h-3 w-3" />
         Under active construction
       </div>
@@ -148,12 +166,10 @@ function ComingSoonView({
 
 function Footer() {
   return (
-    <footer className="mt-auto border-t border-border/40 bg-background/40 px-4 py-4 sm:px-6">
-      <div className="mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-muted-foreground/60">
-        <span>
-          Spar — the sparring room for your next big moment.
-        </span>
-        <span className="font-mono">v1.0 — text sparring MVP</span>
+    <footer className="mt-auto border-t border-[#1a1a1a] bg-[#0a0a0a] px-4 py-4 sm:px-6">
+      <div className="mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-neutral-600">
+        <span>Spar — the sparring room for your next big moment.</span>
+        <span className="font-mono">v1.0 — voice sparring MVP</span>
       </div>
     </footer>
   );

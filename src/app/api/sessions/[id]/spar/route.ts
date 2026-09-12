@@ -159,6 +159,17 @@ export async function POST(
   const scenario = SCENARIOS[session.scenario as keyof typeof SCENARIOS];
   const scenarioLabel = scenario?.label || "Custom Session";
 
+  // For Defense experience, the persona system prompt should know the user
+  // already presented and the transcript is in the conversation history.
+  const experienceContext =
+    session.experience === "defense"
+      ? "\n## EXPERIENCE: DEFENSE\nThe user has already presented their material. The transcript above includes their full presentation. Ask questions about what they actually said — reference specific points from their presentation."
+      : session.experience === "boardroom"
+      ? "\n## EXPERIENCE: BOARDROOM\nYou are in a high-pressure boardroom. The user is presenting and you may interrupt mid-speech when they show weakness."
+      : session.experience === "drill"
+      ? `\n## EXPERIENCE: DRILL\nThis is a targeted drill session. Your sole purpose is to force the user to fix: ${session.drillTarget || "hedging"}. Be relentless. Every instance of this weakness must be interrupted immediately. Do not let it slide.`
+      : "";
+
   const otherPersonas = session.personas
     .filter((p) => p.id !== nextPersona.id)
     .map((p) => ({
@@ -196,7 +207,7 @@ export async function POST(
     personaName: nextPersona.name,
     scenarioLabel,
     claims,
-    patternMemory,
+    patternMemory: patternMemory + experienceContext,
     otherPersonas,
     transcript: transcriptStr,
     userMessage: userMessageForLlm,

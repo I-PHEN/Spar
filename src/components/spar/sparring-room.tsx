@@ -29,6 +29,7 @@ import { TelemetryBar } from "./telemetry-bar";
 import { useVoiceRecognition, playBase64Audio } from "@/hooks/use-voice";
 import { useAgitationEngine, type CoachingMode, type DrillTarget } from "@/hooks/use-agitation";
 import { SCENARIOS } from "@/lib/scenarios";
+import { EXPERIENCES, type ExperienceKey } from "@/lib/experiences";
 import { quickStats } from "@/lib/telemetry";
 import type {
   ArchetypeKey,
@@ -68,8 +69,10 @@ interface SparringRoomProps {
   sessionId: string;
   onSessionEnded: () => void;
   onExit: () => void;
-  coachingMode?: CoachingMode;
-  drillTarget?: DrillTarget;
+  experience?: ExperienceKey;
+  drillTarget?: DrillTarget | null;
+  coachingEnabled?: boolean;
+  coachingFocus?: string;
 }
 
 interface SessionPersona {
@@ -124,8 +127,10 @@ export function SparringRoom({
   sessionId,
   onSessionEnded,
   onExit,
-  coachingMode = "pure-spar",
-  drillTarget = "hedging",
+  experience = "open_spar",
+  drillTarget = null,
+  coachingEnabled = true,
+  coachingFocus = "",
 }: SparringRoomProps) {
   const [personas, setPersonas] = useState<SessionPersona[]>([]);
   const [claims, setClaims] = useState<ExtractedClaim[]>([]);
@@ -133,6 +138,10 @@ export function SparringRoom({
   const [scenarioLabel, setScenarioLabel] = useState<string>("");
   const [roomContext, setRoomContext] = useState<string>("");
   const [captions, setCaptions] = useState<CaptionEntry[]>([]);
+  // Defense flow state
+  const [isPresenting, setIsPresenting] = useState(false);
+  const [coachRead, setCoachRead] = useState<string | null>(null);
+  const [analyzingPresentation, setAnalyzingPresentation] = useState(false);
   const [personaStates, setPersonaStates] = useState<Record<string, PersonaState>>({});
   const [personaMoods, setPersonaMoods] = useState<Record<string, PersonaMood>>({});
   const [loading, setLoading] = useState(true);
@@ -263,6 +272,12 @@ export function SparringRoom({
             }))
           );
           setIsUserTurn(true);
+        } else if (oData.defenseMode) {
+          // ─── Defense flow: user presents first ────────────────────────
+          // Don't generate an opening. Show "The floor is yours" and
+          // wait for the user to present.
+          setIsPresenting(true);
+          setIsUserTurn(true); // user's turn to speak (present)
         } else if (oData.message) {
           const m = oData.message;
           // Mark the speaking persona
@@ -462,6 +477,114 @@ export function SparringRoom({
     submitTurn(false);
   }, [submitTurn]);
 
+  // ─── Defense flow: Done Presenting ────────────────────────────────────
+  // Called when the user clicks "Done Presenting" in a Defense session.
+  // Saves the presentation, analyzes it, shows the coach read, then Q&A begins.
+  async function handleDonePresenting() {
+    voice.stop();
+
+    // Wait for final transcript to settle
+    await new Promise((r) => setTimeout(r, 300));
+
+    const transcript = (
+      voice.finalTranscript +
+      " " +
+      voice.interimTranscript
+    ).trim();
+    if (!transcript || transcript.length < 5) {
+      setError("Your presentation was too short. Try again.");
+      return;
+    }
+
+    setIsPresenting(false);
+    setAnalyzingPresentation(true);
+    setIsUserTurn(false);
+
+    // Add the presentation as a caption
+    setCaptions((prev) => [
+      ...prev.filter((c) => !c.isLive),
+      {
+        id: `presentation-${Date.now()}`,
+        role: "user",
+        content: transcript,
+        type: "normal",
+        createdAt: Date.now(),
+      },
+    ]);
+
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/present`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transcript }),
+      });
+      if (!res.ok) throw new Error("Failed to process presentation");
+      const data = await res.json();
+
+      // Show the coach read (if coaching is enabled)
+      if (data.coachRead?.coachRead) {
+        setCoachRead(data.coachRead.coachRead);
+        // Wait a few seconds for the user to read the coach's comment
+        await new Promise((r) => setTimeout(r, 6000));
+      }
+
+      setAnalyzingPresentation(false);
+      setCoachRead(null);
+
+      // Now Q&A begins — the panel asks the first question
+      // Call the spar endpoint to get the first question
+      const sparRes = await fetch(`/api/sessions/${sessionId}/spar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!sparRes.ok) throw new Error("Failed to start Q&A");
+      const sparData: SparResponse = await sparRes.json();
+
+      if (sparData.personaResponse) {
+        const pr = sparData.personaResponse;
+        setPersonaStates((prev) => ({ ...prev, [pr.personaId]: "thinking" }));
+        await new Promise((r) => setTimeout(r, 600));
+        setPersonaStates((prev) => ({ ...prev, [pr.personaId]: "speaking" }));
+        setPersonaMoods((prev) => ({ ...prev, [pr.personaId]: pr.mood }));
+
+        setCaptions((prev) => [
+          ...prev,
+          {
+            id: pr.id,
+            role: "persona",
+            personaId: pr.personaId,
+            personaName: pr.personaName,
+            archetype: pr.archetype,
+            content: pr.content,
+            type: pr.type,
+            claimRef: pr.claimRef,
+            mood: pr.mood,
+            createdAt: new Date(pr.createdAt).getTime(),
+          },
+        ]);
+
+        if (pr.audio) {
+          setAudioPlaying(true);
+          try {
+            await playBase64Audio(pr.audio);
+          } catch (e) {
+            console.error("Audio playback failed:", e);
+          }
+          setAudioPlaying(false);
+        }
+
+        setPersonaStates((prev) => ({ ...prev, [pr.personaId]: "listening" }));
+      }
+
+      setIsUserTurn(true);
+    } catch (e) {
+      setError(String(e));
+      setAnalyzingPresentation(false);
+      setIsUserTurn(true);
+    }
+  }
+
   // ─── The Agitation Engine ────────────────────────────────────────────
   // Watches the live transcript for heuristic triggers (hedges, long answers,
   // vague quantifiers). When a persona's agitation hits 100, fires an interrupt.
@@ -477,9 +600,9 @@ export function SparringRoom({
     personas: personas.map((p) => ({ id: p.id, archetype: p.archetype })),
     interimTranscript: voice.interimTranscript,
     finalTranscript: voice.finalTranscript,
-    isListening: voice.isListening && isUserTurn && !isProcessing,
-    coachingMode,
-    drillTarget,
+    isListening: voice.isListening && isUserTurn && !isProcessing && !isPresenting,
+    coachingMode: experience === "drill" ? "drill" : "pure-spar",
+    drillTarget: drillTarget || undefined,
     onInterrupt: handleInterrupt,
   });
 
@@ -636,6 +759,49 @@ export function SparringRoom({
           {/* Conversation feed — scrollable */}
           <div className="flex-1 overflow-y-auto px-4 py-4 lg:px-6">
             <div className="mx-auto max-w-2xl space-y-3">
+              {/* Defense: "The floor is yours" prompt */}
+              {isPresenting && captions.length === 0 && (
+                <div className="spar-fade-up rounded-md border border-[#1a1a1a] bg-[#0f0f0f] px-5 py-6 text-center">
+                  <p className="text-sm text-neutral-300 mb-1">
+                    The floor is yours.
+                  </p>
+                  <p className="text-xs text-neutral-600">
+                    Present your material. The panel is listening. Click{" "}
+                    <span className="text-neutral-400">Done Presenting</span>{" "}
+                    when you're ready for Q&A.
+                  </p>
+                </div>
+              )}
+
+              {/* Coach read (shown after presentation, before Q&A) */}
+              {coachRead && (
+                <div className="spar-fade-up rounded-md border border-[#2a2a2a] bg-[#171717] px-4 py-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md border border-[#2a2a2a] bg-[#1a1a1a]">
+                      <span className="text-[10px] font-bold text-neutral-300">CO</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] uppercase tracking-wider text-neutral-500 mb-1.5">
+                        Coach
+                      </p>
+                      <p className="text-sm text-neutral-200 leading-relaxed">
+                        {coachRead}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Analyzing presentation indicator */}
+              {analyzingPresentation && (
+                <div className="flex items-center justify-center gap-2 py-8">
+                  <Loader2 className="h-4 w-4 animate-spin text-neutral-500" />
+                  <span className="text-xs text-neutral-500">
+                    The panel is reviewing your presentation...
+                  </span>
+                </div>
+              )}
+
               {captions.map((c) => (
                 <CaptionRow key={c.id} entry={c} />
               ))}
@@ -710,11 +876,44 @@ export function SparringRoom({
                   Voice needs Chrome or Edge
                 </p>
               </div>
+            ) : analyzingPresentation ? (
+              <div className="flex items-center gap-3">
+                <Loader2 className="h-5 w-5 animate-spin text-neutral-400" />
+                <span className="text-[10px] uppercase tracking-wider text-neutral-500">
+                  Panel is reviewing...
+                </span>
+              </div>
+            ) : isPresenting ? (
+              // Defense mode: mic + "Done Presenting" button
+              <div className="flex items-center gap-3">
+                {voice.isListening ? (
+                  <button
+                    onClick={handleDonePresenting}
+                    className="flex items-center gap-2 px-4 h-10 rounded-md bg-neutral-100 text-black text-xs font-medium hover:bg-white transition-all"
+                  >
+                    <Square className="h-3.5 w-3.5 fill-current" />
+                    Done Presenting
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleStartSpeaking}
+                    className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-black transition-transform active:scale-95"
+                    aria-label="Start presenting"
+                  >
+                    <Mic className="h-5 w-5" />
+                  </button>
+                )}
+                <span className="text-[10px] uppercase tracking-wider text-neutral-500 hidden sm:inline">
+                  {voice.isListening
+                    ? "Presenting... click Done when finished"
+                    : "Click to present"}
+                </span>
+              </div>
             ) : isUserTurn && !isProcessing ? (
               voice.isListening ? (
                 <button
                   onClick={handleStopSpeaking}
-                  className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-black shadow-lg transition-transform active:scale-95"
+                  className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-black transition-transform active:scale-95"
                   aria-label="Stop speaking"
                 >
                   <Square className="h-4 w-4 fill-current" />
@@ -722,28 +921,30 @@ export function SparringRoom({
               ) : (
                 <button
                   onClick={handleStartSpeaking}
-                  className="group flex h-12 w-12 items-center justify-center rounded-full bg-white text-black shadow-lg transition-transform active:scale-95 spar-ready-glow"
+                  className="group flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-black transition-transform active:scale-95"
                   aria-label="Start speaking"
                 >
                   <Mic className="h-5 w-5" />
                 </button>
               )
             ) : (
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-neutral-500">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-900 text-neutral-600">
                 <Pause className="h-4 w-4" />
               </div>
             )}
-            <span className="text-[10px] uppercase tracking-wider text-neutral-500 hidden sm:inline">
-              {voice.isListening
-                ? "Listening..."
-                : isUserTurn && !isProcessing
-                ? "Click to speak"
-                : isProcessing
-                ? "Panel is responding"
-                : audioPlaying
-                ? "Panel is speaking"
-                : "Wait for your turn"}
-            </span>
+            {!isPresenting && !analyzingPresentation && (
+              <span className="text-[10px] uppercase tracking-wider text-neutral-500 hidden sm:inline">
+                {voice.isListening
+                  ? "Listening..."
+                  : isUserTurn && !isProcessing
+                  ? "Click to speak"
+                  : isProcessing
+                  ? "Panel is responding"
+                  : audioPlaying
+                  ? "Panel is speaking"
+                  : "Wait for your turn"}
+              </span>
+            )}
           </div>
 
           {/* Right — End session */}

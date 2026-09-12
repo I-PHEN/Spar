@@ -42,13 +42,17 @@ model UpcomingMoment {
 model Session {
   id              String   @id @default(cuid())
   userId          String
-  scenario        String   // 'thesis_defense' | 'investor_pitch' | 'board_update' | 'performance_review' | 'grant_defense' | 'client_presentation' | 'custom'
+  experience      String   @default("open_spar") // 'defense' | 'boardroom' | 'open_spar' | 'drill'
+  drillTarget     String?  // 'hedging' | 'over-explaining' | 'recovery-speed' | 'evidence-gaps' (only for drill)
+  coachingEnabled Boolean  @default(true) // whether the coach is present in the room
+  coachingFocus   String?  // optional: what the user is working on
+  scenario        String   // legacy: 'thesis_defense' | 'investor_pitch' | ... (kept for backward compat, default room context)
   mode            String   // 'with_material' | 'without_material'
   rawMaterial     String?  // pasted or extracted text content the user is defending
   materialTitle   String?  // optional title for the material
-  roomContext     String?  // custom room description when scenario is 'custom'; null otherwise
+  roomContext     String?  // custom room description (overrides scenario default)
   extractedClaims String?  // JSON array of { claim, evidence } — 3-5 key claims LLM extracted
-  status          String   @default("configured") // 'configured' | 'active' | 'ended' | 'debriefed'
+  status          String   @default("configured") // 'configured' | 'presenting' | 'active' | 'ended' | 'debriefed'
   startedAt       DateTime?
   endedAt         DateTime?
   createdAt       DateTime @default(now())
