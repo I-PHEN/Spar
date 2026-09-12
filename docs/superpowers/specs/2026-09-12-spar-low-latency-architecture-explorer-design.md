@@ -91,6 +91,8 @@ References:
 - [Deepgram Flux overview](https://developers.deepgram.com/docs/flux/quickstart)
 - [Deepgram Flux versus Nova-3](https://developers.deepgram.com/docs/flux/flux-nova-3-comparison)
 - [Deepgram streaming TTS](https://developers.deepgram.com/docs/tts-websocket)
+- [Deepgram token-based authentication](https://developers.deepgram.com/guides/fundamentals/token-based-authentication)
+- [Deepgram browser WebSocket authentication](https://developers.deepgram.com/docs/using-the-sec-websocket-protocol)
 - [Groq prompt caching](https://console.groq.com/docs/prompt-caching)
 
 ### 5.2 Provider adapters
@@ -147,7 +149,7 @@ All downstream events carry the same `turnId`. The client discards any event tha
 
 ### 6.2 Speech recognition
 
-The browser captures mono audio in small chunks and sends it through a server-side relay. The Deepgram key remains on the server.
+The browser captures mono audio in small chunks and sends it directly to Deepgram over a Flux WebSocket. Before connecting, it requests a short-lived JWT from a same-origin server route backed by Deepgram's `/v1/auth/grant` endpoint. The durable Deepgram key remains on the server, while the temporary browser credential expires quickly and the established WebSocket may outlive that credential.
 
 Initial Flux behavior:
 
@@ -192,7 +194,7 @@ The exact thresholds will be chosen using measured time-to-first-audio and liste
 
 One Deepgram TTS WebSocket stays open for each persona voice used in the conversation. If connection limits or provider behavior make multiple sockets inefficient, the implementation may keep only the active voice warm and reconnect on persona changes; this choice must be benchmarked.
 
-Audio will remain binary. It will not be converted to base64. The server forwards chunks as they arrive, and the browser feeds them into a small Web Audio playback buffer. The queue:
+Audio will remain binary. It will not be converted to base64 or relayed through a Next.js request. The browser receives binary chunks directly from the authenticated Deepgram TTS WebSocket and feeds them into a small Web Audio playback buffer. The queue:
 
 - Preserves chunk order.
 - Begins playback as soon as the minimum safe buffer is available.
@@ -377,8 +379,9 @@ Retries use bounded exponential backoff with jitter and never continue indefinit
 
 ## 12. Security
 
-- `GROQ_API_KEY`, `OPENROUTER_API_KEY`, and `DEEPGRAM_API_KEY` remain server-side.
-- The browser communicates with local/server routes rather than receiving provider keys.
+- `GROQ_API_KEY`, `OPENROUTER_API_KEY`, and the durable `DEEPGRAM_API_KEY` remain server-side.
+- The browser receives only a short-lived Deepgram JWT from a same-origin route; it never receives a durable provider key.
+- Browser WebSockets authenticate with Deepgram's documented `Sec-WebSocket-Protocol` mechanism and TLS.
 - Logs report only whether a key is configured, never its value.
 - Provider error bodies are sanitized before being returned to the browser.
 - `.env` remains ignored by Git.
@@ -425,7 +428,7 @@ Run at least 20 representative turns across the four experiences on a stable con
 1. **Baseline and credentials:** validate key presence without displaying values; instrument the existing path and capture a repeatable baseline.
 2. **Architecture explorer foundation:** implement the manifest, system map, guided tour, experience flows, and current-state latency view.
 3. **Direct Groq and bounded context:** add the Groq adapter, compact prompt builder, token accounting, prompt-cache-friendly ordering, and OpenRouter fallback.
-4. **Turn controller and Flux STT:** add server relay, `EndOfTurn`-driven generation, `StartOfTurn` barge-in, and browser-recognition fallback.
+4. **Turn controller and Flux STT:** add temporary-token issuance, direct browser Flux streaming, `EndOfTurn`-driven generation, `StartOfTurn` barge-in, and browser-recognition fallback.
 5. **Streaming TTS and playback:** replace complete base64 MP3 responses with persistent TTS connections, binary audio chunks, and incremental Web Audio playback.
 6. **Hardening and tuning:** add disconnect tests, stress tests, provider fallbacks, regional benchmarks, phrase-threshold tuning, and acceptance runs.
 
