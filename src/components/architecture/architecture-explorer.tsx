@@ -11,6 +11,8 @@ import {
 import type { ArchitectureManifest } from "@/architecture/types";
 import { cn } from "@/lib/utils";
 import { ComponentDetail } from "./component-detail";
+import { ExperienceFlows } from "./experience-flows";
+import { GuidedTour } from "./guided-tour";
 import { SystemMap } from "./system-map";
 
 const TABS: Array<{ id: ExplorerTab; label: string }> = [
@@ -152,6 +154,23 @@ export function ArchitectureExplorer({ manifest }: ArchitectureExplorerProps) {
                   />
                   <ComponentDetail node={selectedNode} />
                 </div>
+              ) : tab.id === "tour" ? (
+                <GuidedTour
+                  tours={manifest.tours}
+                  nodes={manifest.nodes}
+                  tourIndex={state.tourIndex}
+                  onSelectTour={(nodeIds) =>
+                    dispatch({ type: "select-tour", nodeIds })
+                  }
+                  onPrevious={(nodeIds) =>
+                    dispatch({ type: "previous-tour-step", nodeIds })
+                  }
+                  onNext={(nodeIds) =>
+                    dispatch({ type: "next-tour-step", nodeIds })
+                  }
+                />
+              ) : tab.id === "experiences" ? (
+                <ExperienceFlows flows={manifest.experiences} />
               ) : (
                 <div className="flex min-h-[28rem] items-center justify-center rounded-xl border border-dashed border-border bg-card/25 px-6 py-16 text-center">
                   <div className="max-w-lg">
