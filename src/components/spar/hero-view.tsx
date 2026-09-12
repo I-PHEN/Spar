@@ -1,15 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   ArrowRight,
   Swords,
   Mic,
   Brain,
   Repeat,
+  Search,
+  Microscope,
   Target,
-  ShieldCheck,
+  AlertCircle,
+  Sparkles,
 } from "lucide-react";
+import { SparringMockup } from "./sparring-mockup";
 
 interface HeroViewProps {
   onEnter: () => void;
@@ -19,17 +23,29 @@ interface HeroViewProps {
  * Hero section — the landing page.
  *
  * Full viewport, no app nav. Has its own minimal header.
- * Tells you what the product is, how it works, and why it's different.
+ * The centerpiece is an animated sparring room mockup that auto-plays.
+ *
+ * Sections:
+ *   1. Hero (headline + CTA + animated mockup)
+ *   2. How it works (3 steps with mini visualizations)
+ *   3. Why it works (proof points)
+ *   4. Final CTA + social proof
  */
 export function HeroView({ onEnter }: HeroViewProps) {
+  const mockupRef = useRef<HTMLDivElement>(null);
+
+  function scrollToMockup() {
+    mockupRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
       {/* Ambient glow */}
       <div
-        className="pointer-events-none absolute top-0 left-1/2 h-[600px] w-[900px] -translate-x-1/2 opacity-40"
+        className="pointer-events-none absolute top-0 left-1/2 h-[600px] w-[900px] -translate-x-1/2 opacity-30"
         style={{
           background:
-            "radial-gradient(ellipse at center, rgba(255,255,255,0.05) 0%, transparent 60%)",
+            "radial-gradient(ellipse at center, rgba(255,255,255,0.04) 0%, transparent 60%)",
         }}
       />
 
@@ -49,9 +65,8 @@ export function HeroView({ onEnter }: HeroViewProps) {
         </button>
       </header>
 
-      {/* Hero content */}
-      <div className="relative z-10 flex flex-1 flex-col items-center px-4 py-8">
-        {/* Waveform + headline */}
+      {/* ─── Section 1: Hero ─────────────────────────────────────────── */}
+      <div className="relative z-10 flex flex-col items-center px-4 pt-8 pb-16">
         <div className="mx-auto max-w-2xl text-center">
           <HeroWaveform />
 
@@ -64,90 +79,111 @@ export function HeroView({ onEnter }: HeroViewProps) {
           <p className="mx-auto mt-5 max-w-lg text-base leading-relaxed text-neutral-400">
             Every person who creates anything eventually stands in a room and
             must defend it. The grad student before a thesis committee. The
-            founder before investors. The PM before leadership. Spar trains you
-            for that room.
+            founder before investors. The PM before leadership. Spar trains
+            you for that room.
           </p>
 
-          <button
-            onClick={onEnter}
-            className="group mt-8 inline-flex items-center gap-2 rounded-md bg-neutral-100 px-6 h-12 text-sm font-medium text-black transition-all hover:bg-white"
-          >
-            Get Started
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-          </button>
+          <div className="mt-8 flex items-center justify-center gap-3">
+            <button
+              onClick={onEnter}
+              className="group inline-flex items-center gap-2 rounded-md bg-neutral-100 px-6 h-12 text-sm font-medium text-black transition-all hover:bg-white"
+            >
+              Get Started
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </button>
+            <button
+              onClick={scrollToMockup}
+              className="inline-flex items-center gap-2 rounded-md border border-[#2a2a2a] bg-[#101010] px-6 h-12 text-sm font-medium text-neutral-300 transition-all hover:bg-[#141414] hover:border-[#3a3a3a] hover:text-white"
+            >
+              Watch demo
+            </button>
+          </div>
 
           <p className="mt-3 text-[11px] text-neutral-600">
             Free to start. No credit card required.
           </p>
         </div>
 
-        {/* How it works — 3 steps */}
-        <div className="mx-auto mt-20 w-full max-w-3xl">
-          <p className="mb-6 text-center text-[11px] uppercase tracking-[0.2em] text-neutral-600">
+        {/* Animated product mockup — the centerpiece */}
+        <div ref={mockupRef} className="mx-auto mt-12 w-full max-w-2xl scroll-mt-20">
+          <SparringMockup />
+        </div>
+      </div>
+
+      {/* ─── Section 2: How it works ────────────────────────────────── */}
+      <div className="border-t border-[#141414] px-4 py-16">
+        <div className="mx-auto max-w-3xl">
+          <p className="mb-8 text-center text-[11px] uppercase tracking-[0.2em] text-neutral-600">
             How it works
           </p>
-          <div className="grid grid-cols-1 gap-px overflow-hidden rounded-md border border-[#1a1a1a] bg-[#1a1a1a] sm:grid-cols-3">
-            <StepColumn
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <StepVisual
               num="01"
               icon={<Mic className="h-4 w-4" />}
               title="Enter the room"
-              desc="Bring your pitch, your thesis, your proposal. An AI panel of 2-3 personas waits. The Skeptic. The Nitpicker. The So-What."
+              desc="Bring your pitch, your thesis, your proposal. An AI panel of 2-3 personas waits — each with a different lens."
+              visual={<EnterRoomVisual />}
             />
-            <StepColumn
+            <StepVisual
               num="02"
-              icon={<Brain className="h-4 w-4" />}
+              icon={<AlertCircle className="h-4 w-4" />}
               title="Defend under pressure"
-              desc="They interrupt mid-sentence. They reference your actual claims. They get harder if you're breezing through. You practice recovery."
+              desc="They interrupt mid-sentence. They reference your actual claims. They get harder if you're breezing through."
+              visual={<InterruptVisual />}
             />
-            <StepColumn
+            <StepVisual
               num="03"
               icon={<Repeat className="h-4 w-4" />}
-              title="Get coached, not scored"
-              desc="After the session, your coach gives you a debrief. Not grades. A narrative. What happened, what you did well, the pattern, one thing to fix."
+              title="Get coached"
+              desc="After the session, your coach gives you a debrief — not grades, a narrative. What happened, what to fix."
+              visual={<CoachVisual />}
             />
           </div>
         </div>
+      </div>
 
-        {/* Why Spar is different */}
-        <div className="mx-auto mt-16 w-full max-w-3xl">
-          <p className="mb-6 text-center text-[11px] uppercase tracking-[0.2em] text-neutral-600">
+      {/* ─── Section 3: Why it works ─────────────────────────────────── */}
+      <div className="border-t border-[#141414] px-4 py-16">
+        <div className="mx-auto max-w-3xl">
+          <p className="mb-8 text-center text-[11px] uppercase tracking-[0.2em] text-neutral-600">
             Why it works
           </p>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <FeatureRow
-              icon={<Target className="h-4 w-4" />}
-              title="Cross-session memory"
-              desc="The panel remembers your patterns. It knows you hedge on financials. It probes there next time."
+          <div className="space-y-3">
+            <ProofPoint
+              stat="The panel remembers."
+              desc="After 3 sessions, it knows you hedge on financials. It probes there next time. Cross-session memory is the differentiator — no other tool adapts to your patterns."
             />
-            <FeatureRow
-              icon={<ShieldCheck className="h-4 w-4" />}
-              title="Drill your weakness"
-              desc="Pick one thing to fix — hedging, over-explaining, recovery speed. Every instance gets interrupted until you stop doing it."
+            <ProofPoint
+              stat="Every weakness gets hammered."
+              desc="Pick hedging. Every 'I think' gets interrupted immediately. You fix it or you repeat it. Drill Mode is relentless, targeted, and effective."
             />
-            <FeatureRow
-              icon={<Brain className="h-4 w-4" />}
-              title="Coaching that adapts"
-              desc="The more you spar, the more the system knows you. It's not a chatbot. It's a room that reacts to you."
+            <ProofPoint
+              stat="Not a chatbot. A room."
+              desc="The panel doesn't wait for you to finish. They interrupt mid-sentence. They reference what you said 3 minutes ago. The pressure is real."
             />
           </div>
         </div>
+      </div>
 
-        {/* CTA repeat */}
-        <div className="mx-auto mt-16 max-w-2xl text-center">
-          <p className="text-sm text-neutral-400">
-            The panel is waiting. Are you ready?
+      {/* ─── Section 4: Final CTA + social proof ────────────────────── */}
+      <div className="border-t border-[#141414] px-4 py-20 text-center">
+        <div className="mx-auto max-w-2xl">
+          <h2 className="text-3xl font-bold tracking-tight text-white">
+            The panel is waiting.
+          </h2>
+          <p className="mt-2 text-sm text-neutral-400">
+            Are you ready?
           </p>
           <button
             onClick={onEnter}
-            className="group mt-4 inline-flex items-center gap-2 rounded-md bg-neutral-100 px-6 h-12 text-sm font-medium text-black transition-all hover:bg-white"
+            className="group mt-6 inline-flex items-center gap-2 rounded-md bg-neutral-100 px-6 h-12 text-sm font-medium text-black transition-all hover:bg-white"
           >
             Enter the Sparring Room
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
           </button>
         </div>
 
-        {/* Social proof */}
-        <div className="mx-auto mt-20 max-w-2xl border-t border-[#1a1a1a] pt-6 text-center">
+        <div className="mx-auto mt-20 max-w-2xl border-t border-[#1a1a1a] pt-6">
           <p className="text-[11px] uppercase tracking-[0.15em] text-neutral-600">
             Built for people who can&apos;t afford to freeze in the real room
           </p>
@@ -168,48 +204,166 @@ export function HeroView({ onEnter }: HeroViewProps) {
   );
 }
 
-function StepColumn({
+// ─── Step Visuals (mini animations) ─────────────────────────────────────
+
+function StepVisual({
   num,
   icon,
   title,
   desc,
+  visual,
 }: {
   num: string;
   icon: React.ReactNode;
   title: string;
   desc: string;
+  visual: React.ReactNode;
 }) {
   return (
-    <div className="bg-[#0d0d0d] p-5">
+    <div className="rounded-md border border-[#1a1a1a] bg-[#0d0d0d] p-5">
+      {/* Mini visualization */}
+      <div className="mb-4 h-24 overflow-hidden rounded border border-[#141414] bg-[#080808]">
+        {visual}
+      </div>
       <div className="flex items-center gap-2">
         <span className="font-mono text-[10px] text-neutral-600">{num}</span>
         <span className="text-neutral-400">{icon}</span>
-        <span className="text-xs font-medium uppercase tracking-wider text-neutral-300">{title}</span>
+        <span className="text-xs font-medium uppercase tracking-wider text-neutral-300">
+          {title}
+        </span>
       </div>
       <p className="mt-2 text-xs leading-relaxed text-neutral-500">{desc}</p>
     </div>
   );
 }
 
-function FeatureRow({
-  icon,
-  title,
-  desc,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  desc: string;
-}) {
+function EnterRoomVisual() {
   return (
-    <div className="rounded-md border border-[#1a1a1a] bg-[#0d0d0d] p-4">
-      <div className="flex items-center gap-2 text-neutral-300">
-        {icon}
-        <span className="text-xs font-medium">{title}</span>
+    <div className="flex h-full items-center justify-center gap-3 p-3">
+      {/* YOU */}
+      <div className="flex flex-col items-center gap-1">
+        <div className="flex h-6 w-6 items-center justify-center rounded border border-[#2a2a2a] bg-[#101010] text-[7px] font-bold text-neutral-300">
+          U
+        </div>
+        <span className="text-[7px] uppercase text-neutral-600">You</span>
       </div>
-      <p className="mt-2 text-[11px] leading-relaxed text-neutral-500">{desc}</p>
+      {/* Arrow */}
+      <div className="h-px w-4 bg-[#1a1a1a]" />
+      {/* Seats */}
+      <div className="flex gap-1.5">
+        {[
+          { icon: Search, name: "SK" },
+          { icon: Microscope, name: "NP" },
+          { icon: Target, name: "SW" },
+        ].map((p, i) => (
+          <div key={i} className="flex flex-col items-center gap-1">
+            <div className="flex h-6 w-6 items-center justify-center rounded border border-[#1a1a1a] bg-[#0a0a0a]">
+              <p.icon className="h-2.5 w-2.5 text-neutral-500" />
+            </div>
+            <span className="text-[6px] text-neutral-600">{p.name}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
+
+function InterruptVisual() {
+  const [pulse, setPulse] = useState(false);
+  useEffect(() => {
+    const interval = setInterval(() => setPulse((p) => !p), 800);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="flex h-full flex-col justify-center px-3">
+      <div className="flex items-center gap-1.5">
+        <div
+          className={`h-1.5 w-1.5 rounded-full transition-colors ${
+            pulse ? "bg-white" : "bg-[#2a2a2a]"
+          }`}
+        />
+        <span
+          className={`text-[8px] uppercase tracking-wider transition-colors ${
+            pulse ? "text-white" : "text-neutral-600"
+          }`}
+        >
+          Skeptic — Speaking
+        </span>
+      </div>
+      <div
+        className={`mt-1.5 rounded border px-2 py-1 text-[8px] transition-all duration-500 ${
+          pulse
+            ? "border-[#2a2a2a] bg-[#0f0f0f] text-neutral-200"
+            : "border-[#141414] bg-[#080808] text-neutral-600"
+        }`}
+      >
+        {pulse ? "Hold on. Drop the qualifier." : "..."}
+      </div>
+      <div className="mt-1 flex items-center gap-1.5">
+        <div className="h-1 w-1 rounded-full bg-[#2a2a2a]" />
+        <span className="text-[7px] uppercase text-neutral-600">
+          Interrupting
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function CoachVisual() {
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setStep((s) => (s + 1) % 3);
+    }, 1500);
+    return () => clearInterval(interval);
+  }, []);
+
+  const sections = [
+    { label: "The Moment", active: step === 0 },
+    { label: "What You Did Well", active: step === 1 },
+    { label: "The Pattern", active: step === 2 },
+  ];
+
+  return (
+    <div className="flex h-full flex-col justify-center px-3 gap-1">
+      {sections.map((s, i) => (
+        <div
+          key={i}
+          className={`flex items-center gap-1.5 transition-all duration-500 ${
+            s.active ? "opacity-100" : "opacity-30"
+          }`}
+        >
+          <div
+            className={`h-1 w-1 rounded-full transition-colors ${
+              s.active ? "bg-white" : "bg-[#2a2a2a]"
+            }`}
+          />
+          <span
+            className={`text-[8px] uppercase tracking-wider transition-colors ${
+              s.active ? "text-neutral-300" : "text-neutral-600"
+            }`}
+          >
+            {s.label}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Proof Points ────────────────────────────────────────────────────────
+
+function ProofPoint({ stat, desc }: { stat: string; desc: string }) {
+  return (
+    <div className="rounded-md border border-[#1a1a1a] bg-[#0d0d0d] p-5">
+      <h3 className="text-base font-semibold text-white">{stat}</h3>
+      <p className="mt-1.5 text-sm leading-relaxed text-neutral-500">{desc}</p>
+    </div>
+  );
+}
+
+// ─── Hero Waveform ───────────────────────────────────────────────────────
 
 function HeroWaveform() {
   const [mounted, setMounted] = useState(false);
