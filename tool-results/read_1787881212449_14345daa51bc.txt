@@ -1,0 +1,1608 @@
+     1→Each seat card:
+     2→Large avatar (geometric, 48px) — not a tiny icon
+     3→Name — editable inline on click, not a separate text field
+     4→Archetype — shown as a label, click to open a horizontal scroll of archetype cards (visual picker, not dropdown)
+     5→Intensity — three dots: ●○○ Gentle / ●●○ Moderate / ●●● Aggressive — click to cycle, no dropdown
+     6→When you click a seat, it expands:
+     7→plain
+     8→┌─────────────────────────────────────────┐
+     9→│  ✕                                      │
+    10→│                                         │
+    11→│     ┌─────┐                             │
+    12→│     │  👤 │  Name: [The Skeptic   ]    │
+    13→│     └─────┘                             │
+    14→│                                         │
+    15→│  Choose Archetype:                      │
+    16→│  ┌────────┐ ┌────────┐ ┌────────┐     │
+    17→│  │The     │ │The     │ │The     │     │
+    18→│  │Skeptic │ │So-What │ │Nitpicker│    │
+    19→│  │[icon]  │ │[icon]  │ │[icon]  │     │
+    20→│  └────────┘ └────────┘ └────────┘     │
+    21→│                                         │
+    22→│  Intensity:                             │
+    23→│  ○ Gentle  ● Moderate  ○ Aggressive    │
+    24→│                                         │
+    25→│        [Save Seat Configuration]        │
+    26→└─────────────────────────────────────────┘
+    27→This turns configuration into arranging your opponents — spatial, visual, tactile.
+    28→The 4 Steps — Detailed Specs
+    29→Step 1: What Are You Defending?
+    30→Keep your current fast path (image 8 is good), but add the manual options below it:
+    31→plain
+    32→┌─────────────────────────────────────────┐
+    33→│  01  What are you defending?            │
+    34→│                                         │
+    35→│  [⚡ Fast Path — same as image 8]       │
+    36→│                                         │
+    37→│  ───── OR BRING MATERIAL ─────          │
+    38→│                                         │
+    39→│  [📎 Upload Document]  [📝 Paste Text]  │
+    40→│                                         │
+    41→│  If uploaded:                           │
+    42→│  ┌─────────────────────────────────┐    │
+    43→│  │ 📄 SharkPit_Investor_Deck.pptx │    │
+    44→│  │ 12 slides · 3 key claims found  │    │
+    45→│  │ [Replace]                       │    │
+    46→│  └─────────────────────────────────┘    │
+    47→└─────────────────────────────────────────┘
+    48→Step 2: What's the Room?
+    49→Your current scenario cards (image 7) are actually good. Just tighten them:
+    50→plain
+    51→┌─────────────────────────────────────────┐
+    52→│  02  What's the room?                   │
+    53→│                                         │
+    54→│  ┌────────────┐ ┌────────────┐ ┌──────┐│
+    55→│  │Thesis      │ │Investor    │ │Board ││
+    56→│  │Defense     │ │Pitch       │ │Update││
+    57→│  │Defend your │ │Pitch your  │ │Report││
+    58→│  │research... │ │startup...  │ │progress│
+    59→│  └────────────┘ └────────────┘ └──────┘│
+    60→│  ┌────────────┐ ┌────────────┐ ┌──────┐│
+    61→│  │Performance │ │Grant       │ │Client││
+    62→│  │Review      │ │Defense     │ │Pres  ││
+    63→│  └────────────┘ └────────────┘ └──────┘│
+    64→│  ┌────────────┐                         │
+    65→│  │Custom      │                         │
+    66→│  └────────────┘                         │
+    67→└─────────────────────────────────────────┘
+    68→Tighten:
+    69→Cards should be aspect-[4/3] or square, not wide rectangles
+    70→Selected card gets border-white ring-1 ring-white/20 bg-white/5
+    71→Unselected cards are border-white/5 bg-transparent hover:border-white/10
+    72→The description text should be 2 lines max, text-neutral-500 text-xs
+    73→Step 3: Who's Across From You?
+    74→This is where you replace image 6 with the seating chart above.
+    75→Step 4: How Do You Want to Practice?
+    76→This is the new, critical step:
+    77→plain
+    78→┌─────────────────────────────────────────┐
+    79→│  04  How do you want to practice?       │
+    80→│                                         │
+    81→│  ┌─────────────────────────────────┐    │
+    82→│  │  🥊  PURE SPAR                  │    │
+    83→│  │                                 │    │
+    84→│  │  Just the questions. No         │    │
+    85→│  │  hand-holding. Full review      │    │
+    86→│  │  when you're done.              │    │
+    87→│  │                                 │    │
+    88→│  │  Best for: Final rehearsal      │    │
+    89→│  │  before the real thing.         │    │
+    90→│  └─────────────────────────────────┘    │
+    91→│                                         │
+    92→│  ┌─────────────────────────────────┐    │
+    93→│  │  🎯  COACH MODE                 │    │
+    94→│  │                                 │    │
+    95→│  │  Real-time nudges, round-based  │    │
+    96→│  │  tips, and ambient feedback.    │    │
+    97→│  │  Adjust as you go.              │    │
+    98→│  │                                 │    │
+    99→│  │  Best for: Learning and         │    │
+   100→│  │  building new habits.           │    │
+   101→│  └─────────────────────────────────┘    │
+   102→│                                         │
+   103→│  ┌─────────────────────────────────┐    │
+   104→│  │  🔥  DRILL MODE                 │    │
+   105→│  │                                 │    │
+   106→│  │  Hammer one weakness until      │    │
+   107→│  │  it's fixed. Repetitive,        │    │
+   108→│  │  focused pressure.              │    │
+   109→│  │                                 │    │
+   110→│  │  Choose your focus:             │    │
+   111→│  │  [Hedging] [Over-explaining]    │    │
+   112→│  │  [Recovery speed] [Evidence]    │    │
+   113→│  └─────────────────────────────────┘    │
+   114→└─────────────────────────────────────────┘
+   115→Visual treatment:
+   116→Three large cards, full width, stacked vertically
+   117→Each has an icon, a bold title, a 2-line description, and a "Best for" tag
+   118→Selected card: border-white bg-white/5
+   119→Unselected: border-white/5 hover:border-white/10
+   120→Drill Mode card expands to show focus chips when selected
+   121→The "Start Sparring" Button
+   122→Current problem: The button is disabled with a passive-aggressive message: "Add at least 10 characters of material to start."
+   123→Fix:
+   124→Button is always visually present
+   125→If material is missing: Button is opacity-50 cursor-not-allowed, and a helper text appears above it: "Add your topic or upload a deck to start."
+   126→If ready: Button is bg-white text-black font-semibold px-8 py-3 rounded-xl hover:scale-105 active:scale-95 transition-transform shadow-lg shadow-white/10
+   127→The arrow icon should animate translate-x-1 on hover
+   128→Mobile Configuration
+   129→On mobile, the 4 steps become a vertical stack — not a stepper. The user scrolls through all 4 steps and hits Start at the bottom.
+   130→The seating chart becomes a horizontal scroll of 3 seat cards (swipeable).
+   131→The mode selection becomes full-width cards stacked.
+   132→The Complete Prompt
+   133→Here's the prompt to feed your AI:
+   134→Markdown
+   135→Fullscreen 
+   136→Download 
+   137→Fit
+   138→Code
+   139→Preview
+   140→Problem
+   141→The New Philosophy
+   142→Background: bg-[#0a0a0a] min-h-screen
+   143→Max width: max-w-3xl mx-auto (centered, readable, not too wide)
+   144→Padding: px-6 py-10
+   145→All sections stacked vertically with gap-8
+   146→Overall Container
+   147→
+   148→  
+   149→
+   150→    
+   151→
+   152→      
+   153→
+   154→        
+   155→        Spar on a topic
+   156→      
+   157→
+   158→      
+   159→Type what's on your mind. We'll build the room.
+   160→
+   161→
+   162→    
+   163→
+   164→    
+   165→      Fast Path
+   166→    
+   167→  
+   168→
+   169→  
+   170→  
+   171→
+   172→    
+   173→    
+   174→
+   175→      Spar 
+   176→    
+   177→  
+   178→
+   179→  
+   180→  
+   181→
+   182→    
+   183→      💡 Defend an idea
+   184→    
+   185→    
+   186→      🔢 Pressure-test a number
+   187→    
+   188→    
+   189→      💬 Practice a hard conversation
+   190→    
+   191→  
+   192→
+   193→Section 0: Fast Path (Always Visible at Top)
+   194→Layout Structure
+   195→SharkPit Configuration Screen — Complete Redesign Prompt
+   196→Section Divider
+   197→jsx
+   198→<div className="flex items-center gap-4">
+   199→  <div className="flex-1 h-px bg-white/5" />
+   200→  <span className="text-[10px] uppercase tracking-widest text-neutral-500">Or configure manually</span>
+   201→  <div className="flex-1 h-px bg-white/5" />
+   202→</div>
+   203→Step Progress Indicator (Sticky or Inline)
+   204→jsx
+   205→<div className="flex items-center gap-2 mb-6">
+   206→  {[
+   207→    { num: '01', label: 'Material', done: true },
+   208→    { num: '02', label: 'Room', done: true },
+   209→    { num: '03', label: 'Panel', done: false },
+   210→    { num: '04', label: 'Mode', done: false },
+   211→  ].map((step, i) => (
+   212→    <div key={step.num} className="flex items-center gap-2">
+   213→      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
+   214→        step.done ? 'bg-white text-black' : 'bg-neutral-900 text-neutral-500 border border-white/5'
+   215→      }`}>
+   216→        <span className={step.done ? 'text-black' : 'text-neutral-600'}>{step.num}</span>
+   217→        <span>{step.label}</span>
+   218→      </div>
+   219→      {i < 3 && <div className="w-4 h-px bg-white/10" />}
+   220→    </div>
+   221→  ))}
+   222→</div>
+   223→Step 1: Material
+   224→Same as current upload/paste/topic options
+   225→Show uploaded file as a card with metadata (slide count, key claims extracted)
+   226→Extracted claims should be shown as small pills: "Claim 1: TAM is $50B" etc.
+   227→Step 2: Room (Scenario Cards)
+   228→jsx
+   229→<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   230→  {scenarios.map(scenario => (
+   231→    <button
+   232→      key={scenario.id}
+   233→      onClick={() => selectScenario(scenario.id)}
+   234→      className={`aspect-[4/3] rounded-xl border p-4 text-left transition-all ${
+   235→        selected === scenario.id 
+   236→          ? 'border-white bg-white/5 ring-1 ring-white/20' 
+   237→          : 'border-white/5 hover:border-white/10 bg-transparent'
+   238→      }`}
+   239→    >
+   240→      <h4 className="text-white font-medium text-sm mb-1">{scenario.name}</h4>
+   241→      <p className="text-neutral-500 text-xs leading-relaxed">{scenario.description}</p>
+   242→    </button>
+   243→  ))}
+   244→</div>
+   245→Scenarios: Thesis Defense, Investor Pitch, Board Update, Performance Review, Grant Defense, Client Presentation, Custom
+   246→Step 3: Panel (The Seating Chart — REPLACES IMAGE 6)
+   247→jsx
+   248→<div className="bg-[#111111] border border-white/6 rounded-2xl p-6">
+   249→  <p className="text-[10px] uppercase tracking-widest text-neutral-500 mb-4">
+   250→    Who's across from you? Click a seat to edit.
+   251→  </p>
+   252→  
+   253→  <div className="flex gap-3 justify-center">
+   254→    {panel.map((persona, index) => (
+   255→      <button
+   256→        key={index}
+   257→        onClick={() => openSeatEditor(index)}
+   258→        className={`flex-1 max-w-[180px] rounded-xl border p-4 text-center transition-all ${
+   259→          editingSeat === index 
+   260→            ? 'border-white bg-white/5 scale-105' 
+   261→            : 'border-white/5 hover:border-white/10 bg-[#0a0a0a]'
+   262→        }`}
+   263→      >
+   264→        {/* Avatar */}
+   265→        <div className={`w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center text-lg font-bold ${
+   266→          persona.archetype === 'skeptic' ? 'bg-blue-500/20 text-blue-400' :
+   267→          persona.archetype === 'so-what' ? 'bg-amber-500/20 text-amber-400' :
+   268→          'bg-red-500/20 text-red-400'
+   269→        }`}>
+   270→          {persona.name.charAt(0)}
+   271→        </div>
+   272→        
+   273→        {/* Name */}
+   274→        <p className="text-white text-sm font-medium truncate">{persona.name}</p>
+   275→        
+   276→        {/* Archetype */}
+   277→        <p className="text-neutral-500 text-[10px] uppercase tracking-wider mt-1">
+   278→          {persona.archetype}
+   279→        </p>
+   280→        
+   281→        {/* Intensity Dots */}
+   282→        <div className="flex justify-center gap-1 mt-3">
+   283→          {[1,2,3].map(dot => (
+   284→            <div key={dot} className={`w-1.5 h-1.5 rounded-full ${
+   285→              dot <= persona.intensity ? 'bg-white' : 'bg-neutral-800'
+   286→            }`} />
+   287→          ))}
+   288→        </div>
+   289→        <p className="text-[10px] text-neutral-500 mt-1">
+   290→          {persona.intensity === 1 ? 'Gentle' : persona.intensity === 2 ? 'Moderate' : 'Aggressive'}
+   291→        </p>
+   292→      </button>
+   293→    ))}
+   294→  </div>
+   295→</div>
+   296→Seat Editor Modal (when a seat is clicked):
+   297→jsx
+   298→<div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+   299→  <div className="bg-[#111111] border border-white/10 rounded-2xl p-6 w-full max-w-md">
+   300→    <div className="flex justify-between items-center mb-6">
+   301→      <h3 className="text-white font-semibold">Configure Seat {seatIndex + 1}</h3>
+   302→      <button onClick={closeEditor} className="text-neutral-500 hover:text-white">✕</button>
+   303→    </div>
+   304→    
+   305→    {/* Name */}
+   306→    <div className="mb-4">
+   307→      <label className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2 block">Name</label>
+   308→      <input 
+   309→        value={persona.name}
+   310→        onChange={e => updateName(e.target.value)}
+   311→        className="w-full bg-[#0a0a0a] border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-white/20 focus:outline-none"
+   312→      />
+   313→    </div>
+   314→    
+   315→    {/* Archetype Picker (Visual, not dropdown) */}
+   316→    <div className="mb-4">
+   317→      <label className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2 block">Archetype</label>
+   318→      <div className="grid grid-cols-3 gap-2">
+   319→        {archetypes.map(arch => (
+   320→          <button
+   321→            key={arch.id}
+   322→            onClick={() => selectArchetype(arch.id)}
+   323→            className={`p-3 rounded-lg border text-center transition-all ${
+   324→              persona.archetype === arch.id 
+   325→                ? 'border-white bg-white/5' 
+   326→                : 'border-white/5 hover:border-white/10'
+   327→            }`}
+   328→          >
+   329→            <div className="text-2xl mb-1">{arch.icon}</div>
+   330→            <p className="text-white text-xs font-medium">{arch.name}</p>
+   331→            <p className="text-neutral-500 text-[10px] mt-0.5">{arch.shortDesc}</p>
+   332→          </button>
+   333→        ))}
+   334→      </div>
+   335→    </div>
+   336→    
+   337→    {/* Intensity Toggle */}
+   338→    <div className="mb-6">
+   339→      <label className="text-[10px] uppercase tracking-widest text-neutral-500 mb-2 block">Intensity</label>
+   340→      <div className="flex bg-[#0a0a0a] rounded-lg p-1">
+   341→        {['Gentle', 'Moderate', 'Aggressive'].map((level, i) => (
+   342→          <button
+   343→            key={level}
+   344→            onClick={() => setIntensity(i + 1)}
+   345→            className={`flex-1 py-2 text-xs rounded-md transition-all ${
+   346→              persona.intensity === i + 1 
+   347→                ? 'bg-neutral-800 text-white' 
+   348→                : 'text-neutral-500 hover:text-neutral-300'
+   349→            }`}
+   350→          >
+   351→            {level}
+   352→          </button>
+   353→        ))}
+   354→      </div>
+   355→    </div>
+   356→    
+   357→    <button 
+   358→      onClick={closeEditor}
+   359→      className="w-full bg-white text-black font-semibold py-2.5 rounded-lg hover:scale-[1.02] active:scale-[0.98] transition-transform"
+   360→    >
+   361→      Save Configuration
+   362→    </button>
+   363→  </div>
+   364→</div>
+   365→Archetypes to include:
+   366→The Skeptic (blue) — "Questions your core assumptions"
+   367→The So-What (amber) — "Challenges your impact and relevance"
+   368→The Nitpicker (red) — "Dives into methodology and details"
+   369→The Timekeeper (purple) — "Forces concision and respect for time"
+   370→The Ally (green) — "Seems supportive but probes for weakness"
+   371→Step 4: Practice Mode (THE NEW CRITICAL STEP)
+   372→jsx
+   373→<div className="space-y-3">
+   374→  {[
+   375→    {
+   376→      id: 'pure-spar',
+   377→      icon: '🥊',
+   378→      title: 'Pure Spar',
+   379→      desc: 'Just the questions. No hand-holding. Full review when you\'re done.',
+   380→      bestFor: 'Final rehearsal before the real thing.',
+   381→      color: 'neutral'
+   382→    },
+   383→    {
+   384→      id: 'coach-mode',
+   385→      icon: '🎯',
+   386→      title: 'Coach Mode',
+   387→      desc: 'Real-time nudges, round-based tips, and ambient feedback. Adjust as you go.',
+   388→      bestFor: 'Learning and building new habits.',
+   389→      color: 'blue'
+   390→    },
+   391→    {
+   392→      id: 'drill-mode',
+   393→      icon: '🔥',
+   394→      title: 'Drill Mode',
+   395→      desc: 'Hammer one weakness until it\'s fixed. Repetitive, focused pressure.',
+   396→      bestFor: 'Breaking a specific bad habit.',
+   397→      color: 'amber',
+   398→      drillOptions: ['Hedging', 'Over-explaining', 'Recovery speed', 'Evidence gaps']
+   399→    }
+   400→  ].map(mode => (
+   401→    <button
+   402→      key={mode.id}
+   403→      onClick={() => selectMode(mode.id)}
+   404→      className={`w-full text-left rounded-xl border p-5 transition-all ${
+   405→        selectedMode === mode.id 
+   406→          ? 'border-white bg-white/5' 
+   407→          : 'border-white/5 hover:border-white/10 bg-[#111111]'
+   408→      }`}
+   409→    >
+   410→      <div className="flex items-start gap-4">
+   411→        <span className="text-2xl">{mode.icon}</span>
+   412→        <div className="flex-1">
+   413→          <h4 className="text-white font-semibold mb-1">{mode.title}</h4>
+   414→          <p className="text-neutral-400 text-sm mb-2">{mode.desc}</p>
+   415→          <p className="text-[10px] text-neutral-500">
+   416→            Best for: <span className="text-neutral-300">{mode.bestFor}</span>
+   417→          </p>
+   418→          
+   419→          {/* Drill options - only visible when Drill Mode selected */}
+   420→          {mode.id === 'drill-mode' && selectedMode === 'drill-mode' && (
+   421→            <div className="flex gap-2 mt-3">
+   422→              {mode.drillOptions.map(opt => (
+   423→                <button
+   424→                  key={opt}
+   425→                  onClick={(e) => { e.stopPropagation(); selectDrillFocus(opt); }}
+   426→                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+   427→                    drillFocus === opt 
+   428→                      ? 'border-amber-400 text-amber-400 bg-amber-400/10' 
+   429→                      : 'border-white/10 text-neutral-400 hover:border-white/20'
+   430→                  }`}
+   431→                >
+   432→                  {opt}
+   433→                </button>
+   434→              ))}
+   435→            </div>
+   436→          )}
+   437→        </div>
+   438→        {selectedMode === mode.id && (
+   439→          <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center">
+   440→            <Check className="w-3 h-3 text-black" />
+   441→          </div>
+   442→        )}
+   443→      </div>
+   444→    </button>
+   445→  ))}
+   446→</div>
+   447→Start Button
+   448→jsx
+   449→<div className="sticky bottom-6 mt-8">
+   450→  <button
+   451→    disabled={!canStart}
+   452→    className={`w-full py-4 rounded-xl font-semibold text-base flex items-center justify-center gap-2 transition-all ${
+   453→      canStart 
+   454→        ? 'bg-white text-black hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-white/10' 
+   455→        : 'bg-neutral-900 text-neutral-600 cursor-not-allowed'
+   456→    }`}
+   457→  >
+   458→    Start Sparring <ArrowRight className="w-4 h-4" />
+   459→  </button>
+   460→  {!canStart && (
+   461→    <p className="text-center text-neutral-600 text-xs mt-2">
+   462→      Add your material and choose a room to start
+   463→    </p>
+   464→  )}
+   465→</div>
+   466→Key Interactions
+   467→Step progress dots are clickable — user can jump back to edit previous steps
+   468→Seat cards in the seating chart animate with scale-105 when selected
+   469→Mode cards expand inline (Drill Mode shows focus chips when selected)
+   470→The Start button is sticky at the bottom, always visible
+   471→Validation is gentle — disabled button with helper text, not error messages
+   472→Responsive
+   473→Desktop: max-w-3xl centered, 3-column scenario grid, 3-seat horizontal panel
+   474→Tablet: 2-column scenario grid, 3-seat horizontal panel
+   475→Mobile: Single column everything, horizontal scroll for panel seats, stacked mode cards
+   476→Accessibility
+   477→All interactive elements have focus rings: focus:outline-none focus:ring-2 focus:ring-white/20
+   478→Archetype picker uses radio button pattern (visually hidden inputs if needed for a11y)
+   479→Mode selection has clear selected state with checkmark icon
+   480→plain
+   481→
+   482→---
+   483→
+   484→Feed that to your AI. It replaces your current config stack with a **ritual** — fast path at the top, 4 clear steps below, the seating chart instead of form cards, and the coaching mode choice as a first-class citizen. No more "The Ske..." truncation. No more dropdown admin panels. Just you, choosing your opponents, setting the rules, and walking into the room.
+   485→and also what about say people practicing, maybe they wanna present something on a slide, and get asked question at the end, or people wanna present slide, and wanna be asked question in the middle, u know, and how does the drill mode work, please let's get to understand this really well, cos we are building a truly helpful product, not just something with beautiful UI, the backbone must work like hell so yh.
+   486→Edit
+   487→Copy
+   488→Share
+   489→Real-Time Weakness Detection and Adaptive Feedback in AI Presentation System
+   490→You're right. Beautiful UI means nothing if the backbone is dumb. Let me break down the actual mechanics — how the AI behaves, when it interrupts, how Drill Mode works under the hood, and how the system tracks you across a session.
+   491→1. The Three Session Flow Architectures
+   492→People present differently depending on the stakes. Your product needs three distinct flow modes, not one-size-fits-all.
+   493→Flow A: "The Defense" — End-of-Presentation Q&A
+   494→When to use: Thesis defenses, grant reviews, formal investor pitches, conference presentations.
+   495→How it works:
+   496→plain
+   497→Phase 1: Opening (uninterrupted)
+   498→  User presents slides 1-12
+   499→  Panel is silent, "listening" mode only
+   500→  Telemetry runs in background (pace, fillers) but no feedback shown
+   501→  
+   502→↓
+   503→
+   504→Phase 2: The Q&A Block (interrogation)
+   505→  Panel takes turns asking questions
+   506→  Each persona gets 2-3 questions based on their archetype
+   507→  User cannot advance slides — they're defending what they already showed
+   508→  The Skeptic attacks assumptions. The Nitpicker attacks methodology.
+   509→  
+   510→↓
+   511→
+   512→Phase 3: Closing (optional)
+   513→  User gets 1 minute to summarize/reframe
+   514→  Panel gives final challenge or acknowledges strength
+   515→AI Logic:
+   516→During Phase 1, the AI transcribes and analyzes but does NOT speak
+   517→It builds a "challenge queue" — a list of questions each persona will ask based on the content
+   518→The Skeptic's queue = claims without evidence, TAM assertions, correlation-as-causation
+   519→The Nitpicker's queue = methodology gaps, sample size, undefined terms
+   520→The So-What's queue = "so what?" moments, weak impact statements, missing competitive analysis
+   521→Phase 2 fires these questions in order, with follow-ups based on the user's answer quality
+   522→Why this matters: Some people need to get through their narrative before being challenged. Interrupting a thesis defense mid-opening would be unrealistic and frustrating.
+   523→Flow B: "The Board Room" — Mid-Presentation Interruption
+   524→When to use: Board updates, aggressive investor meetings, consulting readouts, hostile Q&As.
+   525→How it works:
+   526→plain
+   527→Real-time, continuous:
+   528→  User is on Slide 3, talking about revenue
+   529→  The Skeptic interrupts: "Wait — you said TAM is $50B on Slide 1. 
+   530→  Where did that number come from?"
+   531→  
+   532→  User attempts recovery
+   533→  
+   534→  If recovery is weak, The Nitpicker piles on: 
+   535→  "And you haven't defined 'active user' yet. Is that monthly or daily?"
+   536→  
+   537→  User continues to Slide 4 only if they satisfactorily answer
+   538→  
+   539→  OR: The Timekeeper cuts them off: 
+   540→  "You've spent 4 minutes on methodology. Move to the findings."
+   541→AI Logic:
+   542→The panel is always "armed"
+   543→Each persona has an "interrupt threshold" — a score that builds up as they listen
+   544→Threshold fills when:
+   545→The user makes a claim without evidence (+30% to Skeptic)
+   546→The user uses vague methodology terms (+30% to Nitpicker)
+   547→The user presents data without impact framing (+30% to So-What)
+   548→The user spends >90 seconds on one slide (+30% to Timekeeper)
+   549→When threshold hits 100%, that persona interrupts
+   550→The interrupt is contextual — it references the current or a previous slide
+   551→After interrupting, that persona's threshold resets to 0 and starts rebuilding
+   552→Why this matters: This trains the most valuable skill in high-stakes rooms — thinking on your feet while presenting. Not just reciting slides.
+   553→Flow C: "The Sparring Rounds" — Structured Rounds
+   554→When to use: Practice sessions, skill-building, Coach Mode, Drill Mode.
+   555→How it works:
+   556→plain
+   557→Round 1: Opening Statement (3 min)
+   558→  User presents core claim
+   559→  Panel listens only
+   560→  Timer visible
+   561→  
+   562→↓
+   563→
+   564→[5-second interstitial]
+   565→  "Round 1 complete. The Skeptic is about to attack your premise."
+   566→  
+   567→↓
+   568→
+   569→Round 2: Methodology Defense (5 min)
+   570→  The Nitpicker dominates
+   571→  3-4 questions on methods, sample, rigor
+   572→  User cannot advance slides
+   573→  
+   574→↓
+   575→
+   576→[5-second interstitial]
+   577→  "Round 2 complete. The So-What is preparing to challenge your impact."
+   578→  
+   579→↓
+   580→
+   581→Round 3: Contribution Challenge (5 min)
+   582→  The So-What dominates
+   583→  "Why does this matter?" "Compared to what?" "What's the actual impact?"
+   584→  
+   585→↓
+   586→
+   587→Round 4: Free-for-All (5 min)
+   588→  All personas rotate
+   589→  Fast-paced, unpredictable
+   590→AI Logic:
+   591→Rounds are scripted by archetype dominance
+   592→The dominant persona's interrupt threshold fills 3x faster
+   593→Other personas are muted unless the user says something egregious
+   594→Interstitial coaching whispers appear between rounds (in Coach Mode)
+   595→In Pure Spar mode, interstitials are just "Round 2 starting..."
+   596→Why this matters: This creates predictable practice structures. The user knows what's coming and can prepare mentally. It's less chaotic than Flow B but more structured than Flow A.
+   597→2. How Drill Mode Actually Works (The Mechanics)
+   598→Drill Mode is not just "ask more questions about X." It's a targeted behavioral modification loop.
+   599→The Architecture
+   600→plain
+   601→User selects: "I want to drill: HEDGING"
+   602→
+   603→↓
+   604→
+   605→System Prompt Injection:
+   606→  "You are The Skeptic. Your SOLE PURPOSE in this session is to 
+   607→   force the user to stop hedging. When the user says 'I think,' 
+   608→   'maybe,' 'sort of,' 'kind of,' or 'probably,' you MUST 
+   609→   immediately interrupt and say: 'Drop the qualifier. Say it 
+   610→   directly.' Then force them to restate without hedging.
+   611→   
+   612→   You are relentless. You do not move on until they give you 
+   613→   a declarative statement. You are not polite. You are a 
+   614→   hedge-seeking missile."
+   615→
+   616→↓
+   617→
+   618→Real-Time Detection Engine:
+   619→  - Speech-to-text streams in real-time
+   620→  - Regex matcher scans for hedge words: 
+   621→    \b(i think|maybe|sort of|kind of|probably|perhaps|i guess|
+   622→       somewhat|fairly|pretty much|more or less)\b
+   623→  - On match: TRIGGER INTERRUPT signal to the persona
+   624→
+   625→↓
+   626→
+   627→The Interrupt:
+   628→  1. Persona immediately stops listening and starts speaking
+   629→  2. The user's current speech is cut off (they hear the interruption)
+   630→  3. The persona delivers the scripted challenge
+   631→  4. The user must respond without hedging
+   632→  5. If they hedge AGAIN in their response, the persona interrupts AGAIN
+   633→  6. This loop continues until they answer cleanly
+   634→
+   635→↓
+   636→
+   637→Scoring (Per-Attempt):
+   638→  - Attempt 1 with hedge: 0 points
+   639→  - Attempt 2 with hedge: 0 points  
+   640→  - Attempt 3 clean: 1 point (but slow recovery)
+   641→  - Attempt 1 clean: 3 points (fast recovery)
+   642→  
+   643→↓
+   644→
+   645→Session Debrief (Drill-Specific):
+   646→  "You were challenged 14 times on hedging.
+   647→   You recovered cleanly on attempt 1: 3 times
+   648→   You recovered on attempt 2: 5 times
+   649→   You took 3+ attempts: 6 times
+   650→   
+   651→   Your fastest recovery: 1.2 seconds
+   652→   Your slowest recovery: 8.4 seconds
+   653→   
+   654→   Pattern: You hedge most when challenged on numbers. 
+   655→   Try pre-writing your key stats as declarative sentences."
+   656→Drill Mode Variants
+   657→Table
+   658→Drill Target    Detection Trigger       Persona Behavior        Success Criteria
+   659→Hedging "I think", "maybe", "sort of", etc.     Interrupt immediately, demand restatement       Clean declarative sentence
+   660→Over-explaining Answer >100 words for a simple question Timekeeper cuts off: "Answer in 15 words."      Answer under 15 words
+   661→Recovery speed  Any pause >3 seconds after interruption Skeptic repeats question louder Answer starts within 2 seconds
+   662→Evidence gaps   Claims without "because", "as shown in", "per"  Nitpicker: "What's your source?"        Cite specific evidence
+   663→Burden shifting "What do you think?", "I'm not sure"    Skeptic: "I'm not the one presenting. You are." Own the answer
+   664→Non-answers     Topic pivot without addressing the question     Skeptic: "You didn't answer my question."       Direct answer first
+   665→The Drill Loop Visual
+   666→plain
+   667→┌─────────────────────────────────────────┐
+   668→│  DRILL: HEDGING  │  Round 3 of 5        │
+   669→├─────────────────────────────────────────┤
+   670→│                                         │
+   671→│  The Skeptic: "What's your TAM?"        │
+   672→│                                         │
+   673→│  You: "I think our TAM is maybe like    │
+   674→│        $50B if you consider..."         │
+   675→│                                         │
+   676→│  🚨 INTERRUPT                           │
+   677→│  The Skeptic: "STOP. Drop the           │
+   678→│  qualifiers. Say it directly."          │
+   679→│                                         │
+   680→│  [You try again]                        │
+   681→│                                         │
+   682→│  You: "Our TAM is $50B." ✓              │
+   683→│                                         │
+   684→│  Recovery time: 4.2s  │  Score: 1/3     │
+   685→│                                         │
+   686→│  ─────────────────────────────────────  │
+   687→│  Next: The Nitpicker on methodology...  │
+   688→└─────────────────────────────────────────┘
+   689→3. The AI Decision Engine (The Backbone)
+   690→This is what makes it feel real instead of random. The panel doesn't just ask questions — it reacts to you.
+   691→The State Machine (Per Persona)
+   692→Each persona tracks these variables in real-time:
+   693→JavaScript
+   694→const personaState = {
+   695→  // Interrupt threshold (0-100)
+   696→  agitation: 0,
+   697→  
+   698→  // How much they believe the user (0-100)
+   699→  conviction: 50,
+   700→  
+   701→  // How annoyed they are by pace (-50 to +50)
+   702→  patience: 0,
+   703→  
+   704→  // What they're waiting to challenge
+   705→  challengeQueue: [],
+   706→  
+   707→  // Whether they have a follow-up ready
+   708→  hasFollowUp: false,
+   709→  
+   710→  // The last thing the user said that they disagree with
+   711→  lastDisagreement: null
+   712→}
+   713→The Interrupt Decision Tree
+   714→plain
+   715→Every 2 seconds, for each persona:
+   716→  
+   717→  1. SCAN user speech for triggers
+   718→     - Claim without evidence? → agitation +20
+   719→     - Vague methodology? → agitation +25
+   720→     - No impact framing? → agitation +15
+   721→     - Hedge words? → agitation +30 (if Drill Mode)
+   722→     - Talking too long? → patience -10
+   723→     - Good evidence cited? → conviction +15, agitation -10
+   724→     - Direct answer? → patience +5
+   725→  
+   726→  2. CHECK if agitation >= 100
+   727→     - YES → INTERRUPT
+   728→       - Pull top item from challengeQueue
+   729→       - Formulate question based on archetype
+   730→       - Reset agitation to 0
+   731→       - Set hasFollowUp = true (if user answers weakly)
+   732→     - NO → Continue listening
+   733→  
+   734→  3. UPDATE challengeQueue
+   735→     - Add new vulnerabilities detected in speech
+   736→     - Remove items that user already addressed well
+   737→     - Prioritize by archetype specialty
+   738→The Follow-Up Logic
+   739→This is what makes it feel human — the panel remembers and piles on.
+   740→plain
+   741→If user answers a challenge:
+   742→  
+   743→  Strong answer (direct, evidence-based, concise):
+   744→    → "Okay, fair." (Skeptic acknowledges)
+   745→    → conviction +20
+   746→    → hasFollowUp = false
+   747→    → Next persona takes a turn
+   748→  
+   749→  Weak answer (hedges, evades, over-explains):
+   750→    → "But you still haven't explained..." (Same persona doubles down)
+   751→    → OR: "I'd like to add..." (Another persona piles on)
+   752→    → conviction -10
+   753→    → hasFollowUp = true
+   754→    → Generate follow-up question based on the weakness in their answer
+   755→  
+   756→  Non-answer (completely off-topic):
+   757→    → "That's not what I asked." (Immediate re-challenge)
+   758→    → agitation +40 (they're getting frustrated)
+   759→    → patience -20
+   760→Slide Memory (The "You Said on Slide 3" Feature)
+   761→The AI maintains a slideClaims array:
+   762→JavaScript
+   763→const slideClaims = [
+   764→  { slide: 1, claim: "TAM is $50B", evidence: null, challenged: false },
+   765→  { slide: 2, claim: "CAC is $12", evidence: "cohort data", challenged: true },
+   766→  { slide: 3, claim: "Churn is 2%", evidence: null, challenged: false }
+   767→]
+   768→When the Skeptic interrupts, it can reference this:
+   769→"On Slide 1, you said TAM is $50B. But on Slide 3, you said you have 1,000 customers. At $50B TAM, that's 0.000002% penetration. Why should we believe this market is real?"
+   770→This requires the AI to cross-reference claims across slides — the single most impressive feature you can build.
+   771→4. Coach Mode vs. Pure Spar vs. Drill Mode (Behavioral Differences)
+   772→Table
+   773→Feature Pure Spar       Coach Mode      Drill Mode
+   774→Real-time telemetry     Hidden until end        Visible (filler glow, pace drift)       Visible (drill-specific counter)
+   775→Round interstitials     Silent ("Round 2...")   Coaching whisper ("The Skeptic is about to attack your premise. Remember: acknowledge first.")  Drill focus reminder ("HEDGE DETECTED 3 TIMES. LOCK IT DOWN.")
+   776→"I need a moment"       Available but basic     Full frameworks with context    Drill-specific framework ("How to answer without hedging")
+   777→Interrupt style Natural, organic        Natural + coaching nudges       Aggressive, repetitive, unrelenting
+   778→Follow-up behavior      Realistic (sometimes lets weak answers slide)   Always follows up on patterns   Always follows up on drill target
+   779→Debrief depth   Full 4-section  Full 4-section + pattern tracking       Hyper-focused on drill target only
+   780→Session length  10-20 min       10-20 min       5-10 min (intense, repetitive)
+   781→5. The Complete Technical Spec
+   782→Here's what you actually build:
+   783→Session State Object
+   784→TypeScript
+   785→interface SessionState {
+   786→  id: string;
+   787→  flowType: 'defense' | 'boardroom' | 'rounds';
+   788→  coachingMode: 'pure-spar' | 'coach' | 'drill';
+   789→  drillTarget?: 'hedging' | 'over-explaining' | 'recovery' | 'evidence';
+   790→  
+   791→  // Content
+   792→  slides: Slide[];
+   793→  currentSlideIndex: number;
+   794→  extractedClaims: Claim[];
+   795→  
+   796→  // Panel
+   797→  personas: Persona[];
+   798→  
+   799→  // Real-time tracking
+   800→  transcript: Message[];
+   801→  telemetry: {
+   802→    wpm: number;
+   803→    fillerCount: number;
+   804→    pauseDuration: number;
+   805→    recoveryTime: number;
+   806→  };
+   807→  
+   808→  // Pattern memory (for this session)
+   809→  patterns: {
+   810→    hedgingInstances: number;
+   811→    overExplainingInstances: number;
+   812→    evidenceGaps: number;
+   813→    recoveryTimes: number[];
+   814→  };
+   815→  
+   816→  // Phase (for Defense flow)
+   817→  phase: 'opening' | 'qa' | 'closing';
+   818→  
+   819→  // Round (for Rounds flow)
+   820→  round: number;
+   821→  totalRounds: number;
+   822→}
+   823→
+   824→interface Persona {
+   825→  id: string;
+   826→  archetype: 'skeptic' | 'nitpicker' | 'so-what' | 'timekeeper' | 'ally';
+   827→  name: string;
+   828→  intensity: 1 | 2 | 3; // gentle, moderate, aggressive
+   829→  
+   830→  // Dynamic state
+   831→  agitation: number;
+   832→  conviction: number;
+   833→  patience: number;
+   834→  status: 'listening' | 'thinking' | 'speaking';
+   835→  challengeQueue: string[];
+   836→  hasFollowUp: boolean;
+   837→}
+   838→The Real-Time Loop (Every 2 seconds)
+   839→TypeScript
+   840→function processTick(session: SessionState, recentTranscript: string) {
+   841→  // 1. Analyze speech
+   842→  const analysis = analyzeSpeech(recentTranscript);
+   843→  // Returns: { hedges, claimsWithoutEvidence, vagueTerms, pace, pauseTime }
+   844→  
+   845→  // 2. Update each persona
+   846→  for (const persona of session.personas) {
+   847→    // Update agitation based on triggers
+   848→    if (analysis.claimsWithoutEvidence.length > 0) {
+   849→      persona.agitation += persona.archetype === 'skeptic' ? 25 : 10;
+   850→      persona.challengeQueue.push(...analysis.claimsWithoutEvidence);
+   851→    }
+   852→    
+   853→    if (analysis.hedges.length > 0 && session.coachingMode === 'drill' && session.drillTarget === 'hedging') {
+   854→      persona.agitation += 40; // Drill mode: hypersensitive to target
+   855→    }
+   856→    
+   857→    if (analysis.pace > 180) {
+   858→      persona.patience -= 5;
+   859→    }
+   860→    
+   861→    // 3. Check for interrupt
+   862→    if (persona.agitation >= 100 && persona.status === 'listening') {
+   863→      triggerInterrupt(persona, session);
+   864→    }
+   865→  }
+   866→  
+   867→  // 4. Update telemetry
+   868→  session.telemetry.wpm = analysis.pace;
+   869→  session.telemetry.fillerCount += analysis.hedges.length;
+   870→}
+   871→
+   872→function triggerInterrupt(persona: Persona, session: SessionState) {
+   873→  persona.status = 'speaking';
+   874→  persona.agitation = 0;
+   875→  
+   876→  const challenge = persona.challengeQueue.shift() || generateChallenge(persona, session);
+   877→  const question = formulateQuestion(persona, challenge, session);
+   878→  
+   879→  // Send to TTS pipeline
+   880→  speak(question, persona.voiceId);
+   881→  
+   882→  // Add to transcript
+   883→  session.transcript.push({
+   884→    speaker: persona.name,
+   885→    text: question,
+   886→    type: 'ai',
+   887→    timestamp: Date.now()
+   888→  });
+   889→  
+   890→  // Start recovery timer
+   891→  startRecoveryTimer(session);
+   892→}
+   893→The Interrupt Threshold Visualization
+   894→This is what drives the "interrupt meter" dots in the UI:
+   895→TypeScript
+   896→function getInterruptMeter(persona: Persona): number {
+   897→  // Returns 0-5 (how many dots to fill)
+   898→  return Math.min(5, Math.floor(persona.agitation / 20));
+   899→}
+   900→
+   901→function getInterruptWarning(persona: Persona): boolean {
+   902→  // Returns true when 4-5 dots full (about to interrupt)
+   903→  return persona.agitation >= 80;
+   904→}
+   905→The Honest Truth
+   906→If you build this backbone right, users will feel something they've never felt from software: pressure that responds to them. Not a script. Not a chatbot. A room that reacts.
+   907→The UI gets them in the door. This engine is why they stay.
+   908→Which piece do you want to build first? The interrupt logic, the drill mode detection, or the cross-slide claim memory?
+   909→so put everything in one single artifact, so I can copy and paste it straight so yeah.
+   910→Edit
+   911→Copy
+   912→Share
+   913→Create Clean Markdown Outline for Co-Founder Planning
+   914→Execute Python code
+   915→Think
+   916→Here's your single artifact — everything in one place:
+   917→Download: SharkPit Master Build Document
+   918→And here's the full content to copy-paste straight:
+   919→Markdown
+   920→Fullscreen 
+   921→Download 
+   922→Fit
+   923→Code
+   924→Preview
+   925→1. Positioning
+   926→2. Navigation
+   927→3. Screen Definitions
+   928→4. The Coaching Model
+   929→5. Session Flow Architectures
+   930→6. Drill Mode Mechanics
+   931→7. AI Decision Engine
+   932→8. Configuration Flow
+   933→9. Co-Founder Roles
+   934→10. 1-Week Sprint Plan
+   935→11. Design Tokens
+   936→12. Technical Architecture
+   937→Table of Contents
+   938→What SharkPit Is
+   939→Tagline
+   940→The Moment We Serve
+   941→For people who...       NOT for...
+   942→Have a specific idea they need to stand behind  Generic "I want to be better at speaking"
+   943→Face a room that will ask hard questions        People giving one-way lectures
+   944→Are nervous because the stakes are real People who just want slide design help
+   945→Need to practice recovery when interrupted      People practicing a script verbatim
+   946→Who It's For
+   947→People who want PowerPoint templates
+   948→People who want generic public speaking tips
+   949→People who want to rehearse a script without challenge
+   950→Who It's NOT For
+   951→1. Positioning
+   952→Fixed top bar, 64px height
+   953→Logo left: "SharkPit" + "SPARRING ROOM" tagline (lg only)
+   954→4 nav items right: Home, Practice, Coach, Progress
+   955→Active item: white text + 2px bottom border
+   956→Scroll behavior: glassmorphism blur when scrolled
+   957→Desktop (>768px): Top Navigation
+   958→Fixed bottom bar, 64px height + safe area
+   959→4 items: Home, Practice, Coach, Progress
+   960→Icon + label for each
+   961→Active: white text + dot indicator
+   962→Floating CTA above nav on Home screen
+   963→Mobile (<=768px): Bottom Navigation
+   964→2. Navigation
+   965→Header: "GOOD EVENING" (xs, muted) + "Founder." (4xl, bold, white)
+   966→Subheader: "Your thesis defense is in 14 days." or "No upcoming moment set. Set one →"
+   967→Primary CTA Card: "Enter the Sparring Room" — full width, gradient bg, circular arrow button
+   968→Stats Row (3 columns): Sessions This Week, Current Streak, Top Skill
+   969→Today's Focus Card: Coaching insight from last session, expandable
+   970→3.1 Home Screen
+   971→Mode    For people who...       What happens during     What happens after
+   972→🥊 Pure Spar     Want raw pressure. No hand-holding.     AI asks hard questions. No real-time feedback. No telemetry glow. Just you vs. them.    Full 4-section debrief. Pattern analysis.
+   973→🎯 Coach Mode    Want to adjust in real-time.    Ambient cues (filler glow, pace drift). Round-based whispers. "I need a moment" active. Same debrief, but with "We worked on this together" framing.
+   974→🔥 Drill Mode    Have one known weakness. Want to hammer it.     AI focuses 80% of challenges on chosen weakness. Repetitive, targeted pressure. Single-focus report: "You hedged 12 times. Here's your before/after."
+   975→3.2 Practice / Configuration Screen
+   976→3.3 The Sparring Room (Live Session)
+   977→3. Screen Definitions
+   978→SharkPit — Master Build Document
+   979→┌──────────────────────────────────────────────────────────────┐
+   980→│  ✕  Session Title              ⏱ 00:21    End Session       │
+   981→├─────────────────────────────┬────────────────────────────────┤
+   982→│                             │  ┌──────────────────────────┐  │
+   983→│   SLIDE VIEWER (60%)        │  │ ● The Skeptic     [MOD]  │  │
+   984→│   16:9, centered            │  │   ██████████ Listening   │  │
+   985→│   rounded, shadow           │  │   [avatar] [mood bar]    │  │
+   986→│                             │  └──────────────────────────┘  │
+   987→│   Slide 2 of 12             │  ┌──────────────────────────┐  │
+   988→│                             │  │ ○ The So-What     [MOD]  │  │
+   989→├─────────────────────────────┤  │   ░░░░░░░░░░ Thinking... │  │
+   990→│  CONVERSATION FEED          │  └──────────────────────────┘  │
+   991→│  (scrollable)               │  ┌──────────────────────────┐  │
+   992→│                             │  │ ○ The Nitpicker   [MOD]  │  │
+   993→│  The Skeptic (OPENING)      │  │   ░░░░░░░░░░ Listening   │  │
+   994→│  ┌─────────────────────┐    │  └──────────────────────────┘  │
+   995→│  │ What evidence...    │    │                                │
+   996→│  └─────────────────────┘    │                                │
+   997→├─────────────────────────────┴────────────────────────────────┤
+   998→│  🆘 I need a moment  │  🎙️ CLICK TO SPEAK  │  📊 0 WPM...   │
+   999→└──────────────────────────────────────────────────────────────┘
+  1000→plain
+  1001→
+  1002→**Left 60%:**
+  1003→- Slide viewer: 16:9, centered, `rounded-lg shadow-2xl`, subtle border
+  1004→- Slide context bar: "Slide 2 of 12 — Revenue Model"
+  1005→- Conversation feed below slide: scrollable, user messages (right, white bubble) + AI messages (left, dark bubble with persona badge)
+  1006→
+  1007→**Right 40% (Panel Sidebar):**
+  1008→- 3 persona cards stacked vertically
+  1009→- Each card: avatar (48px geometric), name, archetype, status (Listening/Thinking/Speaking), interrupt meter (5 dots), engagement bar
+  1010→- Active speaker card: expanded `scale-[1.02]`, border glow, pulse ring on avatar
+  1011→- Room Mood Indicator: horizontal bar between cards and feed
+  1012→
+  1013→**Bottom Bar:**
+  1014→- Slide prev/next arrows
+  1015→- Timer (monospace)
+  1016→- Recording indicator (pulsing red dot)
+  1017→- Mute, Pause
+  1018→- "I need a moment" button (white bg, black text, prominent)
+  1019→- Fullscreen toggle
+  1020→- "End Session" (red text)
+  1021→- Live telemetry: WPM, filler count, latency
+  1022→
+  1023→**Mobile Layout:**
+  1024→- Stacked: Slide viewer (top 35%), Panel (horizontal scroll, 20%), Conversation feed (35%), Controls (10%)
+  1025→- Bottom nav + floating mic button
+  1026→
+  1027→### 3.4 Post-Session Debrief
+  1028→**Feel:** Sitting down with your coach after a spar.
+  1029→
+  1030→**Sections:**
+  1031→1. **The Moment:** "You were challenged on your revenue projection at 4:32. You paused for 3 seconds, then reframed with the cohort data. That was your best recovery this week."
+  1032→2. **What You Did Well:** 2-3 specific, evidence-based observations
+  1033→3. **The Pattern:** "This is the third session where you over-explain when questioned on methodology. Try: Acknowledge the concern in one sentence, then answer."
+  1034→4. **One Thing to Practice:** A single, actionable focus. Not a list of 10.
+  1035→5. **Telemetry (Framed as Insight):** "Pace: 142 WPM (rushing first 5 min, settled after). Fillers: 4/min (down from 6). Recovery: 3.2s avg (target: <2s)."
+  1036→6. **Save or Share:** Export summary to send to a human mentor/coach
+  1037→
+  1038→### 3.5 Coach Screen
+  1039→**Three tabs:**
+  1040→- **Programs:** Active sprints (e.g., "Thesis Defense Ready — Week 2 of 4")
+  1041→- **Skill Map:** Radar chart across 5 dimensions (Clarity, Recovery, Concision, Presence, Evidence)
+  1042→- **Insights:** Running list of pattern notes from all sessions
+  1043→
+  1044→### 3.6 Progress Screen
+  1045→- Communication Profile: AI-generated paragraph summarizing you as a communicator
+  1046→- Session History: List view with key insight from each session
+  1047→- Growth Trends: Line charts (filler reduction, recovery time improvement)
+  1048→- Milestones: Tasteful achievements ("10 sessions completed — you've practiced more than 80% of users")
+  1049→
+  1050→---
+  1051→
+  1052→## 4. The Coaching Model
+  1053→
+  1054→### Layer 1: Ambient Real-Time (Always On)
+  1055→Subtle cues in the periphery. Visible but not demanding attention.
+  1056→
+  1057→| Cue | What It Does | Where |
+  1058→|---|---|---|
+  1059→| Filler pulse | Filler word count glows amber when >3/min | Bottom bar telemetry |
+  1060→| Pace drift | WPM number turns red when 20% above baseline | Bottom bar telemetry |
+  1061→| Pause tracker | Shows seconds of silence since last interruption | Near transcript |
+  1062→| Recovery timer | 3-second countdown after interruption | Bottom corner |
+  1063→
+  1064→### Layer 2: Micro-Coaching (Between Rounds)
+  1065→Session is broken into rounds. Coaching whispers appear in the feed between rounds.
+  1066→Round 1: Opening Statement (3 min)
+  1067→↓
+  1068→[Coach Whisper] "Your opening was clear. The Skeptic is about to attack your methodology. Don't defend — acknowledge first."
+  1069→↓
+  1070→Round 2: Methodology Defense (5 min)
+  1071→↓
+  1072→[Coach Whisper] "You hesitated for 4 seconds when challenged on sample size. Have your power analysis number ready for Round 3."
+  1073→↓
+  1074→Round 3: Contribution Challenge (5 min)
+  1075→plain
+  1076→
+  1077→### Layer 3: Deep Debrief (After Session)
+  1078→Comprehensive 4-section analysis. But now it's **augmented by live coaching**, not the only coaching.
+  1079→
+  1080→### The Coaching Loop
+  1081→Every Session
+  1082→↓
+  1083→AI generates: What happened + What was hard + What you did well
+  1084→↓
+  1085→Stores in Pattern Memory
+  1086→↓
+  1087→Next session: AI reads last 3 summaries before starting
+  1088→↓
+  1089→Panel behavior adjusts (e.g., "They struggle with methodology, probe there")
+  1090→↓
+  1091→Post-session: Compare to previous. Show movement.
+  1092→↓
+  1093→Coach tab: Update Skill Map + add Insight + recommend next focus
+  1094→plain
+  1095→
+  1096→---
+  1097→
+  1098→## 5. Session Flow Architectures
+  1099→
+  1100→### Flow A: "The Defense" — End-of-Presentation Q&A
+  1101→**When:** Thesis defenses, grant reviews, formal investor pitches.
+  1102→Phase 1: Opening (uninterrupted)
+  1103→User presents slides 1-12
+  1104→Panel is silent, "listening" mode only
+  1105→Telemetry runs in background but no feedback shown
+  1106→↓
+  1107→Phase 2: The Q&A Block (interrogation)
+  1108→Panel takes turns asking questions
+  1109→Each persona gets 2-3 questions based on their archetype
+  1110→User cannot advance slides
+  1111→↓
+  1112→Phase 3: Closing (optional)
+  1113→User gets 1 minute to summarize/reframe
+  1114→Panel gives final challenge or acknowledges strength
+  1115→plain
+  1116→
+  1117→**AI Logic:**
+  1118→- Phase 1: AI transcribes and analyzes but does NOT speak. Builds a "challenge queue."
+  1119→- Skeptic queue = claims without evidence, TAM assertions, correlation-as-causation
+  1120→- Nitpicker queue = methodology gaps, sample size, undefined terms
+  1121→- So-What queue = weak impact statements, missing competitive analysis
+  1122→- Phase 2: Fires questions in order, with follow-ups based on answer quality
+  1123→
+  1124→### Flow B: "The Board Room" — Mid-Presentation Interruption
+  1125→**When:** Board updates, aggressive investor meetings, consulting readouts.
+  1126→
+  1127→**Real-time, continuous:**
+  1128→- User is on Slide 3, talking about revenue
+  1129→- The Skeptic interrupts: "Wait — you said TAM is $50B on Slide 1. Where did that number come from?"
+  1130→- User attempts recovery
+  1131→- If recovery is weak, The Nitpicker piles on
+  1132→- OR: The Timekeeper cuts them off: "You've spent 4 minutes on methodology. Move to the findings."
+  1133→
+  1134→**AI Logic:**
+  1135→- Panel is always "armed"
+  1136→- Each persona has an "interrupt threshold" (0-100) that builds as they listen
+  1137→- Threshold fills when:
+  1138→  - Claim without evidence (+30% to Skeptic)
+  1139→  - Vague methodology terms (+30% to Nitpicker)
+  1140→  - Data without impact framing (+30% to So-What)
+  1141→  - >90 seconds on one slide (+30% to Timekeeper)
+  1142→- At 100%, persona interrupts with contextual question
+  1143→- Threshold resets to 0 after interrupt, starts rebuilding
+  1144→
+  1145→### Flow C: "The Sparring Rounds" — Structured Rounds
+  1146→**When:** Practice sessions, skill-building, Coach Mode, Drill Mode.
+  1147→Round 1: Opening Statement (3 min)
+  1148→User presents core claim
+  1149→Panel listens only
+  1150→↓ [5-second interstitial]
+  1151→"Round 1 complete. The Skeptic is about to attack your premise."
+  1152→↓
+  1153→Round 2: Methodology Defense (5 min)
+  1154→The Nitpicker dominates
+  1155→3-4 questions on methods, sample, rigor
+  1156→↓ [5-second interstitial]
+  1157→"Round 2 complete. The So-What is preparing to challenge your impact."
+  1158→↓
+  1159→Round 3: Contribution Challenge (5 min)
+  1160→The So-What dominates
+  1161→"Why does this matter?" "Compared to what?"
+  1162→↓
+  1163→Round 4: Free-for-All (5 min)
+  1164→All personas rotate
+  1165→Fast-paced, unpredictable
+  1166→plain
+  1167→
+  1168→**AI Logic:**
+  1169→- Rounds scripted by archetype dominance
+  1170→- Dominant persona's interrupt threshold fills 3x faster
+  1171→- Other personas muted unless user says something egregious
+  1172→- Interstitial coaching whispers appear between rounds (Coach Mode)
+  1173→
+  1174→---
+  1175→
+  1176→## 6. Drill Mode Mechanics
+  1177→
+  1178→### Architecture
+  1179→Drill Mode is a **targeted behavioral modification loop.**
+  1180→User selects: "I want to drill: HEDGING"
+  1181→↓
+  1182→System Prompt Injection:
+  1183→"You are The Skeptic. Your SOLE PURPOSE is to force the user
+  1184→to stop hedging. When the user says 'I think,' 'maybe,' 'sort of,'
+  1185→'kind of,' or 'probably,' you MUST immediately interrupt and say:
+  1186→'Drop the qualifier. Say it directly.' Then force them to restate
+  1187→without hedging. You are relentless. You do not move on until they
+  1188→give you a declarative statement."
+  1189→↓
+  1190→Real-Time Detection Engine:
+  1191→Speech-to-text streams in real-time
+  1192→Regex matcher scans for hedge words
+  1193→On match: TRIGGER INTERRUPT signal
+  1194→↓
+  1195→The Interrupt Loop:
+  1196→Persona immediately stops listening and starts speaking
+  1197→User's current speech is cut off
+  1198→Persona delivers scripted challenge
+  1199→User must respond without hedging
+  1200→If they hedge AGAIN, persona interrupts AGAIN
+  1201→Loop continues until clean answer
+  1202→↓
+  1203→Scoring (Per-Attempt):
+  1204→Attempt 1 clean: 3 points
+  1205→Attempt 2 clean: 2 points
+  1206→Attempt 3 clean: 1 point
+  1207→Still hedging: 0 points
+  1208→↓
+  1209→Session Debrief (Drill-Specific):
+  1210→"You were challenged 14 times on hedging.
+  1211→Recovered on attempt 1: 3 times
+  1212→Recovered on attempt 2: 5 times
+  1213→Took 3+ attempts: 6 times
+  1214→Fastest recovery: 1.2 seconds
+  1215→Slowest recovery: 8.4 seconds
+  1216→Pattern: You hedge most when challenged on numbers."
+  1217→plain
+  1218→
+  1219→### Drill Targets
+  1220→| Drill Target | Detection Trigger | Persona Behavior | Success Criteria |
+  1221→|---|---|---|---|
+  1222→| **Hedging** | "I think", "maybe", "sort of", etc. | Interrupt immediately, demand restatement | Clean declarative sentence |
+  1223→| **Over-explaining** | Answer >100 words for simple question | Timekeeper cuts off: "Answer in 15 words." | Answer under 15 words |
+  1224→| **Recovery speed** | Pause >3 seconds after interruption | Skeptic repeats question louder | Answer starts within 2 seconds |
+  1225→| **Evidence gaps** | Claims without "because", "as shown in" | Nitpicker: "What's your source?" | Cite specific evidence |
+  1226→| **Burden shifting** | "What do you think?", "I'm not sure" | Skeptic: "I'm not the one presenting." | Own the answer |
+  1227→| **Non-answers** | Topic pivot without addressing question | Skeptic: "You didn't answer my question." | Direct answer first |
+  1228→
+  1229→---
+  1230→
+  1231→## 7. AI Decision Engine
+  1232→
+  1233→### Per-Persona State Machine
+  1234→```typescript
+  1235→interface PersonaState {
+  1236→  agitation: number;        // Interrupt threshold (0-100)
+  1237→  conviction: number;       // Belief in user (0-100)
+  1238→  patience: number;         // Pace tolerance (-50 to +50)
+  1239→  challengeQueue: string[]; // What they're waiting to challenge
+  1240→  hasFollowUp: boolean;     // Whether they have a follow-up ready
+  1241→  lastDisagreement: string; // Last thing they disagreed with
+  1242→}
+  1243→Interrupt Decision Tree (Every 2 seconds)
+  1244→plain
+  1245→For each persona:
+  1246→
+  1247→  1. SCAN user speech for triggers
+  1248→     - Claim without evidence? → agitation +20
+  1249→     - Vague methodology? → agitation +25
+  1250→     - No impact framing? → agitation +15
+  1251→     - Hedge words (Drill Mode)? → agitation +40
+  1252→     - Talking too long? → patience -10
+  1253→     - Good evidence cited? → conviction +15, agitation -10
+  1254→     - Direct answer? → patience +5
+  1255→
+  1256→  2. CHECK if agitation >= 100
+  1257→     - YES → INTERRUPT
+  1258→       - Pull top item from challengeQueue
+  1259→       - Formulate question based on archetype
+  1260→       - Reset agitation to 0
+  1261→       - Set hasFollowUp = true
+  1262→     - NO → Continue listening
+  1263→
+  1264→  3. UPDATE challengeQueue
+  1265→     - Add new vulnerabilities detected
+  1266→     - Remove items user addressed well
+  1267→     - Prioritize by archetype specialty
+  1268→Follow-Up Logic
+  1269→plain
+  1270→If user answers a challenge:
+  1271→
+  1272→  Strong answer (direct, evidence-based, concise):
+  1273→    → "Okay, fair." (Skeptic acknowledges)
+  1274→    → conviction +20
+  1275→    → hasFollowUp = false
+  1276→    → Next persona takes a turn
+  1277→
+  1278→  Weak answer (hedges, evades, over-explains):
+  1279→    → "But you still haven't explained..." (Same persona doubles down)
+  1280→    → OR: "I'd like to add..." (Another persona piles on)
+  1281→    → conviction -10
+  1282→    → hasFollowUp = true
+  1283→
+  1284→  Non-answer (completely off-topic):
+  1285→    → "That's not what I asked." (Immediate re-challenge)
+  1286→    → agitation +40
+  1287→    → patience -20
+  1288→Slide Memory (Cross-Slide Claim Tracking)
+  1289→TypeScript
+  1290→const slideClaims = [
+  1291→  { slide: 1, claim: "TAM is $50B", evidence: null, challenged: false },
+  1292→  { slide: 2, claim: "CAC is $12", evidence: "cohort data", challenged: true },
+  1293→  { slide: 3, claim: "Churn is 2%", evidence: null, challenged: false }
+  1294→]
+  1295→The AI can reference this: "On Slide 1, you said TAM is $50B. But on Slide 3, you said you have 1,000 customers. At $50B TAM, that's 0.000002% penetration. Why should we believe this market is real?"
+  1296→8. Configuration Flow
+  1297→Step 1: Material
+  1298→Fast path: Type topic → Spar button
+  1299→Manual: Upload document (PPTX, PDF) or paste text
+  1300→Show uploaded file as card with metadata (slide count, key claims extracted)
+  1301→Extracted claims shown as small pills
+  1302→Step 2: Room (Scenario)
+  1303→Cards: Thesis Defense, Investor Pitch, Board Update, Performance Review, Grant Defense, Client Presentation, Custom
+  1304→Selected: border-white bg-white/5 ring-1 ring-white/20
+  1305→Unselected: border-white/5 hover:border-white/10
+  1306→Step 3: Panel (Seating Chart)
+  1307→3 seat cards horizontally
+  1308→Click to open seat editor modal
+  1309→Editor: name input, archetype visual picker (5 options), intensity toggle
+  1310→Step 4: Mode
+  1311→Table
+  1312→Mode    Description     Best For
+  1313→🥊 Pure Spar     Just the questions. No hand-holding. Full review when done.     Final rehearsal
+  1314→🎯 Coach Mode    Real-time nudges, round-based tips, ambient feedback.   Learning new habits
+  1315→🔥 Drill Mode    Hammer one weakness until fixed. Repetitive, focused pressure.  Breaking a bad habit
+  1316→Drill Mode expands to show focus chips when selected: Hedging, Over-explaining, Recovery speed, Evidence gaps.
+  1317→Start Button
+  1318→Always visible, sticky at bottom
+  1319→If ready: bg-white text-black hover:scale-[1.02]
+  1320→If not ready: opacity-50 cursor-not-allowed + helper text
+  1321→9. Co-Founder Roles
+  1322→You (Engineering / CTO)
+  1323→Voice AI pipeline
+  1324→UI/UX implementation
+  1325→Session storage & pattern memory
+  1326→Payment & auth
+  1327→Deployment & scaling
+  1328→Delivers: Working software
+  1329→Him (Methodology / Chief Sparring Officer)
+  1330→Persona archetype definitions
+  1331→Question generation frameworks
+  1332→Debrief rubric & scoring
+  1333→"I Need a Moment" scripts
+  1334→User interviews & QA testing
+  1335→Delivers: Documents, spreadsheets, voice recordings, judgment calls
+  1336→The Handoff Rule
+  1337→He writes documents. You turn documents into code. No exceptions.
+  1338→Founders' Agreement (Have This Conversation)
+  1339→Equity: 30-40% to him. Vesting 4 years, 1-year cliff.
+  1340→Time commitment: Define minimum hours per week.
+  1341→Decision rights: You own technical. He owns methodology. Business = together. Deadlock = coin flip or advisor.
+  1342→IP: Everything built belongs to the company.
+  1343→Exit clause: If someone leaves after 6 months, buyback at pre-agreed formula.
+  1344→10. 1-Week Sprint Plan
+  1345→Day 1 — Monday: Failure Taxonomy
+  1346→Him (4h): Find 3 real breakdown videos. Timestamp the collapse. Write 1 paragraph per breakdown.
+  1347→You (4h): Set up shared Notion workspace. Build crude Methodology Admin Panel.
+  1348→Deliverable: Shared doc with 5-7 failure categories.
+  1349→Day 2 — Tuesday: Persona Archetypes
+  1350→Him (4h): Write character sheets for The Skeptic, The So-What, The Nitpicker. Record voice samples.
+  1351→You (4h): Integrate voice samples into TTS. Wire persona prompts into live session.
+  1352→Deliverable: 3 working personas with distinct voices.
+  1353→Day 3 — Wednesday: The Debrief Rubric
+  1354→Him (4h): Build 5-dimension scoring rubric in Google Sheets.
+  1355→You (4h): Build post-session debrief screen. Implement basic telemetry.
+  1356→Deliverable: Working rubric + debrief screen.
+  1357→Day 4 — Thursday: "I Need a Moment" Frameworks
+  1358→Him (3h): Write 5 intervention scripts.
+  1359→You (5h): Build the panic button. Build failure-to-intervention classifier.
+  1360→Deliverable: Working panic button with 5 real interventions.
+  1361→Day 5 — Friday: First Program Curriculum
+  1362→Him (4h): Design "High-Stakes Defense Sprint" (4 sessions).
+  1363→You (4h): Build Coach tab with Programs. Build session scheduling and progress tracking.
+  1364→Deliverable: One hardcoded program users can enroll in.
+  1365→Day 6 — Saturday: Integration & Polish
+  1366→Both (4h each): Full flow test. He records Loom bugs. You fix critical bugs only.
+  1367→Deliverable: Zero critical bugs. End-to-end usable.
+  1368→Day 7 — Sunday: Ship Day
+  1369→Him (3h): Write landing page copy. Record 90-second demo video.
+  1370→You (5h): Deploy to production. Set up analytics. Send to 5 beta users.
+  1371→Deliverable: Live URL. Demo video. 5 beta invites sent.
+  1372→11. Design Tokens
+  1373→Colors
+  1374→css
+  1375→--bg-primary: #0a0a0a;
+  1376→--bg-card: rgba(23, 23, 23, 0.5);
+  1377→--bg-panel: rgba(17, 17, 17, 0.8);
+  1378→--border-subtle: rgba(255, 255, 255, 0.06);
+  1379→--border-hover: rgba(255, 255, 255, 0.12);
+  1380→--text-primary: #ffffff;
+  1381→--text-secondary: #a3a3a3; /* neutral-400 */
+  1382→--text-muted: #737373; /* neutral-500 */
+  1383→--accent: #ffffff;
+  1384→Typography
+  1385→css
+  1386→font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  1387→--font-heading: font-weight: 700, letter-spacing: -0.02em;
+  1388→--font-body: font-weight: 400, line-height: 1.6;
+  1389→Spacing
+  1390→css
+  1391→--section-gap: 1.5rem;
+  1392→--card-padding: 1.25rem;
+  1393→--card-radius: 1rem;
+  1394→Archetype Colors
+  1395→Table
+  1396→Archetype       Color
+  1397→The Skeptic     Blue-400
+  1398→The So-What     Amber-400
+  1399→The Nitpicker   Red-400
+  1400→The Timekeeper  Purple-400
+  1401→The Ally        Green-400
+  1402→Mood Colors
+  1403→Table
+  1404→Mood    Color
+  1405→Hostile Red
+  1406→Skeptical       Amber
+  1407→Neutral Gray
+  1408→Engaged Green
+  1409→Convinced       Blue
+  1410→12. Technical Architecture
+  1411→Session State
+  1412→TypeScript
+  1413→interface SessionState {
+  1414→  id: string;
+  1415→  flowType: 'defense' | 'boardroom' | 'rounds';
+  1416→  coachingMode: 'pure-spar' | 'coach' | 'drill';
+  1417→  drillTarget?: 'hedging' | 'over-explaining' | 'recovery' | 'evidence';
+  1418→  
+  1419→  slides: Slide[];
+  1420→  currentSlideIndex: number;
+  1421→  extractedClaims: Claim[];
+  1422→  
+  1423→  personas: Persona[];
+  1424→  
+  1425→  transcript: Message[];
+  1426→  telemetry: {
+  1427→    wpm: number;
+  1428→    fillerCount: number;
+  1429→    pauseDuration: number;
+  1430→    recoveryTime: number;
+  1431→  };
+  1432→  
+  1433→  patterns: {
+  1434→    hedgingInstances: number;
+  1435→    overExplainingInstances: number;
+  1436→    evidenceGaps: number;
+  1437→    recoveryTimes: number[];
+  1438→  };
+  1439→  
+  1440→  phase: 'opening' | 'qa' | 'closing';
+  1441→  round: number;
+  1442→  totalRounds: number;
+  1443→}
+  1444→
+  1445→interface Persona {
+  1446→  id: string;
+  1447→  archetype: 'skeptic' | 'nitpicker' | 'so-what' | 'timekeeper' | 'ally';
+  1448→  name: string;
+  1449→  intensity: 1 | 2 | 3;
+  1450→  
+  1451→  agitation: number;
+  1452→  conviction: number;
+  1453→  patience: number;
+  1454→  status: 'listening' | 'thinking' | 'speaking';
+  1455→  challengeQueue: string[];
+  1456→  hasFollowUp: boolean;
+  1457→}
+  1458→Real-Time Loop (Every 2 seconds)
+  1459→TypeScript
+  1460→function processTick(session: SessionState, recentTranscript: string) {
+  1461→  const analysis = analyzeSpeech(recentTranscript);
+  1462→  // Returns: { hedges, claimsWithoutEvidence, vagueTerms, pace, pauseTime }
+  1463→  
+  1464→  for (const persona of session.personas) {
+  1465→    if (analysis.claimsWithoutEvidence.length > 0) {
+  1466→      persona.agitation += persona.archetype === 'skeptic' ? 25 : 10;
+  1467→      persona.challengeQueue.push(...analysis.claimsWithoutEvidence);
+  1468→    }
+  1469→    
+  1470→    if (analysis.hedges.length > 0 && session.coachingMode === 'drill' && session.drillTarget === 'hedging') {
+  1471→      persona.agitation += 40;
+  1472→    }
+  1473→    
+  1474→    if (analysis.pace > 180) {
+  1475→      persona.patience -= 5;
+  1476→    }
+  1477→    
+  1478→    if (persona.agitation >= 100 && persona.status === 'listening') {
+  1479→      triggerInterrupt(persona, session);
+  1480→    }
+  1481→  }
+  1482→  
+  1483→  session.telemetry.wpm = analysis.pace;
+  1484→  session.telemetry.fillerCount += analysis.hedges.length;
+  1485→}
+  1486→
+  1487→function triggerInterrupt(persona: Persona, session: SessionState) {
+  1488→  persona.status = 'speaking';
+  1489→  persona.agitation = 0;
+  1490→  
+  1491→  const challenge = persona.challengeQueue.shift() || generateChallenge(persona, session);
+  1492→  const question = formulateQuestion(persona, challenge, session);
+  1493→  
+  1494→  speak(question, persona.voiceId);
+  1495→  
+  1496→  session.transcript.push({
+  1497→    speaker: persona.name,
+  1498→    text: question,
+  1499→    type: 'ai',
+  1500→    timestamp: Date.now()
+  1501→  });
+  1502→  
+  1503→  startRecoveryTimer(session);
+  1504→}
+  1505→Interrupt Meter (UI)
+  1506→TypeScript
+  1507→function getInterruptMeter(persona: Persona): number {
+  1508→  return Math.min(5, Math.floor(persona.agitation / 20));
+  1509→}
+  1510→
+  1511→function getInterruptWarning(persona: Persona): boolean {
+  1512→  return persona.agitation >= 80;
+  1513→}
+  1514→Filler Word Detection
+  1515→TypeScript
+  1516→const FILLER_WORDS = [
+  1517→  'um', 'uh', 'like', 'you know', 'sort of', 'kind of',
+  1518→  'i think', 'maybe', 'probably', 'perhaps', 'i guess',
+  1519→  'somewhat', 'fairly', 'pretty much', 'more or less'
+  1520→];
+  1521→
+  1522→function detectFillers(text: string): string[] {
+  1523→  const matches = [];
+  1524→  for (const filler of FILLER_WORDS) {
+  1525→    const regex = new RegExp(`\\b${filler}\\b`, 'gi');
+  1526→    const found = text.match(regex);
+  1527→    if (found) matches.push(...found);
+  1528→  }
+  1529→  return matches;
+  1530→}
+  1531→Slide Claim Extraction
+  1532→TypeScript
+  1533→interface Claim {
+  1534→  slide: number;
+  1535→  claim: string;
+  1536→  evidence: string | null;
+  1537→  challenged: boolean;
+  1538→}
+  1539→
+  1540→function extractClaims(slideText: string, slideNumber: number): Claim[] {
+  1541→  // Use NLP or regex to find declarative statements
+  1542→  // Look for: numbers, comparisons, causal language
+  1543→  // Return array of Claim objects
+  1544→}
+  1545→Appendix: File Structure
+  1546→plain
+  1547→app/
+  1548→├── layout.tsx              # Global layout with nav logic
+  1549→├── page.tsx                # Home screen
+  1550→├── practice/
+  1551→│   └── page.tsx            # Configuration flow
+  1552→├── spar/
+  1553→│   └── page.tsx            # Live sparring room
+  1554→├── coach/
+  1555→│   └── page.tsx            # Coach dashboard
+  1556→├── progress/
+  1557→│   └── page.tsx            # Progress screen
+  1558→├── debrief/
+  1559→│   └── page.tsx            # Post-session debrief
+  1560→components/
+  1561→├── NavDesktop.tsx          # Top navigation
+  1562→├── NavMobile.tsx           # Bottom navigation
+  1563→├── HomeCTA.tsx             # Main CTA card
+  1564→├── StatsRow.tsx            # Stats grid
+  1565→├── TodayFocus.tsx          # Focus card with expand
+  1566→├── ConfigStepper.tsx       # 4-step progress indicator
+  1567→├── SeatChart.tsx           # Panel seating chart
+  1568→├── SeatEditor.tsx          # Seat configuration modal
+  1569→├── ModeSelector.tsx        # Practice mode cards
+  1570→├── SlideViewer.tsx         # Slide renderer
+  1571→├── ConversationFeed.tsx    # Chat-like message feed
+  1572→├── PersonaCard.tsx         # Sidebar persona card
+  1573→├── RoomMood.tsx            # Mood indicator bar
+  1574→├── BottomBar.tsx           # Session controls
+  1575→├── CoachWhisper.tsx        # Inline coaching messages
+  1576→├── DebriefSection.tsx      # Debrief screen sections
+  1577→├── SkillMap.tsx            # Radar chart
+  1578→hooks/
+  1579→├── useScrollHeader.ts      # Glassmorphism on scroll
+  1580→├── useSpeechAnalysis.ts    # Real-time speech processing
+  1581→├── useCountUp.ts           # Number animation
+  1582→├── useSessionState.ts      # Session state management
+  1583→lib/
+  1584→├── personas.ts             # Persona definitions & prompts
+  1585→├── challenges.ts           # Question generation logic
+  1586→├── drills.ts               # Drill mode detection & scoring
+  1587→├── telemetry.ts            # Metrics calculation
+  1588→└── claims.ts               # Slide claim extraction
+  1589→End of Document. Build it.
+  1590→plain
+  1591→
+  1592→Copy this entire block. It's your bible for the next 3 months.
+  1593→I am only saying the new way we discussed that the practice section should be, u know, put only that one in a pdf document for me. how the new practice configuration should be, put it in pdf for me, so we modify the practice configuration screen to be truly functional so yh. only practice configuration screen
+  1594→Edit
+  1595→Copy
+  1596→Share
+  1597→Generate PDF of Practice Configuration Screen Details
+  1598→Execute Python code
+  1599→Think
+  1600→Failed to execute Python code
+  1601→Your conversation with Kimi is getting too long. Try starting a new session.
+  1602→Continue
+  1603→
+  1604→
+  1605→
+  1606→Free quota used up
+  1607→Upgrade
+  1608→
