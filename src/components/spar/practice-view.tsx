@@ -40,7 +40,11 @@ import type {
 import { cn } from "@/lib/utils";
 
 interface PracticeViewProps {
-  onSessionCreated: (sessionId: string) => void;
+  onSessionCreated: (
+    sessionId: string,
+    coachingMode: CoachingMode,
+    drillTarget: DrillTarget
+  ) => void;
   onCancel: () => void;
 }
 
@@ -228,7 +232,11 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
         setError(data.error || "Failed to create session");
         return;
       }
-      onSessionCreated(data.session.id);
+      onSessionCreated(
+        data.session.id,
+        coachingMode,
+        coachingMode === "drill" ? drillTarget : "hedging"
+      );
     } catch (e) {
       setError(String(e));
     } finally {

@@ -456,3 +456,57 @@ Stage Summary:
 - **Mode selector is first-class** — Pure Spar / Coach / Drill are now a Step 4 choice, not buried. Drill focus chips appear inline when Drill is selected.
 - **Backend unchanged** — the new UI posts to the same `/api/sessions` endpoint. The `coachingMode` and `drillTarget` are captured in state but not yet sent to the backend (that's solid thing 2 — the agitation engine + drill mode backend).
 - Lint passes clean. No errors in dev log.
+
+---
+Task ID: 11
+Agent: main (engineering)
+Task: Solid thing 2 — Agitation/interrupt threshold engine (heuristic triggers, real-time)
+
+Work Log:
+- **Created `src/lib/triggers.ts`** — heuristic trigger detection:
+  - Hedge detection (18 regex patterns: "I think", "maybe", "sort of", etc.) → Skeptic agitation +30 per hedge
+  - Word count tracking → Timekeeper agitation ramps up after 100 words (+1.5 per word over 100, threshold at ~167 words)
+  - Vague quantifier detection ("roughly 50%", "about 200", "50 or so", "50ish") → Nitpicker agitation +30 per occurrence
+  - `getThreshold()` — returns 100 by default, 50 for the drill-target persona in Drill Mode (hypersensitive)
+  - `agitationToDots()` — converts 0-100 agitation to 0-5 dots for the interrupt meter
+- **Created `src/hooks/use-agitation.ts`** — the agitation engine hook:
+  - Watches the live interim + final transcript every 500ms
+  - Runs `detectTriggers()` on the full text each tick (idempotent — no double-counting)
+  - Maintains per-persona agitation scores (0-100)
+  - Tracks a `baselineRef` per archetype so agitation resets correctly after an interrupt
+  - When any persona hits their threshold, fires `onInterrupt(personaId, reason)`
+  - Prevents multiple interrupts in the same speaking turn (`interruptFiredRef`)
+  - Resets when listening starts (transition detection via `prevListeningRef`)
+- **Modified `src/lib/llm.ts`** — `generatePersonaResponse()` now accepts `isInterrupt?: boolean`:
+  - When true, adds an interrupt instruction to the user prompt: "Open with a sharp cutting-in phrase — 'Hold on—', 'Let me stop you there—', 'Wait—'. Set type: 'interruption'."
+- **Modified `src/app/api/sessions/[id]/spar/route.ts`**:
+  - Accepts `isInterrupt?: boolean` and `forcedPersonaId?: string` in the request body
+  - When `forcedPersonaId` is provided, uses that persona instead of round-robin (for interrupts)
+  - Passes `isInterrupt` to `generatePersonaResponse()`
+- **Modified `src/components/spar/persona-card.tsx`**:
+  - Changed `interruptLevel` (0-5) prop to `agitation` (0-100)
+  - Interrupt meter now fills based on agitation: each dot = 20 points, amber at 80+
+- **Modified `src/components/spar/sparring-room.tsx`**:
+  - Added `coachingMode` and `drillTarget` props
+  - Added `playInterruptCue()` — generates a 400ms low rumble via Web Audio API (no audio file needed)
+  - Refactored `handleStopSpeaking` into a shared `submitTurn(isInterrupt, forcedPersonaId)` function
+  - Wired up `useAgitationEngine` with the live transcript + personas + coaching mode
+  - On interrupt: stops recording → plays audio cue → calls spar API with `isInterrupt: true` + `forcedPersonaId` → plays persona response
+  - Interrupts use shorter "thinking" delay (300ms vs 600ms) since the audio cue already created tension
+  - Passes per-persona `agitation` to each PersonaCard
+- **Modified `src/app/page.tsx`** — passes `coachingMode` and `drillTarget` from practice-view through to sparring-room
+- **Modified `src/components/spar/practice-view.tsx`** — `onSessionCreated` now passes `coachingMode` and `drillTarget`
+- Browser-verified:
+  - Session loads correctly, interrupt meter dots visible on all 3 persona cards
+  - API tested with `isInterrupt: true` + `forcedPersonaId` → persona response was type `interruption`, opened with "Wait—let me stop you there", TTS audio generated successfully
+  - No errors in dev log, lint clean
+
+Stage Summary:
+- **The panel now reacts to WHAT you say, not just WHEN you stop.**
+  - Say "I think maybe..." → Skeptic's agitation builds (30 per hedge) → at 4 hedges, interrupts
+  - Talk for 167+ words → Timekeeper's agitation builds → interrupts (cuts you off for rambling)
+  - Say "roughly 50%" or "about 200" → Nitpicker's agitation builds → interrupts (demands specifics)
+- **The interrupt flow:** trigger detected → recording stops → audio cue (low rumble) → persona "thinks" briefly → persona speaks (opens with "Hold on—" or "Wait—") → control returns to user
+- **Drill Mode integration:** when coachingMode is "drill" and the drill target matches a persona's archetype, that persona's threshold drops from 100 to 50 — they interrupt after just 2 triggers instead of 4
+- **No backend schema changes** — coachingMode and drillTarget are passed as client-side state (from practice-view → page.tsx → sparring-room). They'll be persisted to the session schema when we build the debrief differentiation (solid thing 4).
+- Lint passes clean. No errors in dev log.

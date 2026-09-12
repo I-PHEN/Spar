@@ -11,8 +11,8 @@ interface PersonaCardProps {
   behaviorStyle: BehaviorStyle;
   state: "idle" | "listening" | "thinking" | "speaking" | "about-to-interrupt";
   mood: PersonaMood;
-  /** Interrupt meter fill level (0-5) */
-  interruptLevel?: number;
+  /** Agitation score (0-100). Higher = closer to interrupting. */
+  agitation?: number;
   /** Sidebar mode (vertical, full) vs compact (mobile horizontal) */
   variant?: "sidebar" | "compact";
 }
@@ -51,7 +51,7 @@ export function PersonaCard({
   behaviorStyle,
   state,
   mood,
-  interruptLevel = 0,
+  agitation = 0,
   variant = "sidebar",
 }: PersonaCardProps) {
   const def = ARCHETYPES[archetype];
@@ -131,12 +131,14 @@ export function PersonaCard({
         )}
       </div>
 
-      {/* Interrupt meter — 5 dots */}
+      {/* Interrupt meter — 5 dots, fills as agitation builds toward 100 */}
       {!isCompact && (
         <div className="flex gap-1 mt-3">
           {[0, 1, 2, 3, 4].map((i) => {
-            const filled = i < interruptLevel;
-            const warning = filled && interruptLevel >= 4;
+            // Each dot = 20 agitation points. 5 dots = 100 = interrupt.
+            const dotThreshold = (i + 1) * 20;
+            const filled = agitation >= dotThreshold;
+            const warning = filled && agitation >= 80;
             return (
               <div
                 key={i}

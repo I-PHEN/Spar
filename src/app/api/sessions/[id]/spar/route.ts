@@ -24,6 +24,10 @@ interface SparBody {
   userMessage?: string;
   /** Latency (ms) between the last persona message arriving and the user submitting. */
   responseMs?: number;
+  /** When true, the persona is interrupting the user mid-speech (agitation threshold hit). */
+  isInterrupt?: boolean;
+  /** When provided, this persona speaks instead of the round-robin next. Used for interrupts. */
+  forcedPersonaId?: string;
 }
 
 const PERSONAS_PER_USER_TURN = 2;
@@ -106,21 +110,28 @@ export async function POST(
     });
   }
 
-  // Determine next persona (round-robin after the last persona to speak).
-  const lastPersonaMsg = [...messagesSinceLastUser].reverse().find((m) => m.role === "persona");
-  let nextPersonaOrder = 0;
-  if (lastPersonaMsg) {
-    const lastPersona = session.personas.find(
-      (p) => p.id === lastPersonaMsg.personaId
-    );
-    if (lastPersona) {
-      const lastOrder = lastPersona.seatOrder;
-      nextPersonaOrder = (lastOrder + 1) % personasCount;
+  // Determine next persona.
+  // If forcedPersonaId is provided (an interrupt), use that persona.
+  // Otherwise, round-robin after the last persona to speak.
+  let nextPersona;
+  if (body.forcedPersonaId) {
+    nextPersona = session.personas.find((p) => p.id === body.forcedPersonaId);
+  } else {
+    const lastPersonaMsg = [...messagesSinceLastUser].reverse().find((m) => m.role === "persona");
+    let nextPersonaOrder = 0;
+    if (lastPersonaMsg) {
+      const lastPersona = session.personas.find(
+        (p) => p.id === lastPersonaMsg.personaId
+      );
+      if (lastPersona) {
+        const lastOrder = lastPersona.seatOrder;
+        nextPersonaOrder = (lastOrder + 1) % personasCount;
+      }
     }
+    nextPersona = session.personas.find(
+      (p) => p.seatOrder === nextPersonaOrder
+    );
   }
-  const nextPersona = session.personas.find(
-    (p) => p.seatOrder === nextPersonaOrder
-  );
   if (!nextPersona) {
     return NextResponse.json({ error: "No persona available" }, { status: 500 });
   }
@@ -186,6 +197,7 @@ export async function POST(
     otherPersonas,
     transcript: transcriptStr,
     userMessage: userMessageForLlm,
+    isInterrupt: body.isInterrupt || false,
   });
 
   // Persist persona response.

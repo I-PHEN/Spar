@@ -27,6 +27,7 @@ import {
 import { PersonaCard } from "./persona-card";
 import { TelemetryBar } from "./telemetry-bar";
 import { useVoiceRecognition, playBase64Audio } from "@/hooks/use-voice";
+import { useAgitationEngine, type CoachingMode, type DrillTarget } from "@/hooks/use-agitation";
 import { SCENARIOS } from "@/lib/scenarios";
 import { quickStats } from "@/lib/telemetry";
 import type {
@@ -38,10 +39,37 @@ import type {
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+/**
+ * Play a subtle audio cue when a persona interrupts.
+ * Uses the Web Audio API to generate a short low rumble — no audio file needed.
+ */
+function playInterruptCue() {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 90;
+    osc.type = "sine";
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.4);
+  } catch {
+    // AudioContext not available — silent fallback
+  }
+}
+
 interface SparringRoomProps {
   sessionId: string;
   onSessionEnded: () => void;
   onExit: () => void;
+  coachingMode?: CoachingMode;
+  drillTarget?: DrillTarget;
 }
 
 interface SessionPersona {
@@ -96,6 +124,8 @@ export function SparringRoom({
   sessionId,
   onSessionEnded,
   onExit,
+  coachingMode = "pure-spar",
+  drillTarget = "hedging",
 }: SparringRoomProps) {
   const [personas, setPersonas] = useState<SessionPersona[]>([]);
   const [claims, setClaims] = useState<ExtractedClaim[]>([]);
@@ -120,54 +150,15 @@ export function SparringRoom({
   const [liveHedges, setLiveHedges] = useState(0);
   const [liveHasEvidence, setLiveHasEvidence] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
-  const [interruptLevel, setInterruptLevel] = useState(0);
 
   const sparInFlight = useRef(false);
   const captionsEndRef = useRef<HTMLDivElement>(null);
-  const speakingStartRef = useRef<number | null>(null);
-  const interruptTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Timer
   useEffect(() => {
     const t = setInterval(() => setElapsedSec(Math.floor((Date.now() - sessionStart) / 1000)), 1000);
     return () => clearInterval(t);
   }, [sessionStart]);
-
-  // Interrupt meter — fills while the user speaks, resets on persona response.
-  // One dot per ~4 seconds of speaking. At 5 dots, the panel is "about to interrupt."
-  useEffect(() => {
-    if (voice.isListening) {
-      speakingStartRef.current = Date.now();
-      setInterruptLevel(0);
-      interruptTimerRef.current = setInterval(() => {
-        if (!speakingStartRef.current) return;
-        const elapsed = (Date.now() - speakingStartRef.current) / 1000;
-        // Fill 1 dot per 4 seconds, cap at 5
-        const level = Math.min(5, Math.floor(elapsed / 4));
-        setInterruptLevel(level);
-      }, 500);
-    } else {
-      speakingStartRef.current = null;
-      if (interruptTimerRef.current) {
-        clearInterval(interruptTimerRef.current);
-        interruptTimerRef.current = null;
-      }
-      // Don't reset immediately — let it fade after persona responds
-    }
-    return () => {
-      if (interruptTimerRef.current) {
-        clearInterval(interruptTimerRef.current);
-        interruptTimerRef.current = null;
-      }
-    };
-  }, [voice.isListening]);
-
-  // Reset interrupt meter when processing starts (persona takes over)
-  useEffect(() => {
-    if (isProcessing) {
-      setInterruptLevel(0);
-    }
-  }, [isProcessing]);
 
   // Auto-scroll captions
   useEffect(() => {
@@ -324,116 +315,165 @@ export function SparringRoom({
     voice.start();
   }, [voice]);
 
-  // Handle user pressing "Done" (stop speaking)
-  const handleStopSpeaking = useCallback(async () => {
-    voice.stop();
+  // Submit the user's turn to the panel. Used by both "Done" (normal stop)
+  // and the agitation engine (interrupt). When isInterrupt=true, the persona
+  // response is framed as a mid-speech interruption.
+  const submitTurn = useCallback(
+    async (isInterrupt: boolean, interruptingPersonaId?: string) => {
+      voice.stop();
 
-    // Wait a brief moment for final transcript to settle
-    await new Promise((r) => setTimeout(r, 300));
+      // Wait a brief moment for final transcript to settle
+      await new Promise((r) => setTimeout(r, 300));
 
-    const transcript = voice.finalTranscript.trim();
-    if (!transcript || transcript.length < 3) {
-      return;
-    }
-
-    if (sparInFlight.current) return;
-    sparInFlight.current = true;
-    setIsUserTurn(false);
-    setIsProcessing(true);
-
-    // Add the finalized user message to captions
-    setCaptions((prev) => [
-      ...prev.filter((c) => !c.isLive),
-      {
-        id: `u-${Date.now()}`,
-        role: "user",
-        content: transcript,
-        type: "normal",
-        createdAt: Date.now(),
-      },
-    ]);
-
-    // Mark all personas as listening (reset from speaking)
-    setPersonaStates((prev) => {
-      const next: Record<string, PersonaState> = {};
-      for (const k of Object.keys(prev)) next[k] = "listening";
-      return { ...prev, ...next };
-    });
-
-    try {
-      let userTurn = false;
-      let first = true;
-      while (!userTurn) {
-        const body = first ? { userMessage: transcript } : {};
-        first = false;
-
-        const res = await fetch(`/api/sessions/${sessionId}/spar`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        if (!res.ok) throw new Error("Spar failed");
-        const data: SparResponse = await res.json();
-
-        if (!data.personaResponse) {
-          userTurn = true;
-          break;
-        }
-
-        const pr = data.personaResponse;
-
-        // Show "thinking" briefly before the persona speaks
-        setPersonaStates((prev) => ({ ...prev, [pr.personaId]: "thinking" }));
-        await new Promise((r) => setTimeout(r, 600));
-
-        // Persona speaks
-        setPersonaStates((prev) => ({ ...prev, [pr.personaId]: "speaking" }));
-        setPersonaMoods((prev) => ({ ...prev, [pr.personaId]: pr.mood }));
-
-        // Add caption
-        setCaptions((prev) => [
-          ...prev,
-          {
-            id: pr.id,
-            role: "persona",
-            personaId: pr.personaId,
-            personaName: pr.personaName,
-            archetype: pr.archetype,
-            content: pr.content,
-            type: pr.type,
-            claimRef: pr.claimRef,
-            mood: pr.mood,
-            createdAt: new Date(pr.createdAt).getTime(),
-          },
-        ]);
-
-        // Play audio
-        if (pr.audio) {
-          setAudioPlaying(true);
-          try {
-            await playBase64Audio(pr.audio);
-          } catch (e) {
-            console.error("Audio playback failed:", e);
-          }
-          setAudioPlaying(false);
-        }
-
-        // Persona done — back to listening
-        setPersonaStates((prev) => ({ ...prev, [pr.personaId]: "listening" }));
-
-        userTurn = data.isUserTurn;
+      // Use both final + interim transcript (interim has the words being
+      // spoken when the interrupt fired — they may not have been finalized)
+      const transcript = (
+        voice.finalTranscript +
+        " " +
+        voice.interimTranscript
+      ).trim();
+      if (!transcript || transcript.length < 3) {
+        return;
       }
 
-      setIsUserTurn(true);
-      setIsProcessing(false);
-    } catch (e) {
-      setError(String(e));
-      setIsUserTurn(true);
-      setIsProcessing(false);
-    } finally {
-      sparInFlight.current = false;
-    }
-  }, [voice, sessionId]);
+      if (sparInFlight.current) return;
+      sparInFlight.current = true;
+      setIsUserTurn(false);
+      setIsProcessing(true);
+
+      // If this is an interrupt, play the audio cue (chair-shift rumble)
+      if (isInterrupt) {
+        playInterruptCue();
+      }
+
+      // Add the finalized user message to captions
+      setCaptions((prev) => [
+        ...prev.filter((c) => !c.isLive),
+        {
+          id: `u-${Date.now()}`,
+          role: "user",
+          content: transcript,
+          type: isInterrupt ? "normal" : "normal",
+          createdAt: Date.now(),
+        },
+      ]);
+
+      // Mark all personas as listening (reset from speaking)
+      setPersonaStates((prev) => {
+        const next: Record<string, PersonaState> = {};
+        for (const k of Object.keys(prev)) next[k] = "listening";
+        return { ...prev, ...next };
+      });
+
+      try {
+        let userTurn = false;
+        let first = true;
+        while (!userTurn) {
+          const body = first
+            ? {
+                userMessage: transcript,
+                isInterrupt: isInterrupt,
+                forcedPersonaId: interruptingPersonaId,
+              }
+            : {};
+          first = false;
+
+          const res = await fetch(`/api/sessions/${sessionId}/spar`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          if (!res.ok) throw new Error("Spar failed");
+          const data: SparResponse = await res.json();
+
+          if (!data.personaResponse) {
+            userTurn = true;
+            break;
+          }
+
+          const pr = data.personaResponse;
+
+          // Show "thinking" briefly before the persona speaks
+          // (shorter for interrupts — the cue already created tension)
+          setPersonaStates((prev) => ({ ...prev, [pr.personaId]: "thinking" }));
+          await new Promise((r) => setTimeout(r, isInterrupt ? 300 : 600));
+
+          // Persona speaks
+          setPersonaStates((prev) => ({ ...prev, [pr.personaId]: "speaking" }));
+          setPersonaMoods((prev) => ({ ...prev, [pr.personaId]: pr.mood }));
+
+          // Add caption
+          setCaptions((prev) => [
+            ...prev,
+            {
+              id: pr.id,
+              role: "persona",
+              personaId: pr.personaId,
+              personaName: pr.personaName,
+              archetype: pr.archetype,
+              content: pr.content,
+              type: pr.type,
+              claimRef: pr.claimRef,
+              mood: pr.mood,
+              createdAt: new Date(pr.createdAt).getTime(),
+            },
+          ]);
+
+          // Play audio
+          if (pr.audio) {
+            setAudioPlaying(true);
+            try {
+              await playBase64Audio(pr.audio);
+            } catch (e) {
+              console.error("Audio playback failed:", e);
+            }
+            setAudioPlaying(false);
+          }
+
+          // Persona done — back to listening
+          setPersonaStates((prev) => ({ ...prev, [pr.personaId]: "listening" }));
+
+          userTurn = data.isUserTurn;
+        }
+
+        setIsUserTurn(true);
+        setIsProcessing(false);
+      } catch (e) {
+        setError(String(e));
+        setIsUserTurn(true);
+        setIsProcessing(false);
+      } finally {
+        sparInFlight.current = false;
+      }
+    },
+    [voice, sessionId]
+  );
+
+  // Handle user pressing "Done" (stop speaking)
+  const handleStopSpeaking = useCallback(() => {
+    submitTurn(false);
+  }, [submitTurn]);
+
+  // ─── The Agitation Engine ────────────────────────────────────────────
+  // Watches the live transcript for heuristic triggers (hedges, long answers,
+  // vague quantifiers). When a persona's agitation hits 100, fires an interrupt.
+  const handleInterrupt = useCallback(
+    (personaId: string, reason: string) => {
+      console.log(`[agitation] Interrupt fired: ${personaId} (${reason})`);
+      submitTurn(true, personaId);
+    },
+    [submitTurn]
+  );
+
+  const agitation = useAgitationEngine({
+    personas: personas.map((p) => ({ id: p.id, archetype: p.archetype })),
+    interimTranscript: voice.interimTranscript,
+    finalTranscript: voice.finalTranscript,
+    isListening: voice.isListening && isUserTurn && !isProcessing,
+    coachingMode,
+    drillTarget,
+    onInterrupt: handleInterrupt,
+  });
 
   // End session
   async function handleEnd() {
@@ -554,7 +594,7 @@ export function SparringRoom({
                   behaviorStyle={p.behaviorStyle}
                   state={personaStates[p.id] || "idle"}
                   mood={personaMoods[p.id] || "neutral"}
-                  interruptLevel={interruptLevel}
+                  agitation={agitation[p.id] || 0}
                   variant="compact"
                 />
               </div>
@@ -624,7 +664,7 @@ export function SparringRoom({
               behaviorStyle={p.behaviorStyle}
               state={personaStates[p.id] || "idle"}
               mood={personaMoods[p.id] || "neutral"}
-              interruptLevel={interruptLevel}
+              agitation={agitation[p.id] || 0}
               variant="sidebar"
             />
           ))}

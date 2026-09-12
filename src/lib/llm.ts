@@ -141,6 +141,8 @@ interface GeneratePersonaParams {
   transcript: string;
   /** What the user just said in their latest message */
   userMessage: string;
+  /** When true, the persona is interrupting the user mid-speech. The response should open with a sharp cutting-in phrase. */
+  isInterrupt?: boolean;
 }
 
 interface RawPersonaResponse {
@@ -173,6 +175,17 @@ ${params.transcript || "(Session just started.)"}
 
 # WHAT THE USER JUST SAID
 ${params.userMessage}
+${
+    params.isInterrupt
+      ? `
+# IMPORTANT: YOU ARE INTERRUPTING
+The user was still speaking when you cut in. You interrupted because they triggered your agitation threshold (${ARCHETYPES[params.archetype].defaultName} detected a pattern they can't ignore).
+
+Open your response with a sharp cutting-in phrase — "Hold on—", "Let me stop you there—", "Wait—" or similar. Then deliver your challenge directly. Make it feel like you couldn't wait for them to finish.
+
+Set "type": "interruption" in your JSON response.`
+      : ""
+}
 
 Respond now with your JSON object. Remember: 1-3 sentences max, in-character, strict JSON.`;
 

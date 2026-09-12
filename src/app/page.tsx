@@ -7,6 +7,7 @@ import { PracticeView } from "@/components/spar/practice-view";
 import { SparringRoom } from "@/components/spar/sparring-room";
 import { DebriefView } from "@/components/spar/debrief-view";
 import { SCENARIOS } from "@/lib/scenarios";
+import type { CoachingMode, DrillTarget } from "@/hooks/use-agitation";
 import { GraduationCap, TrendingUp, Hammer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -17,6 +18,8 @@ export default function Page() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [scenarioLabel, setScenarioLabel] = useState<string | undefined>();
   const [userName, setUserName] = useState<string>("there");
+  const [coachingMode, setCoachingMode] = useState<CoachingMode>("pure-spar");
+  const [drillTarget, setDrillTarget] = useState<DrillTarget>("hedging");
 
   // Load user once
   useEffect(() => {
@@ -37,8 +40,14 @@ export default function Page() {
     setView(v);
   }
 
-  function handleSessionCreated(sessionId: string) {
+  function handleSessionCreated(
+    sessionId: string,
+    mode: CoachingMode = "pure-spar",
+    target: DrillTarget = "hedging"
+  ) {
     setActiveSessionId(sessionId);
+    setCoachingMode(mode);
+    setDrillTarget(target);
     setView("sparring");
   }
 
@@ -73,6 +82,8 @@ export default function Page() {
         sessionId={activeSessionId}
         onSessionEnded={handleSessionEnded}
         onExit={handleBackHome}
+        coachingMode={coachingMode}
+        drillTarget={drillTarget}
       />
     );
   }
