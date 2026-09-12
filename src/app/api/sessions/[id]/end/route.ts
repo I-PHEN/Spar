@@ -203,68 +203,126 @@ export async function POST(
   }
 
   // ─── Drill stats (Drill Mode only) ─────────────────────────────────────
-  // Count drill challenges from the transcript. Each "interruption" type
-  // message from a persona = one drill challenge. Each subsequent user
-  // message before the next non-interruption persona message = an attempt.
+  // A "drill challenge" = one question that triggered at least one correction.
+  // Consecutive interruptions for the same question are GROUPED into one
+  // challenge (the user got corrected multiple times before answering cleanly).
+  //
+  // Recovery time = seconds from the FIRST correction to the clean answer
+  // (the acknowledgment message that follows). Tracked via message timestamps.
   let drillSection: GenerateDebriefParams["drillSection"] | undefined;
   if (session.experience === "drill") {
     const drillTarget = (session.drillTarget as DrillTarget) || "hedging";
     const def = getDrillDefinition(drillTarget);
 
-    // Count interruptions (drill challenges) in the transcript
     const interruptions = messages.filter(
       (m) => m.role === "persona" && m.type === "interruption"
     );
-    const totalChallenges = interruptions.length;
 
-    // Count user messages between interruptions to estimate attempts
-    // (each user message after an interruption = one attempt)
+    // Group consecutive interruptions + user messages into challenges.
+    // A challenge starts at the first interruption and ends at the next
+    // non-interruption persona message (the ack) or the end of the transcript.
+    interface ChallengeGroup {
+      firstInterruptIdx: number;
+      ackIdx: number | null; // null = unresolved (session ended mid-retry)
+      attempts: number; // user messages in this challenge
+      firstInterruptTime: number;
+      ackTime: number | null;
+    }
+
+    const challenges: ChallengeGroup[] = [];
+    let i = 0;
+    while (i < messages.length) {
+      if (messages[i].role === "persona" && messages[i].type === "interruption") {
+        const firstInterruptIdx = i;
+        const firstInterruptTime = messages[i].createdAt.getTime();
+        let attempts = 0;
+        let ackIdx: number | null = null;
+        let ackTime: number | null = null;
+
+        // Walk forward: count user messages, skip subsequent interruptions
+        // (same challenge), stop at the ack (non-interruption persona message).
+        let j = i + 1;
+        while (j < messages.length) {
+          if (messages[j].role === "user") {
+            attempts++;
+          } else if (messages[j].role === "persona") {
+            if (messages[j].type === "interruption") {
+              // Subsequent correction — same challenge, keep going
+            } else {
+              // Acknowledgment (ack + next question) — challenge resolved
+              ackIdx = j;
+              ackTime = messages[j].createdAt.getTime();
+              break;
+            }
+          }
+          j++;
+        }
+
+        challenges.push({
+          firstInterruptIdx,
+          ackIdx,
+          attempts,
+          firstInterruptTime,
+          ackTime,
+        });
+
+        // Jump to the ack (or end) so we don't re-count this challenge's
+        // interruptions as separate challenges.
+        i = ackIdx !== null ? ackIdx + 1 : messages.length;
+      } else {
+        i++;
+      }
+    }
+
+    const totalChallenges = challenges.length;
+    const totalCorrections = interruptions.length;
+    const resolvedChallenges = challenges.filter((c) => c.ackIdx !== null).length;
+    const unresolvedChallenges = totalChallenges - resolvedChallenges;
+
     let attempt1Clean = 0;
     let attempt2Clean = 0;
     let attempt3Plus = 0;
-    let resolved = 0;
+    const recoveryTimes: number[] = [];
 
-    for (let i = 0; i < interruptions.length; i++) {
-      const interruptIdx = messages.indexOf(interruptions[i]);
-      // Count user messages until the next non-interruption persona message
-      // (that's the acknowledgment "Good. Next.")
-      let attempts = 0;
-      for (let j = interruptIdx + 1; j < messages.length; j++) {
-        if (messages[j].role === "user") {
-          attempts++;
-        } else if (
-          messages[j].role === "persona" &&
-          messages[j].type !== "interruption"
-        ) {
-          // This is the acknowledgment — resolved
-          break;
-        }
+    for (const c of challenges) {
+      if (c.ackIdx === null) continue; // unresolved — skip scoring
+      if (c.attempts === 1) attempt1Clean++;
+      else if (c.attempts === 2) attempt2Clean++;
+      else if (c.attempts >= 3) attempt3Plus++;
+      if (c.ackTime !== null) {
+        const recoverySec = Math.max(0, (c.ackTime - c.firstInterruptTime) / 1000);
+        recoveryTimes.push(recoverySec);
       }
-      if (attempts === 1) attempt1Clean++;
-      else if (attempts === 2) attempt2Clean++;
-      else if (attempts >= 3) attempt3Plus++;
-      if (attempts > 0) resolved++;
     }
 
-    const totalScore =
-      attempt1Clean * 3 + attempt2Clean * 2 + attempt3Plus * 1;
+    const totalScore = attempt1Clean * 3 + attempt2Clean * 2 + attempt3Plus * 1;
     const maxScore = totalChallenges * 3;
+    const fastestRecovery = recoveryTimes.length > 0 ? Math.min(...recoveryTimes) : 0;
+    const slowestRecovery = recoveryTimes.length > 0 ? Math.max(...recoveryTimes) : 0;
+    const avgRecovery =
+      recoveryTimes.length > 0
+        ? recoveryTimes.reduce((a, b) => a + b, 0) / recoveryTimes.length
+        : 0;
 
     drillSection = {
       target: drillTarget,
       label: def.label,
       totalChallenges,
-      resolvedChallenges: resolved,
-      unresolvedChallenges: totalChallenges - resolved,
+      resolvedChallenges,
+      unresolvedChallenges,
       attempt1Clean,
       attempt2Clean,
       attempt3Plus,
-      fastestRecovery: 0, // Would need timestamp tracking — future enhancement
-      slowestRecovery: 0,
-      avgRecovery: 0,
+      fastestRecovery: Math.round(fastestRecovery),
+      slowestRecovery: Math.round(slowestRecovery),
+      avgRecovery: Math.round(avgRecovery),
       totalScore,
       maxScore,
     };
+
+    console.log(
+      `[drill] ${drillTarget}: ${totalChallenges} challenges, ${totalCorrections} corrections, ${resolvedChallenges} resolved, ${unresolvedChallenges} unresolved, avg recovery ${Math.round(avgRecovery)}s`
+    );
   }
 
   // Generate the debrief.

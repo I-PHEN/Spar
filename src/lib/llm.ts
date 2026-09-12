@@ -240,6 +240,8 @@ export async function generateOpening(params: {
   claims: ExtractedClaim[];
   patternMemory: string;
   otherPersonas: Array<{ name: string; archetype: ArchetypeKey }>;
+  /** Optional extra instruction appended to the opening prompt (e.g., drill framing). */
+  extraOpeningInstruction?: string;
 }): Promise<RawPersonaResponse> {
   const zai = await getZai();
 
@@ -252,12 +254,16 @@ export async function generateOpening(params: {
     otherPersonas: params.otherPersonas,
   });
 
+  const drillBlock = params.extraOpeningInstruction
+    ? `\n\n${params.extraOpeningInstruction}`
+    : "";
+
   const userPrompt = `# SESSION STARTING
 The user has just entered the sparring room. They have NOT yet spoken. As the first panelist to speak, deliver your OPENING CHALLENGE — a single, pointed question or provocation that sets the tone and probes the user's central claim.
 
 Do NOT introduce yourself. Do NOT say "welcome." Go straight at their argument.
 
-Respond with your JSON object. The "type" should be "normal" (this is the opening, not an interruption).`;
+Respond with your JSON object. The "type" should be "normal" (this is the opening, not an interruption).${drillBlock}`;
 
   const completion = await zai.chat.completions.create({
     messages: [

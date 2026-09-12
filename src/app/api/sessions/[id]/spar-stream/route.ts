@@ -13,7 +13,14 @@ import { db } from "@/lib/db";
 import { buildPersonaSystemPrompt } from "@/lib/personas";
 import { buildPatternMemoryContext } from "@/lib/llm";
 import { generatePersonaAudio } from "@/lib/voice";
-import { buildDrillPrompt, buildDrillInterruptInstruction } from "@/lib/drills";
+import {
+  buildDrillPrompt,
+  buildDrillInterruptInstruction,
+  buildDrillNextQuestionInstruction,
+  buildBoardroomInterruptInstruction,
+  getDrillCorrection,
+  getDrillAcknowledgment,
+} from "@/lib/drills";
 import {
   streamPersonaResponse,
   parseStreamedPersonaResponse,
@@ -26,7 +33,7 @@ import {
   setCachedPrompt,
 } from "@/lib/session-cache";
 import { SCENARIOS } from "@/lib/scenarios";
-import type { ArchetypeKey, ExtractedClaim } from "@/lib/types";
+import type { ArchetypeKey, DrillTarget, ExtractedClaim } from "@/lib/types";
 
 const PERSONAS_PER_USER_TURN = 1;
 
@@ -156,7 +163,10 @@ export async function POST(
       return new Response("Session not found", { status: 404 });
     }
 
-    if (session.status !== "active") {
+    // Allow both "active" (normal Q&A) and "presenting" (Boardroom interrupts
+    // during the presentation phase). Without "presenting", boardroom
+    // mid-speech interrupts would be rejected with 400.
+    if (session.status !== "active" && session.status !== "presenting") {
       return new Response(`Session not active (status: ${session.status})`, { status: 400 });
     }
 
@@ -214,9 +224,9 @@ export async function POST(
 
     const experienceContext =
       experience === "defense"
-        ? "\n## EXPERIENCE: DEFENSE\nThe user has already presented their material. Ask questions about what they actually said."
+        ? "\n## EXPERIENCE: DEFENSE\nThe user has already presented their material. The transcript above includes their full presentation. Ask questions about what they actually said — reference specific points from their presentation."
         : experience === "boardroom"
-        ? "\n## EXPERIENCE: BOARDROOM\nYou are in a high-pressure boardroom. The user is presenting and you may interrupt mid-speech."
+        ? "\n## EXPERIENCE: BOARDROOM\nYou are in a high-pressure boardroom. The user is presenting and you WILL interrupt mid-speech when they show weakness. Your interrupts should feel SHARP and AGGRESSIVE — 'Wait, where did that number come from?' not 'What evidence supports your claim?' Cut them off. Don't let them finish the sentence if the claim is weak. After your interrupt, the user will answer briefly, then RESUME presenting. Stay hostile."
         : experience === "drill"
         ? buildDrillPrompt((drillTarget as any) || "hedging")
         : "";
@@ -279,6 +289,96 @@ export async function POST(
     setCachedPrompt(id, nextPersonaId, systemPrompt);
   }
 
+  // ─── DETERMINISTIC DRILL INTERRUPT (skip the LLM entirely) ────────────
+  // When the agitation engine fires in Drill Mode, the correction phrase is
+  // FIXED. No reason to call the LLM. Makes corrections:
+  //   - Instant (~1.7s TTS-only, vs 3-5s LLM + TTS)
+  //   - Reliable (never paraphrased by gpt-oss-20b)
+  //   - Consistent (every instance gets the same sharp correction)
+  if (body.drillInterrupt && experience === "drill") {
+    const target = (drillTarget as DrillTarget) || "hedging";
+    const correctionText = getDrillCorrection(target);
+
+    const encoder = new TextEncoder();
+    let drillClosed = false;
+
+    const drillStream = new ReadableStream({
+      async start(controller) {
+        const send = (event: string, data: unknown) => {
+          if (drillClosed) return;
+          try {
+            controller.enqueue(
+              encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+            );
+          } catch {
+            // closed
+          }
+        };
+
+        send("start", {
+          personaId: nextPersona.id,
+          personaName: nextPersona.name,
+          archetype: nextPersona.archetype,
+          behaviorStyle: nextPersona.behaviorStyle,
+          seatOrder: nextPersona.seatOrder,
+        });
+
+        try {
+          const audio = await generatePersonaAudio(
+            correctionText,
+            nextPersona.archetype as ArchetypeKey,
+            nextPersona.behaviorStyle as "gentle" | "moderate" | "aggressive"
+          );
+
+          send("sentence", {
+            text: correctionText,
+            audio,
+            index: 0,
+          });
+
+          const message = await db.sessionMessage.create({
+            data: {
+              sessionId: id,
+              personaId: nextPersona.id,
+              role: "persona",
+              content: correctionText.slice(0, 2000),
+              type: "interruption",
+              claimRef: null,
+            },
+          });
+
+          send("done", {
+            isUserTurn: true,
+            type: "interruption",
+            claimRef: null,
+            mood: "pressing",
+            messageId: message.id,
+          });
+        } catch (err) {
+          console.error("[spar-stream] Drill interrupt TTS failed:", err);
+          send("error", {
+            message: "The correction couldn't be delivered. Please try again.",
+          });
+        } finally {
+          drillClosed = true;
+          try {
+            controller.close();
+          } catch {
+            // already closed
+          }
+        }
+      },
+    });
+
+    return new Response(drillStream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    });
+  }
+
   // ─── 3. Build the user prompt ──────────────────────────────────────
   // Get the transcript (lightweight — just messages, no joins)
   const messages = await db.sessionMessage.findMany({
@@ -306,12 +406,24 @@ export async function POST(
   }
 
   const interruptInstruction = body.isInterrupt
-    ? `\n# IMPORTANT: YOU ARE INTERRUPTING\nOpen with "Hold on—" or "Wait—". Set "type": "interruption".`
+    ? experience === "boardroom"
+      ? buildBoardroomInterruptInstruction()
+      : `\n# IMPORTANT: YOU ARE INTERRUPTING\nOpen with "Hold on—" or "Wait—". Set "type": "interruption".`
     : "";
 
+  // Drill clean-answer instruction: the user just answered cleanly after a
+  // correction (no weakness detected this turn). The LLM generates ONLY the
+  // next question — the deterministic acknowledgment is prepended after.
+  const drillCleanInstruction =
+    !body.isInterrupt && experience === "drill" && body.drillClean
+      ? buildDrillNextQuestionInstruction((drillTarget as DrillTarget) || "hedging")
+      : "";
+
+  // Legacy drill interrupt instruction — only used by the non-streaming /spar
+  // fallback. The streaming path uses the deterministic drillInterrupt block above.
   const drillInterruptInstruction =
     body.isInterrupt && experience === "drill"
-      ? buildDrillInterruptInstruction((drillTarget as any) || "hedging")
+      ? buildDrillInterruptInstruction((drillTarget as DrillTarget) || "hedging")
       : "";
 
   const userPrompt = `# CONVERSATION SO FAR
@@ -321,6 +433,7 @@ ${transcriptStr || "(Session just started.)"}
 ${userMessageForLlm}
 ${interruptInstruction}
 ${drillInterruptInstruction}
+${drillCleanInstruction}
 
 Respond with your JSON object. 1-2 sentences max. Strict JSON only.`;
 
@@ -446,7 +559,19 @@ Respond with your JSON object. 1-2 sentences max. Strict JSON only.`;
 
         // Parse full JSON for metadata
         const parsed = parseStreamedPersonaResponse(fullText);
-        const content = parsed?.content || accumulatedContent;
+        let content = parsed?.content || accumulatedContent;
+
+        // Drill clean-answer: prepend the deterministic acknowledgment so the
+        // user hears "Good. That was declarative. Next." consistently, then
+        // the LLM's generated question follows. The LLM was instructed NOT
+        // to include the acknowledgment itself.
+        if (body.drillClean && experience === "drill") {
+          const ack = getDrillAcknowledgment(
+            (drillTarget as DrillTarget) || "hedging"
+          );
+          content = `${ack} ${content}`.trim();
+        }
+
         const type = parsed?.type || (body.isInterrupt ? "interruption" : "normal");
         const claimRef = parsed?.claimRef ?? null;
         const mood = parsed?.mood || "neutral";

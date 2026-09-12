@@ -145,10 +145,23 @@ export function SparringRoom({
   const [settling, setSettling] = useState(false);
   const [coachRead, setCoachRead] = useState<string | null>(null);
   const [analyzingPresentation, setAnalyzingPresentation] = useState(false);
-  // Drill re-attempt state: when a drill interrupt fires, the user should see
-  // "Try again" instead of a normal mic button, and the system should send
-  // the same question context (not advance to a new question).
+  // Drill re-attempt state: when a drill interrupt fires, the user sees
+  // "Try again" instead of a normal mic button. The system sends the
+  // same question context (not advance to a new question).
+  //
+  // drillRetry (state) drives the UI render. drillRetryRef (ref) is always
+  // current and is read inside submitTurn/handleStopSpeaking callbacks to
+  // avoid stale-closure bugs (the callbacks don't list drillRetry in deps).
   const [drillRetry, setDrillRetry] = useState(false);
+  const drillRetryRef = useRef(false);
+  const setDrillRetryBoth = useCallback((v: boolean) => {
+    drillRetryRef.current = v;
+    setDrillRetry(v);
+  }, []);
+  // How many corrections have fired for the current question (0 = first try).
+  // Shown in the UI as "Attempt N" so the user knows how many times they've
+  // been corrected. Reset to 0 when they answer cleanly.
+  const [drillAttempts, setDrillAttempts] = useState(0);
   const [connectionError, setConnectionError] = useState(false);
   const [personaStates, setPersonaStates] = useState<Record<string, PersonaState>>({});
   const [personaMoods, setPersonaMoods] = useState<Record<string, PersonaMood>>({});
@@ -379,7 +392,8 @@ export function SparringRoom({
     async (
       isInterrupt: boolean,
       interruptingPersonaId?: string,
-      resumePresenting: boolean = false
+      resumePresenting: boolean = false,
+      drillFlags?: { drillInterrupt?: boolean; drillClean?: boolean }
     ) => {
       voice.stop();
 
@@ -431,6 +445,10 @@ export function SparringRoom({
             userMessage: transcript,
             isInterrupt: isInterrupt,
             forcedPersonaId: interruptingPersonaId,
+            // Drill flags: drillInterrupt → deterministic correction (no LLM).
+            // drillClean → LLM generates next question, deterministic ack prepended.
+            drillInterrupt: drillFlags?.drillInterrupt ?? false,
+            drillClean: drillFlags?.drillClean ?? false,
           }),
         });
 
@@ -574,9 +592,16 @@ export function SparringRoom({
         if (resumePresenting) {
           setIsPresenting(true);
         }
-        // Clear drill retry if the response was NOT an interrupt (user answered cleanly)
-        if (!isInterrupt) {
-          setDrillRetry(false);
+        // Drill state management:
+        // - drillClean (user answered cleanly after correction): reset retry
+        //   state and attempts — the user is back to a fresh question.
+        // - drillInterrupt (another correction fired): keep retry state —
+        //   the user stays in "Try again" mode. Attempts were incremented
+        //   in handleInterrupt.
+        // - Normal turn (no drill flags): no change to drill state.
+        if (drillFlags?.drillClean) {
+          setDrillRetryBoth(false);
+          setDrillAttempts(0);
         }
         setIsUserTurn(true);
         setIsProcessing(false);
@@ -594,8 +619,13 @@ export function SparringRoom({
 
   // Handle user pressing "Done" (stop speaking)
   const handleStopSpeaking = useCallback(() => {
-    submitTurn(false);
-  }, [submitTurn]);
+    // In Drill Mode: if the user is answering after a correction (drillRetry
+    // is true) and clicks Done without triggering another agitation interrupt,
+    // that means their answer was clean. Send drillClean so the backend
+    // generates the NEXT question with a deterministic acknowledgment.
+    const isDrillClean = experience === "drill" && drillRetryRef.current;
+    submitTurn(false, undefined, false, isDrillClean ? { drillClean: true } : undefined);
+  }, [submitTurn, experience]);
 
   // ─── Defense flow: Done Presenting ────────────────────────────────────
   // Called when the user clicks "Done Presenting" in a Defense session.
@@ -750,11 +780,17 @@ export function SparringRoom({
       console.log(`[agitation] Interrupt fired: ${personaId} (${reason})`);
       // For Boardroom: interrupt during presenting → resume presenting after
       const shouldResume = experience === "boardroom" && isPresenting;
-      // For Drill: set retry state so the user sees "Try again" instead of a new question
+      // For Drill: enter retry state (show "Try again") and send the
+      // deterministic drillInterrupt flag so the backend returns the fixed
+      // correction phrase WITHOUT calling the LLM. Increment the attempt
+      // counter so the UI shows "Attempt 2", "Attempt 3", etc.
       if (experience === "drill") {
-        setDrillRetry(true);
+        setDrillRetryBoth(true);
+        setDrillAttempts((n) => n + 1);
       }
-      submitTurn(true, personaId, shouldResume);
+      const drillFlags =
+        experience === "drill" ? { drillInterrupt: true } : undefined;
+      submitTurn(true, personaId, shouldResume, drillFlags);
     },
     [submitTurn, experience, isPresenting]
   );
@@ -863,6 +899,11 @@ export function SparringRoom({
                   Drill: {drillTarget.replace(/-/g, " ")}
                 </span>
               )}
+              {experience === "boardroom" && (
+                <span className="flex-shrink-0 rounded border border-amber-500/20 bg-amber-500/[0.06] px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-amber-300/80">
+                  Boardroom
+                </span>
+              )}
             </div>
             <p className="hidden sm:block text-xs text-neutral-500 max-w-xl truncate">
               {roomContext}
@@ -940,6 +981,49 @@ export function SparringRoom({
             </div>
           )}
 
+          {/* Boardroom live-pressure banner — shows the panel's agitation
+              building in real-time while the user presents. This is the
+              "interrupt meter visibility" fix: in Boardroom, you should SEE
+              the panel getting agitated before they cut you off. */}
+          {experience === "boardroom" && isPresenting && voice.isListening && (
+            <div className="flex-shrink-0 border-b border-[#1a1a1a] px-4 py-2 lg:px-6">
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] uppercase tracking-wider text-amber-500/70 flex-shrink-0 animate-pulse">
+                  Under pressure
+                </span>
+                <div className="flex gap-1.5 flex-1 min-w-0">
+                  {personas.map((p) => {
+                    const score = agitation[p.id] || 0;
+                    const dots = Math.min(5, Math.floor(score / 20));
+                    const danger = score >= 80;
+                    return (
+                      <div key={p.id} className="flex items-center gap-1 flex-shrink-0">
+                        <span className="text-[9px] uppercase tracking-wider text-neutral-600 hidden sm:inline">
+                          {p.name.replace("The ", "")}
+                        </span>
+                        <div className="flex gap-0.5">
+                          {[0,1,2,3,4].map((i) => (
+                            <div
+                              key={i}
+                              className={cn(
+                                "h-1.5 w-1.5 rounded-full transition-colors duration-300",
+                                i < dots
+                                  ? danger
+                                    ? "bg-red-400"
+                                    : "bg-amber-400"
+                                  : "bg-neutral-800"
+                              )}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Conversation feed — scrollable */}
           <div className="flex-1 overflow-y-auto px-4 py-4 lg:px-6">
             <div className="mx-auto max-w-2xl space-y-3">
@@ -975,6 +1059,18 @@ export function SparringRoom({
                       </p>
                     </>
                   )}
+                </div>
+              )}
+
+              {/* Boardroom "resume presenting" cue — shows after an interrupt
+                  resolves, reminding the user to continue their presentation
+                  (not switch to Q&A mode). Auto-dismisses when they start
+                  speaking again. */}
+              {experience === "boardroom" && isPresenting && isUserTurn && !voice.isListening && captions.length > 0 && (
+                <div className="spar-fade-up rounded-md border border-amber-500/20 bg-amber-500/[0.03] px-4 py-2.5 text-center">
+                  <p className="text-xs text-amber-300/80">
+                    Continue presenting — or click <span className="text-amber-200">Done Presenting</span> if you're finished.
+                  </p>
                 </div>
               )}
 
@@ -1128,7 +1224,10 @@ export function SparringRoom({
                 </span>
               </div>
             ) : drillRetry && isUserTurn && !isProcessing ? (
-              // Drill retry: show "Try again" instead of normal mic button
+              // Drill retry: show "Try again" with attempt count instead of
+              // the normal mic button. The user is re-answering after a
+              // deterministic correction. They must answer WITHOUT the
+              // drilled weakness to advance to the next question.
               <div className="flex items-center gap-3">
                 {voice.isListening ? (
                   <button
@@ -1149,7 +1248,9 @@ export function SparringRoom({
                   </button>
                 )}
                 <span className="text-[10px] uppercase tracking-wider text-amber-400/70 hidden sm:inline">
-                  {voice.isListening ? "Answering..." : "Answer without hedging"}
+                  {voice.isListening
+                    ? `Answering — attempt ${drillAttempts + 1}`
+                    : `Attempt ${drillAttempts + 1} — answer without the weakness`}
                 </span>
               </div>
             ) : isUserTurn && !isProcessing ? (

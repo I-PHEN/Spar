@@ -13,7 +13,8 @@ import {
 import { generatePersonaAudio } from "@/lib/voice";
 import { SCENARIOS } from "@/lib/scenarios";
 import { ARCHETYPES } from "@/lib/personas";
-import type { ArchetypeKey, ExtractedClaim } from "@/lib/types";
+import { buildDrillOpeningInstruction, getDrillDefinition } from "@/lib/drills";
+import type { ArchetypeKey, DrillTarget, ExtractedClaim } from "@/lib/types";
 
 export async function POST(
   _req: NextRequest,
@@ -103,8 +104,23 @@ export async function POST(
     return NextResponse.json({ error: "No personas configured" }, { status: 400 });
   }
 
+  // ─── Drill Mode: the lead persona matches the drill target. ──────────────
+  // The persona whose archetype matches the drill's leadArchetype opens
+  // (not necessarily seat 0). Falls back to seat 0 if not on the panel.
+  let openingPersona = firstPersona;
+  let drillOpeningInstruction: string | undefined;
+  if (session.experience === "drill") {
+    const drillTarget = (session.drillTarget as DrillTarget) || "hedging";
+    const def = getDrillDefinition(drillTarget);
+    drillOpeningInstruction = buildDrillOpeningInstruction(drillTarget);
+    const lead = session.personas.find(
+      (p) => p.archetype === def.leadArchetype
+    );
+    if (lead) openingPersona = lead;
+  }
+
   const otherPersonas = session.personas
-    .filter((p) => p.id !== firstPersona.id)
+    .filter((p) => p.id !== openingPersona.id)
     .map((p) => ({
       name: p.name,
       archetype: p.archetype as ArchetypeKey,
@@ -128,19 +144,20 @@ export async function POST(
   });
 
   const opening = await generateOpening({
-    archetype: firstPersona.archetype as ArchetypeKey,
-    behaviorStyle: firstPersona.behaviorStyle as "gentle" | "moderate" | "aggressive",
+    archetype: openingPersona.archetype as ArchetypeKey,
+    behaviorStyle: openingPersona.behaviorStyle as "gentle" | "moderate" | "aggressive",
     scenarioLabel,
     claims,
     patternMemory,
     otherPersonas,
+    extraOpeningInstruction: drillOpeningInstruction,
   });
 
   // Persist the opening as the first message.
   const message = await db.sessionMessage.create({
     data: {
       sessionId: session.id,
-      personaId: firstPersona.id,
+      personaId: openingPersona.id,
       role: "persona",
       content: opening.content,
       type: "opening",
@@ -151,19 +168,19 @@ export async function POST(
   // Generate TTS audio for the opening challenge.
   const audio = await generatePersonaAudio(
     opening.content,
-    firstPersona.archetype as ArchetypeKey,
-    firstPersona.behaviorStyle as "gentle" | "moderate" | "aggressive"
+    openingPersona.archetype as ArchetypeKey,
+    openingPersona.behaviorStyle as "gentle" | "moderate" | "aggressive"
   );
 
   return NextResponse.json({
     alreadyStarted: false,
     message: {
       id: message.id,
-      personaId: firstPersona.id,
-      personaName: firstPersona.name,
-      archetype: firstPersona.archetype,
-      behaviorStyle: firstPersona.behaviorStyle,
-      seatOrder: firstPersona.seatOrder,
+      personaId: openingPersona.id,
+      personaName: openingPersona.name,
+      archetype: openingPersona.archetype,
+      behaviorStyle: openingPersona.behaviorStyle,
+      seatOrder: openingPersona.seatOrder,
       content: opening.content,
       type: "opening",
       claimRef: opening.claimRef ?? null,

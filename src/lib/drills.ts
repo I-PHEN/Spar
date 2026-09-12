@@ -100,7 +100,11 @@ This is NOT a normal conversation. You are a drill instructor targeting one spec
 
 /**
  * Build the drill-specific interrupt instruction for the user prompt.
- * This is added to the user prompt when isInterrupt=true AND the session is a drill.
+ *
+ * NOTE: This is now only used as a fallback path. The primary drill-interrupt
+ * path is deterministic (see getDrillCorrection) — it bypasses the LLM entirely
+ * and returns the fixed correctionPhrase. This instruction is kept for the
+ * non-streaming /spar fallback endpoint.
  */
 export function buildDrillInterruptInstruction(target: DrillTarget): string {
   const def = getDrillDefinition(target);
@@ -113,6 +117,84 @@ Your response MUST be a coaching correction, NOT a question. Say:
 
 Do NOT ask a question. Do NOT probe a claim. Just deliver the correction and wait for them to try again.
 Set "type": "interruption" in your JSON response.`;
+}
+
+/**
+ * The deterministic correction for a drill target.
+ *
+ * SINGLE SOURCE OF TRUTH for what the persona says when the user exhibits the
+ * drilled weakness. Returned directly — no LLM call — so corrections are
+ * instant (~1.7s TTS only) and never paraphrased.
+ */
+export function getDrillCorrection(target: DrillTarget): string {
+  return getDrillDefinition(target).correctionPhrase;
+}
+
+/**
+ * The deterministic acknowledgment for a drill target.
+ *
+ * Spoken when the user FINALLY answers cleanly after one or more corrections.
+ * The LLM generates the NEXT question, and this acknowledgment is prepended
+ * so the user hears "Good. Next." consistently.
+ */
+export function getDrillAcknowledgment(target: DrillTarget): string {
+  return getDrillDefinition(target).acknowledgmentPhrase;
+}
+
+/**
+ * Build the drill-specific opening prompt for the lead persona.
+ *
+ * The lead persona opens by stating the drill target + rules, then asks
+ * the first question. This frames the drill so the user knows what's happening.
+ */
+export function buildDrillOpeningInstruction(target: DrillTarget): string {
+  const def = getDrillDefinition(target);
+  return `# DRILL MODE OPENING
+This is a targeted drill session. Your SOLE PURPOSE is to force the user to stop: ${def.description}
+
+Open with a SHORT framing (1 sentence) that states what's being drilled and the rule, then immediately ask your first question. Example shape: "We're drilling ${def.label.toLowerCase()}. ${def.description} Let's go." Then your question.
+
+Do NOT explain the drill at length. Do NOT introduce yourself. State the target, state the rule, ask the question. Keep the framing under 20 words.`;
+}
+
+/**
+ * Build the instruction for generating the NEXT question after a clean answer.
+ *
+ * The LLM generates ONLY the question. The deterministic acknowledgment is
+ * prepended by the streaming endpoint.
+ */
+export function buildDrillNextQuestionInstruction(target: DrillTarget): string {
+  const def = getDrillDefinition(target);
+  return `# DRILL: CLEAN ANSWER
+The user just answered cleanly after your correction — they fixed the weakness (${def.label}). Do NOT acknowledge the correction (handled separately). Do NOT repeat "${def.acknowledgmentPhrase}".
+
+Your job: ask your NEXT question. A fresh, challenging question about the material or topic. Keep it sharp and probing. 1-2 sentences max.
+
+Respond with your JSON object. The "content" field should be ONLY your next question (no acknowledgment, no preamble). Set "type": "normal".`;
+}
+
+/**
+ * Build the boardroom-specific interrupt instruction.
+ *
+ * Boardroom interrupts must feel SHARP and cut-you-off — like a hostile
+ * executive who can't wait for you to finish. Not polite questions.
+ */
+export function buildBoardroomInterruptInstruction(): string {
+  return `\n# BOARDROOM INTERRUPT
+You are cutting the user off MID-SENTENCE in a hostile boardroom. This is not a polite question — it's an interruption.
+
+Your response MUST:
+- Open with a sharp cutting phrase: "Hold on—" / "Wait—" / "Stop right there—" / "That's not good enough—"
+- Be AGGRESSIVE and direct. No hedging, no "I was wondering."
+- Attack the SPECIFIC weakness you just heard (the vague number, the hedge, the unsupported claim).
+- Be SHORT. 1-2 sentences max. Cut them off, challenge, done.
+
+Examples of the tone:
+- "Hold on—where did that number come from? You can't just make up figures in this room."
+- "Wait—'I think'? Either you know or you don't. Which is it?"
+- "Stop. That's a hand-wave, not an answer. What's the actual mechanism?"
+
+Set "type": "interruption" in your JSON response. Be relentless.`;
 }
 
 /**
