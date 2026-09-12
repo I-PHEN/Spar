@@ -29,6 +29,7 @@ import { PersonaCard } from "./persona-card";
 import { TelemetryBar } from "./telemetry-bar";
 import { WaveformBar } from "./waveform-bar";
 import { useVoiceRecognition, playBase64Audio } from "@/hooks/use-voice";
+import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { useAgitationEngine, type CoachingMode, type DrillTarget } from "@/hooks/use-agitation";
 import { playActivationClick, useWaveformAmplitude } from "@/hooks/use-sound";
 import { SCENARIOS } from "@/lib/scenarios";
@@ -184,6 +185,10 @@ export function SparringRoom({
 
   // Voice state
   const voice = useVoiceRecognition();
+  const recorder = useAudioRecorder();
+  // Counter for user messages — used to key audio clips in IndexedDB.
+  // Each user turn (presentation + each Q&A answer) gets a unique index.
+  const messageIndexRef = useRef(0);
   const [isUserTurn, setIsUserTurn] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [liveWords, setLiveWords] = useState(0);
@@ -393,9 +398,15 @@ export function SparringRoom({
     if (!voice.isSupported) return;
     voice.reset();
     voice.start();
+    // Start audio recording alongside voice recognition.
+    // Both access the mic simultaneously — recording is for debrief playback.
+    // Keyed by sessionId + messageIndex so the debrief can fetch clips per turn.
+    if (recorder.isSupported) {
+      recorder.start(sessionId, messageIndexRef.current);
+    }
     // Play the activation click — feels like a mic turning on
     playActivationClick();
-  }, [voice]);
+  }, [voice, recorder, sessionId]);
 
   // Submit the user's turn to the panel. Used by both "Done" (normal stop)
   // and the agitation engine (interrupt). When isInterrupt=true, the persona
@@ -412,6 +423,13 @@ export function SparringRoom({
       drillFlags?: { drillInterrupt?: boolean; drillClean?: boolean }
     ) => {
       voice.stop();
+      // Stop the audio recorder and save the clip to IndexedDB.
+      // Non-blocking — the clip saves async, doesn't delay the turn.
+      if (recorder.isRecording) {
+        recorder.stop().catch(() => {});
+      }
+      // Increment the message index for the next user turn
+      messageIndexRef.current += 1;
 
       await new Promise((r) => setTimeout(r, 300));
 
@@ -630,7 +648,7 @@ export function SparringRoom({
         sparInFlight.current = false;
       }
     },
-    [voice, sessionId]
+    [voice, sessionId, recorder]
   );
 
   // Handle user pressing "Done" (stop speaking)
@@ -650,6 +668,11 @@ export function SparringRoom({
   // so the user can retry without re-presenting.
   async function handleDonePresenting() {
     voice.stop();
+    // Stop the recorder — the presentation clip is message index 0
+    if (recorder.isRecording) {
+      recorder.stop().catch(() => {});
+    }
+    messageIndexRef.current += 1;
 
     // Wait for final transcript to settle
     await new Promise((r) => setTimeout(r, 300));
@@ -885,6 +908,10 @@ export function SparringRoom({
     setShowEndDialog(false);
     setEnding(true);
     voice.stop();
+    // Cancel the recorder (don't save a partial clip)
+    if (recorder.isRecording) {
+      recorder.cancel();
+    }
     try {
       const res = await fetch(`/api/sessions/${sessionId}/end`, { method: "POST" });
       if (!res.ok) throw new Error("Failed to end session");

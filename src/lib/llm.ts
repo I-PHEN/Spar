@@ -493,23 +493,10 @@ Produce the JSON debrief now.`;
   const parsed = extractJson<RawDebrief>(raw);
 
   if (!parsed) {
-    // Fallback debrief — should rarely happen.
-    return {
-      momentDescription:
-        "We couldn't generate a detailed debrief for this session. Review the transcript and note your own patterns.",
-      whatWentWell: ["You showed up and sparred. That's the work."],
-      thePattern:
-        "Unable to analyze — try another session and we'll connect the patterns.",
-      oneThingToPractice: "Run another session and focus on one specific moment to improve.",
-      telemetryInsights: {
-        pace: `${params.telemetry.avgWordsPerResponse} avg words per response.`,
-        fillers: `${params.telemetry.hedgeCount} hedges across ${params.telemetry.userTurns} responses.`,
-        recovery: `${params.telemetry.deflections} deflections out of ${params.telemetry.userTurns} turns.`,
-        evidence: `Cited evidence in ${params.telemetry.evidenceCitations}/${params.telemetry.userTurns} responses.`,
-      },
-      shareableSummary:
-        "Session completed. Full debrief generation failed — see transcript.",
-    };
+    // Heuristic fallback — builds a specific, useful debrief from the telemetry
+    // instead of a generic "we couldn't analyze" message. This runs when the
+    // LLM fails to return valid JSON.
+    return buildFallbackDebrief(params);
   }
 
   return {
@@ -596,3 +583,99 @@ export function classifyPatternTag(patternText: string): string {
 export type { PersonaResponse, DebriefPayload, ExtractedClaim };
 export type { GenerateDebriefParams };
 export { ARCHETYPES };
+
+/**
+ * Build a heuristic debrief fallback when the LLM fails to return valid JSON.
+ *
+ * Uses the telemetry to construct a specific, useful debrief — the user still
+ * gets grounded observations instead of a generic "we couldn't analyze."
+ */
+function buildFallbackDebrief(params: GenerateDebriefParams): DebriefPayload {
+  const t = params.telemetry;
+
+  // Find the most challenging turn (most hedges or longest response)
+  let worstTurn = t.turns[0];
+  for (const turn of t.turns) {
+    if (!worstTurn || turn.hedgeCount > worstTurn.hedgeCount) {
+      worstTurn = turn;
+    }
+  }
+
+  const momentDescription = worstTurn
+    ? `Your most challenging moment was turn ${worstTurn.turnIndex + 1}: you used ${worstTurn.wordCount} words with ${worstTurn.hedgeCount} hedge${worstTurn.hedgeCount === 1 ? "" : "s"}. ${worstTurn.citedEvidence ? "You did cite evidence." : "You didn't cite evidence."} ${worstTurn.answeredDirectly ? "You answered directly." : "You deflected."}`
+    : "Session completed. Review the transcript to identify your most challenging moment.";
+
+  // Strengths — based on positive telemetry signals
+  const strengths: string[] = [];
+  if (t.evidenceCitations > 0) {
+    strengths.push(`You cited evidence in ${t.evidenceCitations} of ${t.userTurns} responses — grounding your claims in data.`);
+  }
+  if (t.deflections < t.userTurns / 2) {
+    strengths.push(`You answered directly ${t.userTurns - t.deflections} of ${t.userTurns} times — staying on topic.`);
+  }
+  if (t.avgWordsPerResponse > 0 && t.avgWordsPerResponse <= 25) {
+    strengths.push(`Your responses were concise (avg ${Math.round(t.avgWordsPerResponse)} words) — tight and focused.`);
+  }
+  if (strengths.length === 0) {
+    strengths.push("You showed up and sparred. That's the start.");
+  }
+
+  // The pattern — based on the weakest telemetry dimension
+  let thePattern = "";
+  if (t.hedgesPerResponse > 1) {
+    thePattern = `You hedge under pressure — ${t.hedgeCount} hedge words across ${t.userTurns} responses (${t.hedgesPerResponse.toFixed(1)}/response). This signals uncertainty even when you know the material.`;
+  } else if (t.avgWordsPerResponse > 40) {
+    thePattern = `You over-explain when challenged — averaging ${Math.round(t.avgWordsPerResponse)} words per response (target: 15-25). You're packing in qualifiers instead of making the point.`;
+  } else if (t.deflections > t.userTurns / 3) {
+    thePattern = `You deflect when pressed — ${t.deflections} of ${t.userTurns} responses pivoted away from the direct question. This reads as evasive.`;
+  } else if (t.evidenceCitations < t.userTurns / 2) {
+    thePattern = `Your claims go unsupported — you cited evidence in only ${t.evidenceCitations} of ${t.userTurns} responses. The panel will press you on specifics.`;
+  } else {
+    thePattern = "Your responses were solid across most dimensions. Focus on the one thing below to level up.";
+  }
+
+  // One thing to practice — derived from the pattern
+  let oneThingToPractice = "";
+  if (t.hedgesPerResponse > 1) {
+    oneThingToPractice = "Strip hedges from your answers. Next session, every time you hear yourself say 'I think' or 'maybe,' restate the sentence without the qualifier. Be declarative.";
+  } else if (t.avgWordsPerResponse > 40) {
+    oneThingToPractice = "Practice the 15-word answer. Next session, answer each question in 15 words or less. Cut the setup, give the point, then stop.";
+  } else if (t.deflections > t.userTurns / 3) {
+    oneThingToPractice = "Answer the question asked. Next session, when a persona presses you, respond to their specific question first — then add context. Don't pivot.";
+  } else if (t.evidenceCitations < t.userTurns / 2) {
+    oneThingToPractice = "Back every claim with a number. Next session, before you make a claim, ask yourself: 'What's the data?' If you don't have it, say so.";
+  } else {
+    oneThingToPractice = "Keep sparring. Your baseline is solid — run another session and focus on pushing your confidence higher.";
+  }
+
+  // Telemetry insights
+  const pace = t.avgWordsPerResponse > 40
+    ? `Your responses averaged ${Math.round(t.avgWordsPerResponse)} words — too long. Target 15-25. You're losing the room.`
+    : t.avgWordsPerResponse > 0
+    ? `Your responses averaged ${Math.round(t.avgWordsPerResponse)} words — in the target range (15-25). Good control.`
+    : "No pace data — session may have been too short.";
+
+  const fillers = t.hedgesPerResponse > 1
+    ? `${t.hedgeCount} hedges across ${t.userTurns} responses (${t.hedgesPerResponse.toFixed(1)}/response). Too many — target <1 per response.`
+    : `${t.hedgeCount} hedges across ${t.userTurns} responses. Under control.`;
+
+  const recovery = `${t.userTurns - t.deflections} direct answers / ${t.deflections} deflections out of ${t.userTurns} turns. ${t.deflections > t.userTurns / 3 ? "Work on answering directly." : "Good directness."}`;
+
+  const evidence = `Cited evidence in ${t.evidenceCitations}/${t.userTurns} responses. ${t.evidenceCitations < t.userTurns / 2 ? "Need more — back your claims." : "Solid grounding."}`;
+
+  const shareableSummary = `Session complete. ${thePattern} One thing to practice: ${oneThingToPractice}`;
+
+  return {
+    momentDescription,
+    whatWentWell: strengths,
+    thePattern,
+    oneThingToPractice,
+    telemetryInsights: {
+      pace,
+      fillers,
+      recovery,
+      evidence,
+    },
+    shareableSummary,
+  };
+}

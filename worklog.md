@@ -1026,3 +1026,45 @@ Stage Summary:
   - Boardroom: 95%
   - Drill: 95%
 - Files modified: src/lib/coach.ts, src/app/api/sessions/[id]/spar-stream/route.ts, src/components/spar/sparring-room.tsx
+
+---
+Task ID: voice-recording-debrief
+Agent: main (Z.ai Code)
+Task: Add voice recording playback + improve the debrief (drill stats, transcript, fallback)
+
+Work Log:
+- Created src/lib/audio-db.ts — IndexedDB helper for storing/retrieving audio clips keyed by `${sessionId}:${messageIndex}`. Functions: saveAudioClip, getAudioClip, getSessionClips, deleteSessionClips, createClipURL.
+- Created src/hooks/use-audio-recorder.ts — MediaRecorder hook that runs alongside Web Speech API. Both access the mic simultaneously. Each speaking turn = one clip saved to IndexedDB. Supports webm/opus (Chrome/Firefox) and mp4 (Safari).
+- Wired the recorder into sparring-room.tsx:
+  - Added recorder + messageIndexRef
+  - handleStartSpeaking starts the recorder alongside voice.start()
+  - submitTurn stops the recorder and increments the message index
+  - handleDonePresenting stops the recorder (presentation = message index 0)
+  - handleEnd cancels the recorder (no partial clip saved)
+- Updated debrief API (src/app/api/sessions/[id]/debrief/route.ts):
+  - Added transcript array to the response (role, personaName, content, type, createdAt)
+  - Added drillStats computation for drill sessions (challenges, attempts, recovery time, score)
+- Updated debrief-view.tsx with 3 new sections:
+  1. "Your answers" — audio playback section. Shows each user message with the preceding persona question (context) + a play button. Fetches clips from IndexedDB, creates object URLs, renders <audio> elements. Collapsible (shows first 3, expand to see all). Graceful fallback if no clips.
+  2. Drill stats — only for drill sessions. Shows challenges/resolved/score/avg recovery + a visual dot breakdown (green=1st try, amber=2nd, red=3+).
+  3. Collapsible "Full transcript" — at the bottom, shows all messages with role labels. Collapsed by default.
+- Added heuristic debrief fallback in llm.ts (buildFallbackDebrief):
+  - When generateDebrief LLM fails to return valid JSON, builds a specific debrief from telemetry
+  - The Moment: picks the turn with the most hedges
+  - Strengths: based on positive telemetry signals (evidence cited, direct answers, concise)
+  - The Pattern: derived from the weakest telemetry dimension (hedges, over-explaining, deflections, unsupported claims)
+  - One Thing to Practice: concrete action based on the pattern
+  - Telemetry insights: specific numbers with target ranges
+- Ran lint: clean (0 errors, 0 warnings).
+- Verified with agent-browser:
+  - Created an open_spar session, ended it, debrief rendered with all sections: The Moment, What You Did Well, The Pattern, One Thing to Practice, Telemetry, Save or Share, Full transcript (collapsible)
+  - "Your answers" section correctly hidden when no user messages exist
+  - Drill debrief API returns drillStats (challenges, resolved, score, recovery time)
+  - Transcript returns correctly (2 entries for open_spar, 4 for drill)
+  - No console errors, no runtime errors
+
+Stage Summary:
+- Voice recording + debrief improvements complete. The user can now listen back to their own answers in the debrief (per-message clips with play buttons). Drill sessions show challenge stats + attempt breakdown. The full transcript is available (collapsible). The debrief never shows a broken screen — heuristic fallback builds a specific debrief from telemetry when the LLM fails.
+- Files created: src/lib/audio-db.ts, src/hooks/use-audio-recorder.ts
+- Files modified: src/app/api/sessions/[id]/debrief/route.ts, src/components/spar/debrief-view.tsx, src/components/spar/sparring-room.tsx, src/lib/llm.ts
+- Architecture: Audio stored in IndexedDB (client-side only, not server DB). Recorder runs alongside Web Speech API. Clips keyed by sessionId+messageIndex for easy debrief retrieval.
