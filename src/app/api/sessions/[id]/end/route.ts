@@ -15,6 +15,7 @@ import {
   generateDebrief,
   buildPatternMemoryContext,
   classifyPatternTag,
+  type GenerateDebriefParams,
 } from "@/lib/llm";
 import { SCENARIOS } from "@/lib/scenarios";
 import {
@@ -150,17 +151,67 @@ export async function POST(
       })),
   });
 
+  // ─── Presentation section (Defense/Boardroom only) ─────────────────────
+  // For Defense/Boardroom, the FIRST user message is the presentation.
+  // Everything after is Q&A. We split the transcript and pass the
+  // presentation + the coach's pre-Q&A analysis to the debrief LLM.
+  const isDefenseOrBoardroom =
+    session.experience === "defense" || session.experience === "boardroom";
+
+  let presentationSection: GenerateDebriefParams["presentationSection"] | undefined;
+  let qaTranscriptStr = transcriptStr;
+
+  if (isDefenseOrBoardroom) {
+    // Find the first user message (the presentation)
+    const firstUserMsg = messages.find((m) => m.role === "user");
+    if (firstUserMsg) {
+      const presentationTranscript = firstUserMsg.content;
+
+      // Build the Q&A transcript (everything AFTER the presentation)
+      const firstUserIdx = messages.indexOf(firstUserMsg);
+      const qaMessages = messages.slice(firstUserIdx + 1);
+      qaTranscriptStr = qaMessages
+        .map((m) => {
+          if (m.role === "user") return `User: ${m.content}`;
+          if (m.role === "persona") {
+            const p = session.personas.find((pp) => pp.id === m.personaId);
+            const tag = m.type === "interruption" ? " (interrupting)" : m.type === "opening" ? " (opening)" : "";
+            return `${p?.name || "Panelist"}${tag}: ${m.content}`;
+          }
+          return null;
+        })
+        .filter(Boolean)
+        .join("\n");
+
+      // Load the stored presentation analysis
+      let presentationAnalysis = null;
+      if (session.presentationAnalysis) {
+        try {
+          presentationAnalysis = JSON.parse(session.presentationAnalysis);
+        } catch {
+          // Malformed — continue without
+        }
+      }
+
+      presentationSection = {
+        transcript: presentationTranscript,
+        analysis: presentationAnalysis,
+      };
+    }
+  }
+
   // Generate the debrief.
   const debrief = await generateDebrief({
     scenarioLabel,
     claims,
-    transcript: transcriptStr,
+    transcript: qaTranscriptStr,
     personaArchetypes: session.personas.map((p) => ({
       name: p.name,
       archetype: p.archetype as ArchetypeKey,
     })),
     telemetry,
     patternMemory,
+    presentationSection,
   });
 
   // Persist the summary.
@@ -255,6 +306,8 @@ export async function POST(
   return NextResponse.json({
     debrief: {
       momentDescription: summary.momentDescription,
+      presentationEvaluation: debrief.presentationEvaluation || null,
+      coachRead: presentationSection?.analysis?.coachRead || null,
       whatWentWell: safeParse<string[]>(summary.whatWentWell, []),
       thePattern: summary.thePattern,
       oneThingToPractice: summary.oneThingToPractice,

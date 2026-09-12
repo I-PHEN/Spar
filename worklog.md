@@ -667,3 +667,50 @@ Stage Summary:
   2. Open Spar Q&A (interrupts during answers)
   3. Drill Q&A (interrupts on the drill target)
 - Lint passes clean. No errors in dev log.
+
+---
+Task ID: 15
+Agent: main (engineering)
+Task: Presentation evaluation in the debrief (Defense/Boardroom)
+
+Work Log:
+- **Database schema change**: Added `presentationAnalysis String?` to Session model. Stores the coach's pre-Q&A analysis (JSON: strengths, weakness, anticipatedAttack, coachRead). Persisted when the user clicks "Done Presenting."
+- **Updated `/present` endpoint**: Now persists the coach's analysis to `session.presentationAnalysis`. Previously the analysis was returned to the frontend, shown for 6 seconds, then lost. Now it flows into the final debrief.
+- **Updated `generateDebrief()`** (`src/lib/llm.ts`):
+  - Accepts optional `presentationSection` parameter: `{ transcript, analysis }`
+  - When provided (Defense/Boardroom), the system prompt switches to a 7-section format that includes "Your Presentation" (Section 2)
+  - The presentation evaluation measures: opening strength, structure, pace, confidence, clarity
+  - The LLM gets BOTH the presentation transcript AND the coach's pre-Q&A analysis, and is instructed to "build on the coach's observations — go deeper"
+  - The Q&A transcript is separated from the presentation transcript ("FULL Q&A TRANSCRIPT" vs "PRESENTATION TRANSCRIPT")
+  - Returns `presentationEvaluation` (string | null) in the debrief payload
+- **Updated `/end` endpoint**:
+  - Detects Defense/Boardroom sessions (`session.experience === "defense" || "boardroom"`)
+  - Splits the transcript: first user message = presentation, everything after = Q&A
+  - Loads the stored `presentationAnalysis` from the session
+  - Passes both (presentation transcript + analysis) to `generateDebrief()` as `presentationSection`
+  - Returns `presentationEvaluation` and `coachRead` in the debrief response
+- **Updated `/debrief` GET endpoint**: Returns `presentationEvaluation` and `coachRead` from the stored session data
+- **Updated types**: `DebriefPayload` now includes optional `presentationEvaluation` and `coachRead` fields
+- **Updated debrief-view.tsx**: 
+  - Renders "Your Presentation" section (Section 2) when `presentationEvaluation` exists
+  - Includes the coach's initial read as a callout within the section: "Coach's initial read" with the pre-Q&A comment
+  - Section numbers shift dynamically: 7 sections for Defense/Boardroom, 6 for Open Spar/Drill
+  - Uses the `FileText` icon for the presentation section
+- **API-verified end-to-end:**
+  - Created a Defense session with RLHF thesis material
+  - Opened it (returned `defenseMode: true`, openingPrompt: "The floor is yours")
+  - Submitted a presentation with hedges ("I think the results maybe suggest...")
+  - Coach read: "You've got the numbers, but your opening hedge made your strongest claim sound tentative. Own that 23% and 41% when they come after your methodology. Be ready to defend the annotator sample size — that's their first target."
+  - Ended session → debrief included `presentationEvaluation`: "Your presentation began with hedging language ('I think the results maybe suggest' and 'sort of'), which immediately undermined your confidence in the central claim about RLHF being the most effective technique. You then provided specific numerical results (23% improvement, 41% reduction) and study parameters, but the tentative framing made your strongest evidence sound uncertain..."
+  - Both `presentationEvaluation` and `coachRead` confirmed present in the response
+
+Stage Summary:
+- **The Defense experience is now complete end-to-end.** Present → coach read → Q&A → debrief with TWO evaluation sections (Presentation + Q&A).
+- **The architecture is robust:**
+  - The coach's pre-Q&A analysis is persisted (not recomputed at debrief time)
+  - The debrief LLM gets the full presentation transcript + the coach's analysis as context
+  - The Q&A transcript is cleanly separated from the presentation transcript
+  - The debrief format adapts: 7 sections for Defense/Boardroom, 6 for Open Spar/Drill
+  - The coach's initial read appears as a callout within the presentation evaluation section
+- **What the presentation evaluation measures:** opening strength, structure, pace, confidence, clarity. It references specific moments from the presentation transcript (e.g., "Your presentation began with hedging language...").
+- Lint passes clean. No errors in dev log.

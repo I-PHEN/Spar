@@ -13,6 +13,7 @@ import {
   ArrowRight,
   ArrowLeft,
   Quote,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { DebriefPayload, TelemetrySnapshot } from "@/lib/types";
@@ -135,9 +136,30 @@ export function DebriefView({
           <p className="text-sm leading-relaxed text-foreground/90">{d.momentDescription}</p>
         </DebriefSection>
 
-        {/* Section 2 — What You Did Well */}
+        {/* Section 2 — Your Presentation (Defense/Boardroom only) */}
+        {d.presentationEvaluation && (
+          <DebriefSection
+            number="02"
+            icon={<FileText className="h-4 w-4" />}
+            title="Your Presentation"
+            accent="slate"
+            highlighted
+          >
+            <p className="text-sm leading-relaxed text-foreground/90">{d.presentationEvaluation}</p>
+            {d.coachRead && (
+              <div className="mt-3 rounded-md border border-white/10 bg-white/[0.02] px-3 py-2">
+                <p className="text-[10px] uppercase tracking-wider text-neutral-500 mb-1">
+                  Coach&apos;s initial read
+                </p>
+                <p className="text-xs text-neutral-400 italic">{d.coachRead}</p>
+              </div>
+            )}
+          </DebriefSection>
+        )}
+
+        {/* Section 3 — What You Did Well */}
         <DebriefSection
-          number="02"
+          number={d.presentationEvaluation ? "03" : "02"}
           icon={<Sparkles className="h-4 w-4" />}
           title="What You Did Well"
           accent="emerald"
@@ -160,7 +182,7 @@ export function DebriefView({
 
         {/* Section 3 — The Pattern */}
         <DebriefSection
-          number="03"
+          number={d.presentationEvaluation ? "04" : "03"}
           icon={<TrendingUp className="h-4 w-4" />}
           title="The Pattern"
           accent="amber"
@@ -170,7 +192,7 @@ export function DebriefView({
 
         {/* Section 4 — One Thing to Practice */}
         <DebriefSection
-          number="04"
+          number={d.presentationEvaluation ? "05" : "04"}
           icon={<Target className="h-4 w-4" />}
           title="One Thing to Practice"
           accent="primary"
@@ -181,7 +203,7 @@ export function DebriefView({
 
         {/* Section 5 — Telemetry as Insight */}
         <DebriefSection
-          number="05"
+          number={d.presentationEvaluation ? "06" : "05"}
           icon={<BarChart3 className="h-4 w-4" />}
           title="Telemetry"
           accent="slate"
@@ -228,7 +250,7 @@ export function DebriefView({
 
         {/* Section 6 — Save or Share */}
         <DebriefSection
-          number="06"
+          number={d.presentationEvaluation ? "07" : "06"}
           icon={<Share2 className="h-4 w-4" />}
           title="Save or Share"
           accent="slate"

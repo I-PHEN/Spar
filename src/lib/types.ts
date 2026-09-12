@@ -111,6 +111,8 @@ export interface TurnTelemetry {
 
 export interface DebriefPayload {
   momentDescription: string;
+  presentationEvaluation?: string | null; // Only for Defense/Boardroom
+  coachRead?: string | null; // The coach's pre-Q&A read (Defense/Boardroom only)
   whatWentWell: string[]; // 2-3 observations
   thePattern: string;
   oneThingToPractice: string;

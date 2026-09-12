@@ -89,6 +89,16 @@ export async function POST(
         claims,
         coachingFocus: session.coachingFocus,
       });
+
+      // PERSIST the analysis so the debrief can use it later.
+      // This is the key architectural decision: the pre-Q&A read flows
+      // into the final debrief as context for the presentation evaluation.
+      await db.session.update({
+        where: { id: session.id },
+        data: {
+          presentationAnalysis: JSON.stringify(coachRead),
+        },
+      });
     } catch (err) {
       console.error("[present] coach analysis failed:", err);
       // Continue without coach read — the Q&A can still proceed

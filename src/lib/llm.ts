@@ -314,10 +314,23 @@ interface GenerateDebriefParams {
     }>;
   };
   patternMemory: string;
+  /** Optional: the presentation section (Defense/Boardroom only).
+   * When provided, the debrief includes a "Your Presentation" section
+   * that evaluates HOW the user presented, not just what they said. */
+  presentationSection?: {
+    transcript: string;
+    analysis: {
+      strengths: string[];
+      weakness: string;
+      anticipatedAttack: string;
+      coachRead: string;
+    } | null;
+  };
 }
 
 interface RawDebrief {
   momentDescription: string;
+  presentationEvaluation?: string; // Only for Defense/Boardroom
   whatWentWell: string[];
   thePattern: string;
   oneThingToPractice: string;
@@ -331,14 +344,20 @@ interface RawDebrief {
 }
 
 /**
- * Generate the 6-section coaching debrief — the hero artifact of Spar.
+ * Generate the coaching debrief — the hero artifact of Spar.
  * This is what differentiates us from Yoodli's per-session feedback: we
  * write a *narrative*, not a scorecard.
+ *
+ * For Defense/Boardroom experiences, the debrief has 7 sections (adds
+ * "Your Presentation" between "The Moment" and "What You Did Well").
+ * For other experiences, 6 sections.
  */
 export async function generateDebrief(
   params: GenerateDebriefParams
 ): Promise<DebriefPayload> {
   const zai = await getZai();
+
+  const hasPresentation = !!params.presentationSection;
 
   const systemPrompt = `You are Spar's coaching engine. After every sparring session, you write a debrief for the user.
 
@@ -349,7 +368,35 @@ Your voice:
 - Be direct about weaknesses. Don't soften. The user came here to get better, not to feel good.
 - Be specific about strengths. Generic praise ("you communicated well") is forbidden. Reference what they actually did.
 
-The debrief has 6 sections. You produce the first 5; section 6 (shareableSummary) is a markdown summary of all of them.
+${hasPresentation ? `# THIS SESSION HAS A PRESENTATION PHASE
+This was a Defense or Boardroom session. The user presented their material first, then faced Q&A.
+
+The debrief has 7 sections. You produce the first 6; section 7 (shareableSummary) is a markdown summary.
+
+Section 2 ("Your Presentation") is the NEW section. It evaluates HOW the user presented — delivery, not content:
+- Opening strength: Did they state their thesis early, or bury it in setup?
+- Structure: Did they signpost? Clear beginning, middle, end?
+- Pace: Was it consistent? Rushed setup vs. slow substance?
+- Confidence: Did they hedge their central claim? "I think the results suggest..." vs "The results show..."
+- Clarity: Was the core message understandable?
+
+You have the presentation transcript AND the coach's initial pre-Q&A read. Build on the coach's observations — go deeper. The coach gave a quick heads-up; you give the full evaluation.
+
+# YOUR OUTPUT — STRICT JSON
+{
+  "momentDescription": "<Section 1: The Moment. The single most challenging Q&A exchange. 2-4 sentences.>",
+  "presentationEvaluation": "<Section 2: Your Presentation. Evaluate HOW they presented — structure, pace, confidence, clarity. 3-5 sentences. Reference specific moments from the presentation transcript. Build on the coach's pre-Q&A read.>",
+  "whatWentWell": ["<Section 3: 2-3 observations. Can draw from both presentation and Q&A.>"],
+  "thePattern": "<Section 4: ONE recurring behavior across the session.>",
+  "oneThingToPractice": "<Section 5: SINGLE actionable focus for next session.>",
+  "telemetryInsights": {
+    "pace": "<Section 6a: Pace interpretation.>",
+    "fillers": "<Section 6b: Filler/hedge interpretation.>",
+    "recovery": "<Section 6c: Recovery interpretation.>",
+    "evidence": "<Section 6d: Evidence interpretation.>"
+  },
+  "shareableSummary": "<Section 7: Markdown summary weaving all sections together.>"
+}` : `The debrief has 6 sections. You produce the first 5; section 6 (shareableSummary) is a markdown summary of all of them.
 
 # YOUR OUTPUT — STRICT JSON
 {
@@ -366,13 +413,13 @@ The debrief has 6 sections. You produce the first 5; section 6 (shareableSummary
     "evidence": "<Section 5d: Evidence — interpret evidenceCitations / userTurns. Target: cite evidence in >50% of responses.>"
   },
   "shareableSummary": "<Section 6: A markdown summary the user could send to a mentor. Should weave together sections 1-5 into a tight 1-paragraph narrative + the one thing to practice.>"
-}
+}`}
 
 # RULES
 - Reference SPECIFIC moments from the transcript. "At one point you said X" — not "you tended to X."
 - Do not invent. If you can't find evidence for an observation, don't make it.
 - The Pattern must connect to the user's previous patterns (if provided) — this is what makes Spar feel like it KNOWS them.
-- One Thing to Practice must be CONCRETE and doable in the next session.`;
+- One Thing to Practice must be CONCRETE and doable in the next session.${hasPresentation ? "\n- The presentation evaluation must reference SPECIFIC moments from the presentation transcript, not generalize." : ""}`;
 
   const telemetrySummary = `# TELEMETRY
 - User turns: ${params.telemetry.userTurns}
@@ -396,8 +443,21 @@ ${params.telemetry.turns
       ? `\n# PATTERNS FROM PREVIOUS SESSIONS\n${params.patternMemory}\n\nConnect this session's pattern to these if relevant.`
       : "";
 
+  // Presentation section — only for Defense/Boardroom sessions.
+  // Includes the full presentation transcript + the coach's pre-Q&A analysis.
+  const presentationBlock = params.presentationSection
+    ? `\n# PRESENTATION TRANSCRIPT (Phase 1 — before Q&A)
+${params.presentationSection.transcript || "(Presentation was empty.)"}
+
+# COACH'S PRE-Q&A READ
+${params.presentationSection.analysis ? JSON.stringify(params.presentationSection.analysis, null, 2) : "(No coach analysis was performed.)"}
+
+NOTE: The "FULL TRANSCRIPT" below is the Q&A phase. The presentation transcript above is Phase 1. Evaluate them separately in the debrief.`
+    : "";
+
   const userPrompt = `# SCENARIO
 ${params.scenarioLabel}
+${presentationBlock}
 
 # THE CLAIMS THE USER WAS DEFENDING
 ${params.claims.length > 0 ? params.claims.map((c) => `${c.id}. ${c.label}: ${c.claim}`).join("\n") : "(User defended from memory — no material uploaded.)"}
@@ -406,7 +466,7 @@ ${params.claims.length > 0 ? params.claims.map((c) => `${c.id}. ${c.label}: ${c.
 ${params.personaArchetypes.map((p) => `- ${p.name} (${p.archetype})`).join("\n")}
 ${patternBlock}
 
-# FULL TRANSCRIPT
+# FULL Q&A TRANSCRIPT
 ${params.transcript || "(Empty session — user did not engage.)"}
 
 ${telemetrySummary}
@@ -446,6 +506,7 @@ Produce the JSON debrief now.`;
 
   return {
     momentDescription: parsed.momentDescription?.slice(0, 1200) || "",
+    presentationEvaluation: parsed.presentationEvaluation?.slice(0, 1200) || null,
     whatWentWell: Array.isArray(parsed.whatWentWell)
       ? parsed.whatWentWell.slice(0, 3).map((s) => s.slice(0, 500))
       : [],
@@ -525,4 +586,5 @@ export function classifyPatternTag(patternText: string): string {
 
 // Re-export for API routes
 export type { PersonaResponse, DebriefPayload, ExtractedClaim };
+export type { GenerateDebriefParams };
 export { ARCHETYPES };

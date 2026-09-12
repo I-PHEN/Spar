@@ -25,9 +25,23 @@ export async function GET(
     return NextResponse.json({ error: "No debrief yet" }, { status: 404 });
   }
 
+  // Load presentation analysis if it exists (Defense/Boardroom)
+  let presentationEvaluation: string | null = null;
+  let coachRead: string | null = null;
+  if (session.presentationAnalysis) {
+    try {
+      const analysis = JSON.parse(session.presentationAnalysis);
+      coachRead = analysis.coachRead || null;
+    } catch {
+      // malformed
+    }
+  }
+
   return NextResponse.json({
     debrief: {
       momentDescription: session.summary.momentDescription,
+      presentationEvaluation,
+      coachRead,
       whatWentWell: safeParse<string[]>(session.summary.whatWentWell, []),
       thePattern: session.summary.thePattern,
       oneThingToPractice: session.summary.oneThingToPractice,

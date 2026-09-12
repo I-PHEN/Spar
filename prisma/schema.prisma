@@ -52,6 +52,7 @@ model Session {
   materialTitle   String?  // optional title for the material
   roomContext     String?  // custom room description (overrides scenario default)
   extractedClaims String?  // JSON array of { claim, evidence } — 3-5 key claims LLM extracted
+  presentationAnalysis String?  // JSON: { strengths, weakness, anticipatedAttack, coachRead } — the coach's pre-Q&A read (Defense/Boardroom only)
   status          String   @default("configured") // 'configured' | 'presenting' | 'active' | 'ended' | 'debriefed'
   startedAt       DateTime?
   endedAt         DateTime?
