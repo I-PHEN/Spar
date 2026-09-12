@@ -142,6 +142,7 @@ export async function POST(
     : [];
 
   const scenario = SCENARIOS[session.scenario as keyof typeof SCENARIOS];
+  const scenarioLabel = scenario?.label || "Custom Session";
 
   const otherPersonas = session.personas
     .filter((p) => p.id !== nextPersona.id)
@@ -178,7 +179,7 @@ export async function POST(
     archetype: nextPersona.archetype as ArchetypeKey,
     behaviorStyle: nextPersona.behaviorStyle as "gentle" | "moderate" | "aggressive",
     personaName: nextPersona.name,
-    scenarioLabel: scenario?.label || session.scenario,
+    scenarioLabel,
     claims,
     patternMemory,
     otherPersonas,

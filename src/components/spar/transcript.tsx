@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import { CornerDownRight, Quote } from "lucide-react";
-import { ARCHETYPES } from "@/lib/personas";
 import type { ArchetypeKey, MessageType } from "@/lib/types";
 import { PersonaAvatar } from "./persona-avatar";
 import { cn } from "@/lib/utils";
@@ -94,7 +93,7 @@ function UserMessage({
         </div>
         <div
           className={cn(
-            "rounded-2xl rounded-br-sm bg-primary/10 border border-primary/20 px-4 py-2.5 text-sm text-foreground/90",
+            "rounded-2xl rounded-br-sm bg-white/5 border border-white/10 px-4 py-2.5 text-sm text-foreground/90",
             streaming && "spar-caret"
           )}
         >
@@ -115,8 +114,6 @@ function PersonaMessage({
   const isInterruption = message.type === "interruption";
   const isOpening = message.type === "opening";
   const archetype = message.archetype;
-  const def = archetype ? ARCHETYPES[archetype] : null;
-  const accent = def?.accentHue || "oklch(0.68 0.13 250)";
 
   return (
     <div className="flex gap-3 spar-fade-up">
@@ -133,12 +130,12 @@ function PersonaMessage({
             {message.personaName}
           </span>
           {isOpening && (
-            <span className="rounded border border-primary/30 bg-primary/10 px-1 py-px text-[9px] uppercase tracking-wider text-primary/80">
+            <span className="rounded border border-white/20 bg-white/5 px-1 py-px text-[9px] uppercase tracking-wider text-foreground/80">
               Opening
             </span>
           )}
           {isInterruption && (
-            <span className="flex items-center gap-0.5 text-[10px] uppercase tracking-wider text-amber-300/70">
+            <span className="flex items-center gap-0.5 text-[10px] uppercase tracking-wider text-foreground/60">
               <CornerDownRight className="h-3 w-3" />
               Interrupting
             </span>
@@ -153,14 +150,9 @@ function PersonaMessage({
           className={cn(
             "rounded-2xl rounded-bl-sm border px-4 py-2.5 text-sm text-foreground/90",
             isInterruption
-              ? "border-amber-500/20 bg-amber-500/[0.03] ml-2"
-              : "border-border/60 bg-card/70"
+              ? "border-white/20 bg-white/[0.03] ml-2"
+              : "border-border/60 bg-card/70 border-l-white/20"
           )}
-          style={
-            !isInterruption
-              ? ({ borderLeftColor: accent, borderLeftWidth: "2px" } as React.CSSProperties)
-              : undefined
-          }
         >
           <span className={message.streaming ? "spar-caret" : ""}>{message.content}</span>
         </div>

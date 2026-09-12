@@ -19,6 +19,7 @@ interface CreateSessionBody {
   mode: SessionMode;
   rawMaterial?: string;
   materialTitle?: string;
+  roomContext?: string;
   personas: PersonaConfig[];
 }
 
@@ -91,6 +92,7 @@ export async function POST(req: NextRequest) {
       mode: body.mode,
       rawMaterial,
       materialTitle: body.materialTitle?.slice(0, 200) || null,
+      roomContext: body.scenario === "custom" ? (body.roomContext?.trim().slice(0, 1000) || null) : null,
       extractedClaims,
       status: "configured",
       personas: {

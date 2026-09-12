@@ -220,3 +220,55 @@ Stage Summary:
 - **Rename complete**: Product is now "Spar" everywhere — UI, metadata, system prompts, CSS classes, folder structure, internal comments. Zero remaining "sharkpit" references in `src/`.
 - **Data preserved**: Existing user's 2 sessions + 1 pattern memory + 2 skill snapshots survived the email migration. The cross-session coaching loop continues to work.
 - Lint passes clean. No errors in dev log.
+
+---
+Task ID: 6
+Agent: main (engineering)
+Task: Kill the blue / go pure dark, fix Custom scenario, build mobile bottom nav + floating CTA
+
+Work Log:
+- **Theme overhaul (pure dark monochrome):**
+  - Changed `--primary` from blue `oklch(0.68 0.13 250)` to pure white `oklch(0.96 0 0)`. This cascades to all `text-primary`, `bg-primary`, `border-primary` usages app-wide.
+  - Changed `--background` from blue-tinted `oklch(0.16 0.008 250)` to pure neutral `oklch(0.14 0 0)` (#0a0a0a). All surfaces (card, popover, secondary, muted, accent, border) similarly stripped of the 250 hue — all now `oklch(x 0 0)` (zero chroma = no color).
+  - Removed the blue radial gradient from `body` background (was `radial-gradient(circle at 0% 0%, oklch(0.68 0.13 250 / 0.04)...)`).
+  - Updated `spar-pulse` and `spar-caret` animations from blue to white.
+  - Updated `--ring`, `--sidebar-primary`, `--sidebar-ring`, `--chart-1` from blue to white.
+  - Browser-verified: zero elements with blue oklch color in the DOM. Primary CSS variable is now `lab(95.36% 0 0)` (pure white, zero chroma).
+- **Persona accent hues stripped to monochrome:**
+  - `persona-avatar.tsx`: removed colored gradient background. All avatars now use neutral dark slate (`oklch(0.23 0 0)`) with near-white initials. Speaking state = white ring. No per-archetype color.
+  - `persona-card.tsx`: removed colored boxShadow. Speaking state = white border. Mood labels all use `text-foreground` / `text-muted-foreground` (no amber/emerald/rose). Behavior badges use neutral white borders.
+  - `transcript.tsx`: user message bubble changed from `bg-primary/10 border-primary/20` to `bg-white/5 border-white/10`. Persona message left border changed from per-archetype accent hue to `border-l-white/20`. Opening badge changed from blue to neutral white. Interruption label changed from amber to neutral.
+  - `telemetry-bar.tsx`: hedge tone changed from amber to white. Evidence tone changed from primary to white.
+  - `practice-view.tsx`: scenario selected state changed from `border-primary/60 bg-primary/10` to `border-white/40 bg-white/5`. Mode option, panel slot icon, add-panelist hover all de-blued.
+  - `home-view.tsx`: CTA changed from blue gradient to `border-white/15 bg-white/5`. Countdown number, Today's Focus, stat cards all de-blued.
+  - `debrief-view.tsx`: section accents (primary/emerald/amber) all changed to white/white-70. Skill bars changed from `bg-primary/70` to `bg-white/70`. Highlighted section changed from blue tint to white tint.
+  - `sparring-room.tsx`: loading spinner, mobile claims FAB, claim badges all de-blued.
+- **Custom scenario feature:**
+  - Added `roomContext String?` field to Session model in `prisma/schema.prisma`. Pushed schema via `bun run db:push`.
+  - Updated `POST /api/sessions` to accept and store `roomContext` (only when scenario is "custom").
+  - Updated `open`, `spar`, and `end` API routes to use the custom roomContext when scenario is "custom" (falls back to scenario default otherwise). Also standardized `scenarioLabel` to "Custom Session" for custom scenarios.
+  - Added `customRoom` state + validation to `practice-view.tsx`. When the user selects "Custom" scenario, a textarea appears: "Describe who's in the room" with a placeholder example (hiring committee, etc.). The Start button stays disabled until 10+ chars of room description are provided.
+  - Browser-verified: created a custom session with "A hiring committee of 3 senior engineers..." description. Panel loaded, Skeptic delivered an opening referencing Claim 2. The custom room context feeds into the persona system prompts.
+- **Mobile bottom nav (per user spec):**
+  - `nav.tsx` rewritten to be responsive: desktop gets the top sticky bar (`hidden md:flex`), mobile gets a fixed bottom bar (`md:hidden`).
+  - Bottom nav: `fixed bottom-0 left-0 right-0 z-50`, `h-16` (64px), `bg-[#0a0a0a]`, `border-t border-white/[0.06]`, `pb-[env(safe-area-inset-bottom)]`, `justify-around`.
+  - 4 items: Home, Practice (Swords icon per spec — changed from Dumbbell), Coach (Target), Progress (TrendingUp).
+  - Each item: flex column, `min-h-[48px] min-w-[48px]` tap target, `h-5 w-5` icon, `text-[10px]` label.
+  - Inactive: `text-neutral-500`. Active: `text-white`.
+  - Active indicator: `h-1 w-1 rounded-full bg-white` dot above the icon (`mb-0.5`).
+  - Top desktop bar also de-blued: logo ring is `bg-white/5 ring-white/15`, active nav indicator is `bg-foreground` (white).
+- **Mobile floating CTA (per user spec):**
+  - Added to `home-view.tsx`: `fixed bottom-20 left-4 right-4 z-40`, `bg-white text-black font-semibold text-sm py-3.5 px-6 rounded-xl shadow-lg active:scale-95`.
+  - Only visible on mobile (`md:hidden`). Desktop uses the inline CTA card (`hidden md:block`).
+  - The desktop CTA was also de-blued: changed from blue gradient to `border-white/15 bg-white/5` with white arrow circle.
+- **Layout fixes:**
+  - `page.tsx`: added `pb-16 md:pb-0` to `<main>` to prevent the mobile bottom nav from covering content.
+  - `home-view.tsx`: added `pb-32 md:pb-12` to the home container to account for the floating CTA + bottom nav on mobile.
+  - `sparring-room.tsx`: fixed height from `h-[calc(100vh-3.5rem)]` to `h-[100dvh]` — the Sparring Room is a full-screen view with no global Nav, so the 3.5rem subtraction was wrong (left a gap at the bottom). Using `100dvh` accounts for mobile browser chrome.
+- Restarted dev server after schema push (Prisma client needed to pick up the new `roomContext` field).
+
+Stage Summary:
+- **Pure dark mode achieved**: zero blue in the entire app. Primary is pure white, background is #0a0a0a, all surfaces are neutral gray with zero chroma. Persona differentiation is now by initials + names, not color.
+- **Custom scenario works**: selecting "Custom" in the scenario picker reveals a "Describe who's in the room" textarea. The description is stored in the DB and feeds into the persona system prompts. Verified end-to-end with a hiring committee description.
+- **Mobile nav per spec**: fixed bottom bar (64px, #0a0a0a, border-t white/6), 4 items with active white dot above icon, Swords icon for Practice. Floating CTA on Home (bg-white text-black, fixed bottom-20). Desktop keeps the top sticky bar.
+- Lint passes clean. No errors in dev log. Browser-verified on both desktop (1440x900) and mobile (390x844).

@@ -19,12 +19,12 @@ const MOOD_LABELS: Record<PersonaMood, { label: string; tone: string }> = {
   neutral: { label: "Listening", tone: "text-muted-foreground" },
   listening: { label: "Listening", tone: "text-muted-foreground" },
   thinking: { label: "Thinking", tone: "text-muted-foreground" },
-  speaking: { label: "Speaking", tone: "text-primary" },
-  pressing: { label: "Pressing", tone: "text-amber-300/80" },
-  skeptical: { label: "Skeptical", tone: "text-amber-300/70" },
-  curious: { label: "Curious", tone: "text-primary/80" },
-  satisfied: { label: "Acknowledged", tone: "text-emerald-300/70" },
-  frustrated: { label: "Pressing harder", tone: "text-rose-300/70" },
+  speaking: { label: "Speaking", tone: "text-foreground" },
+  pressing: { label: "Pressing", tone: "text-foreground/80" },
+  skeptical: { label: "Skeptical", tone: "text-foreground/80" },
+  curious: { label: "Curious", tone: "text-foreground/80" },
+  satisfied: { label: "Acknowledged", tone: "text-foreground/80" },
+  frustrated: { label: "Pressing harder", tone: "text-foreground/80" },
 };
 
 const BEHAVIOR_LABELS: Record<BehaviorStyle, string> = {
@@ -33,16 +33,19 @@ const BEHAVIOR_LABELS: Record<BehaviorStyle, string> = {
   aggressive: "Aggressive",
 };
 
+// Monochrome behavior badges — no color, just border weight.
 const BEHAVIOR_TONES: Record<BehaviorStyle, string> = {
-  gentle: "border-emerald-500/30 text-emerald-300/70",
-  moderate: "border-border text-muted-foreground",
-  aggressive: "border-amber-500/30 text-amber-300/70",
+  gentle: "border-white/20 text-muted-foreground",
+  moderate: "border-white/15 text-muted-foreground",
+  aggressive: "border-white/30 text-foreground/80",
 };
 
 /**
  * A single persona in the panel. Per brief section 3.3:
  * "Each shows: Listening | Speaking | Thinking. Live mood indicator.
  *  Who's about to interrupt — subtle pulse animation."
+ *
+ * Monochrome — no colored accents. State is conveyed via ring + text weight.
  */
 export function PersonaCard({
   archetype,
@@ -55,7 +58,6 @@ export function PersonaCard({
   const def = ARCHETYPES[archetype];
   const moodInfo = MOOD_LABELS[mood] || MOOD_LABELS.neutral;
 
-  // When speaking, the card "lights up" — subtle background tint + border.
   const speaking = state === "speaking";
   const aboutToInterrupt = state === "about-to-interrupt";
   const thinking = state === "thinking";
@@ -66,20 +68,13 @@ export function PersonaCard({
         "relative rounded-lg border bg-card/60 transition-all duration-300",
         compact ? "p-2.5" : "p-3.5",
         speaking
-          ? "border-primary/50 bg-card shadow-[0_0_0_1px_var(--primary)]"
+          ? "border-white/40 bg-card"
           : aboutToInterrupt
-          ? "border-primary/40"
+          ? "border-white/30"
           : thinking
-          ? "border-border"
+          ? "border-white/15"
           : "border-border/60"
       )}
-      style={
-        speaking
-          ? ({
-              boxShadow: `0 0 24px -8px ${def.accentHue}`,
-            } as React.CSSProperties)
-          : undefined
-      }
     >
       <div className="flex items-start gap-3">
         <PersonaAvatar
@@ -122,8 +117,8 @@ export function PersonaCard({
               <span className="uppercase tracking-wider">Thinking</span>
             </span>
           ) : speaking ? (
-            <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-primary">
-              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+            <span className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-foreground">
+              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-foreground" />
               {moodInfo.label}
             </span>
           ) : (
@@ -133,11 +128,11 @@ export function PersonaCard({
             </span>
           )}
         </div>
-        {/* Mood dot */}
+        {/* Mood dot — monochrome */}
         <span
           className={cn("inline-block h-1.5 w-1.5 rounded-full", moodInfo.tone)}
           style={{
-            backgroundColor: aboutToInterrupt ? def.accentHue : undefined,
+            backgroundColor: aboutToInterrupt ? "oklch(0.96 0 0)" : undefined,
           }}
         />
       </div>

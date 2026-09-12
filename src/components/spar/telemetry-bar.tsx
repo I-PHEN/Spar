@@ -26,9 +26,9 @@ export function TelemetryBar({
   muted = false,
 }: TelemetryBarProps) {
   const latencySec = latencyMs > 0 ? (latencyMs / 1000).toFixed(1) : "—";
-  // Hedge warning color: amber if >2, muted otherwise. Never red — that's toyish.
-  const hedgeTone = hedges > 2 ? "text-amber-300/80" : "text-muted-foreground";
-  const evidenceTone = hasEvidence ? "text-primary" : "text-muted-foreground/60";
+  // Hedge warning tone: brighter if >2, muted otherwise.
+  const hedgeTone = hedges > 2 ? "text-white" : "text-muted-foreground";
+  const evidenceTone = hasEvidence ? "text-white" : "text-muted-foreground/60";
 
   return (
     <div

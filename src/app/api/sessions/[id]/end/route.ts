@@ -132,6 +132,7 @@ export async function POST(
     : [];
 
   const scenario = SCENARIOS[session.scenario as keyof typeof SCENARIOS];
+  const scenarioLabel = scenario?.label || "Custom Session";
 
   const patternMemory = buildPatternMemoryContext({
     patterns: session.user.patternMemories.map((p) => ({
@@ -151,7 +152,7 @@ export async function POST(
 
   // Generate the debrief.
   const debrief = await generateDebrief({
-    scenarioLabel: scenario?.label || session.scenario,
+    scenarioLabel,
     claims,
     transcript: transcriptStr,
     personaArchetypes: session.personas.map((p) => ({

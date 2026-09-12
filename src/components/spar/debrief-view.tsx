@@ -81,7 +81,7 @@ export function DebriefView({
   if (loading) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-6">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-white" />
         <p className="text-sm text-muted-foreground">
           The coach is reviewing the tape...
         </p>
@@ -146,7 +146,7 @@ export function DebriefView({
             {d.whatWentWell.length > 0 ? (
               d.whatWentWell.map((item, i) => (
                 <li key={i} className="flex gap-2.5 text-sm leading-relaxed text-foreground/90">
-                  <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-emerald-400/70" />
+                  <span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-white/60" />
                   <span>{item}</span>
                 </li>
               ))
@@ -273,7 +273,7 @@ export function DebriefView({
                 <div key={s.name} className="text-center">
                   <div className="mx-auto h-16 w-2 overflow-hidden rounded-full bg-muted/40">
                     <div
-                      className="h-full rounded-full bg-primary/70 transition-all"
+                      className="h-full rounded-full bg-white/70 transition-all"
                       style={{ height: `${s.v}%`, marginTop: `${100 - s.v}%` }}
                     />
                   </div>
@@ -317,16 +317,16 @@ function DebriefSection({
   children: React.ReactNode;
 }) {
   const accentClasses = {
-    primary: "text-primary",
-    emerald: "text-emerald-300/80",
-    amber: "text-amber-300/80",
-    slate: "text-muted-foreground/70",
+    primary: "text-white",
+    emerald: "text-white/70",
+    amber: "text-white/70",
+    slate: "text-neutral-500",
   };
   return (
     <section
       className={cn(
         "rounded-lg border bg-card/40 p-5",
-        highlighted ? "border-primary/30 bg-primary/[0.04]" : "border-border/60"
+        highlighted ? "border-white/20 bg-white/[0.03]" : "border-border/60"
       )}
     >
       <div className="mb-3 flex items-center gap-2.5">

@@ -63,6 +63,7 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
   const [materialTitle, setMaterialTitle] = useState("");
   const [topic, setTopic] = useState("");
   const [scenario, setScenario] = useState<ScenarioKey>("thesis_defense");
+  const [customRoom, setCustomRoom] = useState("");
   const [panel, setPanel] = useState<PanelSlot[]>([
     { archetype: "skeptic", name: "The Skeptic", behaviorStyle: "moderate" },
     { archetype: "so_what", name: "The So-What", behaviorStyle: "moderate" },
@@ -76,8 +77,11 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
       ? topic.trim().length >= 10
       : material.trim().length >= 10;
 
+  const customValid =
+    scenario !== "custom" || customRoom.trim().length >= 10;
+
   const panelValid = panel.length >= 1 && panel.length <= 3;
-  const canStart = materialValid && panelValid && !creating;
+  const canStart = materialValid && panelValid && customValid && !creating;
 
   // Compute a clear reason for why the button is disabled (for the UI hint)
   const disabledReason = creating
@@ -86,6 +90,8 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
     ? mode === "with_material"
       ? "Add at least 10 characters of material to start"
       : "Add a topic (10+ chars) to start"
+    : !customValid
+    ? "Describe your custom room to start"
     : !panelValid
     ? "Add at least one panelist"
     : null;
@@ -109,6 +115,7 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
           mode === "with_material" ? material.trim() : topic.trim() || undefined,
         materialTitle:
           mode === "with_material" ? materialTitle.trim() || undefined : topic.trim() || undefined,
+        roomContext: scenario === "custom" ? customRoom.trim() : undefined,
         personas,
       };
 
@@ -232,7 +239,7 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
                 className={cn(
                   "rounded-lg border p-3 text-left transition-all",
                   scenario === s.key
-                    ? "border-primary/60 bg-primary/10 shadow-[0_0_0_1px_var(--primary)]"
+                    ? "border-white/40 bg-white/5"
                     : "border-border/60 bg-card/40 hover:border-border hover:bg-card/70"
                 )}
               >
@@ -243,6 +250,27 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
               </button>
             ))}
           </div>
+          {scenario === "custom" && (
+            <div className="mt-4 space-y-1.5">
+              <Label htmlFor="custom-room">Describe who's in the room</Label>
+              <Textarea
+                id="custom-room"
+                value={customRoom}
+                onChange={(e) => setCustomRoom(e.target.value)}
+                placeholder="e.g., A hiring committee of 3 senior engineers interviewing me for a staff engineer role. They'll probe my system design decisions, my leadership philosophy, and a past incident where I caused an outage. Stakes: this is my dream job."
+                rows={4}
+                className="resize-y"
+              />
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground/70">
+                <span>
+                  {customRoom.trim().length < 10
+                    ? `${10 - customRoom.trim().length} more characters needed`
+                    : "The panel will use this to shape their challenges"}
+                </span>
+                <span>{customRoom.length} chars</span>
+              </div>
+            </div>
+          )}
         </Section>
 
         {/* Section 04 — Panel */}
@@ -273,7 +301,7 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
                     },
                   ])
                 }
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 py-3 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 py-3 text-sm text-muted-foreground transition-colors hover:border-white/30 hover:text-foreground"
               >
                 <Plus className="h-4 w-4" /> Add panelist ({panel.length}/3)
               </button>
@@ -358,15 +386,15 @@ function ModeOption({
       className={cn(
         "rounded-lg border p-4 text-left transition-all",
         active
-          ? "border-primary/60 bg-primary/10"
+          ? "border-white/40 bg-white/5"
           : "border-border/60 bg-card/40 hover:border-border hover:bg-card/70"
       )}
     >
       <div className="flex items-center justify-between">
-        <div className={cn("flex h-9 w-9 items-center justify-center rounded-md", active ? "bg-primary/15 text-primary" : "bg-muted/40 text-muted-foreground")}>
+        <div className={cn("flex h-9 w-9 items-center justify-center rounded-md", active ? "bg-white/10 text-foreground" : "bg-muted/40 text-muted-foreground")}>
           {icon}
         </div>
-        {active && <Check className="h-4 w-4 text-primary" />}
+        {active && <Check className="h-4 w-4 text-foreground" />}
       </div>
       <h3 className="mt-3 text-sm font-medium text-foreground">{title}</h3>
       <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground/70">{desc}</p>
@@ -391,8 +419,7 @@ function PanelSlotEditor({
     <div className="rounded-lg border border-border/60 bg-card/40 p-3.5">
       <div className="flex items-start gap-3">
         <div
-          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md"
-          style={{ background: def.accentHue + "30", color: def.accentHue }}
+          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-white/5 text-foreground/80 ring-1 ring-white/10"
         >
           <Icon className="h-5 w-5" />
         </div>

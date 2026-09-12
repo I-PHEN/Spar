@@ -3,8 +3,9 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Spar design language — deep charcoal + slate + ONE accent blue.
-   No neon. No gradients-for-fun. No gamey language. Premium, calm, focused. */
+/* Spar design language — pure dark mode.
+   Deep charcoal + slate + white accent. No blue. No color noise.
+   Premium, calm, focused. The whole product is the dark "room". */
 
 @theme inline {
   --color-background: var(--background);
@@ -46,65 +47,59 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* Spar is dark by default — premium training-app feel.
-   We do NOT support a light mode in v1. The whole product is the dark "room". */
 :root {
   --radius: 0.5rem;
 
-  /* Deep charcoal base */
-  --background: oklch(0.16 0.008 250);          /* #0B0E14-ish, deep charcoal with cool tint */
-  --foreground: oklch(0.93 0.005 250);          /* #E8EAEF, soft white */
+  /* Pure dark base — no blue tint. #0a0a0a */
+  --background: oklch(0.14 0 0);
+  --foreground: oklch(0.93 0 0);              /* soft white */
 
-  /* Slate surfaces */
-  --card: oklch(0.21 0.008 250);                /* #151921 */
-  --card-foreground: oklch(0.93 0.005 250);
-  --popover: oklch(0.19 0.008 250);             /* #121620 */
-  --popover-foreground: oklch(0.93 0.005 250);
+  /* Slate surfaces — all neutral, no hue */
+  --card: oklch(0.19 0 0);                     /* #181818 */
+  --card-foreground: oklch(0.93 0 0);
+  --popover: oklch(0.17 0 0);                 /* #141414 */
+  --popover-foreground: oklch(0.93 0 0);
 
-  /* Primary accent — the ONE blue. Sophisticated, cool, premium.
-     #5B8DEF-ish in hex. Used for CTAs, active states, primary highlights. */
-  --primary: oklch(0.68 0.13 250);
-  --primary-foreground: oklch(0.16 0.008 250);  /* dark text on blue */
+  /* Primary = white. Used for CTAs, active states, highlights. */
+  --primary: oklch(0.96 0 0);                  /* near-white #F5F5F5 */
+  --primary-foreground: oklch(0.10 0 0);       /* dark text on white */
 
-  /* Secondary — slightly lifted slate for hover/secondary surfaces */
-  --secondary: oklch(0.25 0.008 250);           /* #1E232E */
-  --secondary-foreground: oklch(0.93 0.005 250);
+  /* Secondary — lifted slate */
+  --secondary: oklch(0.23 0 0);               /* #232323 */
+  --secondary-foreground: oklch(0.93 0 0);
 
-  /* Muted — for secondary text and subtle backgrounds */
-  --muted: oklch(0.25 0.008 250);               /* #1E232E */
-  --muted-foreground: oklch(0.62 0.012 250);    /* #8A93A3, slate gray */
+  /* Muted */
+  --muted: oklch(0.23 0 0);
+  --muted-foreground: oklch(0.58 0 0);        /* #8A8A8A neutral gray */
 
-  /* Accent — same family as primary, slightly different role */
-  --accent: oklch(0.28 0.02 250);                /* #232936 */
-  --accent-foreground: oklch(0.93 0.005 250);
+  /* Accent */
+  --accent: oklch(0.26 0 0);                   /* #2A2A2A */
+  --accent-foreground: oklch(0.93 0 0);
 
-  --destructive: oklch(0.62 0.18 25);            /* muted red */
+  --destructive: oklch(0.60 0.18 25);
   --destructive-foreground: oklch(0.98 0 0);
 
   /* Borders — very subtle */
-  --border: oklch(0.30 0.008 250);               /* #2A3140 */
-  --input: oklch(0.25 0.008 250);
-  --ring: oklch(0.68 0.13 250);                  /* matches primary */
+  --border: oklch(0.28 0 0);                   /* #2E2E2E */
+  --input: oklch(0.23 0 0);
+  --ring: oklch(0.93 0 0);                     /* white ring */
 
-  /* Chart colors — muted, coherent with palette */
-  --chart-1: oklch(0.68 0.13 250);   /* primary blue */
-  --chart-2: oklch(0.65 0.08 180);   /* muted teal */
-  --chart-3: oklch(0.70 0.10 60);    /* muted amber */
-  --chart-4: oklch(0.62 0.10 145);    /* muted sage */
-  --chart-5: oklch(0.65 0.12 15);     /* muted rose */
+  /* Chart colors — monochrome + subtle differentiation for later */
+  --chart-1: oklch(0.93 0 0);
+  --chart-2: oklch(0.65 0 0);
+  --chart-3: oklch(0.50 0 0);
+  --chart-4: oklch(0.75 0 0);
+  --chart-5: oklch(0.40 0 0);
 
-  --sidebar: oklch(0.18 0.008 250);
-  --sidebar-foreground: oklch(0.93 0.005 250);
-  --sidebar-primary: oklch(0.68 0.13 250);
-  --sidebar-primary-foreground: oklch(0.16 0.008 250);
-  --sidebar-accent: oklch(0.25 0.008 250);
-  --sidebar-accent-foreground: oklch(0.93 0.005 250);
-  --sidebar-border: oklch(0.30 0.008 250);
-  --sidebar-ring: oklch(0.68 0.13 250);
+  --sidebar: oklch(0.16 0 0);
+  --sidebar-foreground: oklch(0.93 0 0);
+  --sidebar-primary: oklch(0.96 0 0);
+  --sidebar-primary-foreground: oklch(0.10 0 0);
+  --sidebar-accent: oklch(0.23 0 0);
+  --sidebar-accent-foreground: oklch(0.93 0 0);
+  --sidebar-border: oklch(0.28 0 0);
+  --sidebar-ring: oklch(0.93 0 0);
 }
-
-/* The brief specifies dark mode only. We hardcode the dark palette into :root.
-   (No light mode in v1.) */
 
 @layer base {
   * {
@@ -112,47 +107,41 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* Subtle film-grain texture via radial gradient — almost imperceptible,
-       adds depth without being "gradient for fun". */
-    background-image:
-      radial-gradient(circle at 0% 0%, oklch(0.68 0.13 250 / 0.04) 0%, transparent 35%),
-      radial-gradient(circle at 100% 100%, oklch(0.68 0.13 250 / 0.03) 0%, transparent 40%);
-    background-attachment: fixed;
+    /* No gradient, no texture. Pure flat dark. */
   }
 
-  /* Custom scrollbar — slim, slate, premium */
+  /* Custom scrollbar — slim, dark */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: oklch(0.30 0.008 250);
-    border-radius: 4px;
+    background: oklch(0.28 0 0);
+    border-radius: 3px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: oklch(0.38 0.008 250);
+    background: oklch(0.38 0 0);
   }
 
-  /* Selection — primary blue tint */
+  /* Selection — white tint on dark */
   ::selection {
-    background: oklch(0.68 0.13 250 / 0.25);
+    background: oklch(0.96 0 0 / 0.20);
     color: oklch(0.98 0 0);
   }
 }
 
-/* Custom animations for the Sparring Room — subtle, purposeful */
+/* Custom animations — monochrome, white-based */
 
-/* Persona "about to interrupt" pulse — subtle, breath-like */
 @keyframes spar-pulse {
   0%, 100% {
-    box-shadow: 0 0 0 0 oklch(0.68 0.13 250 / 0.35);
+    box-shadow: 0 0 0 0 oklch(0.96 0 0 / 0.35);
     opacity: 1;
   }
   50% {
-    box-shadow: 0 0 0 6px oklch(0.68 0.13 250 / 0);
+    box-shadow: 0 0 0 6px oklch(0.96 0 0 / 0);
     opacity: 0.85;
   }
 }
@@ -160,7 +149,6 @@
   animation: spar-pulse 1.4s ease-in-out infinite;
 }
 
-/* Persona "thinking" — three dots that breathe */
 @keyframes spar-thinking {
   0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
   40% { opacity: 1; transform: translateY(-2px); }
@@ -171,7 +159,6 @@
 .spar-thinking-dot:nth-child(2) { animation-delay: 0.2s; }
 .spar-thinking-dot:nth-child(3) { animation-delay: 0.4s; }
 
-/* Interruption slide-in */
 @keyframes spar-interrupt {
   0% { transform: translateX(-12px); opacity: 0; }
   100% { transform: translateX(0); opacity: 1; }
@@ -180,7 +167,6 @@
   animation: spar-interrupt 0.35s ease-out;
 }
 
-/* Subtle fade-up for new messages */
 @keyframes spar-fade-up {
   0% { transform: translateY(6px); opacity: 0; }
   100% { transform: translateY(0); opacity: 1; }
@@ -189,7 +175,6 @@
   animation: spar-fade-up 0.3s ease-out;
 }
 
-/* Caret blink for streaming text */
 @keyframes spar-caret {
   0%, 50% { opacity: 1; }
   50.01%, 100% { opacity: 0; }
@@ -199,7 +184,7 @@
   display: inline-block;
   width: 0.5em;
   height: 1.1em;
-  background: oklch(0.68 0.13 250);
+  background: oklch(0.96 0 0);
   margin-left: 2px;
   vertical-align: text-bottom;
   animation: spar-caret 1s steps(1) infinite;

@@ -26,7 +26,6 @@ import {
 import { PersonaCard } from "./persona-card";
 import { Transcript, type TranscriptMessage } from "./transcript";
 import { TelemetryBar } from "./telemetry-bar";
-import { ARCHETYPES } from "@/lib/personas";
 import { SCENARIOS } from "@/lib/scenarios";
 import { quickStats } from "@/lib/telemetry";
 import type {
@@ -365,7 +364,7 @@ export function SparringRoom({
   if (loading) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3">
-        <Loader2 className="h-7 w-7 animate-spin text-primary" />
+        <Loader2 className="h-7 w-7 animate-spin text-white" />
         <p className="text-sm text-muted-foreground">Entering the room...</p>
       </div>
     );
@@ -386,7 +385,7 @@ export function SparringRoom({
   const elapsedDisplay = formatTime(elapsedSec);
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] flex-col">
+    <div className="flex h-[100dvh] flex-col">
       {/* Top bar */}
       <div className="flex items-center justify-between border-b border-border/60 bg-background/80 px-4 py-2.5 backdrop-blur-md sm:px-6">
         <div className="flex items-center gap-3 min-w-0">
@@ -440,7 +439,6 @@ export function SparringRoom({
                   {claims.length} key {claims.length === 1 ? "claim" : "claims"} extracted. The panel will challenge these.
                 </p>
                 {claims.map((c) => {
-                  const def = ARCHETYPES.skeptic;
                   return (
                     <div
                       key={c.id}
@@ -449,7 +447,7 @@ export function SparringRoom({
                       <div className="flex items-center gap-1.5 mb-1.5">
                         <span
                           className="rounded px-1 py-px text-[9px] uppercase tracking-wider font-mono"
-                          style={{ background: def.accentHue + "20", color: def.accentHue }}
+                          style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.8)' }}
                         >
                           Claim {c.id}
                         </span>
@@ -592,7 +590,7 @@ export function SparringRoom({
       {claims.length > 0 && (
         <button
           onClick={() => setShowClaimsPanel(true)}
-          className="lg:hidden fixed bottom-20 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg"
+          className="lg:hidden fixed bottom-20 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white text-black shadow-lg"
           aria-label="View your material"
         >
           <FileText className="h-4 w-4" />

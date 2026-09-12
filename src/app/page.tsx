@@ -80,7 +80,7 @@ export default function Page() {
   return (
     <div className="flex min-h-screen flex-col">
       <Nav current={view} onNavigate={navigate} />
-      <main className="flex-1">
+      <main className="flex-1 pb-16 md:pb-0">
         {view === "home" && (
           <HomeView
             userName={userName}
@@ -120,7 +120,7 @@ function ComingSoonView({
 }) {
   return (
     <div className="mx-auto flex max-w-2xl flex-col items-center justify-center px-6 py-24 text-center">
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary ring-1 ring-primary/30">
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/5 text-white ring-1 ring-white/15">
         {icon}
       </div>
       <h1 className="mt-5 text-2xl font-semibold tracking-tight text-foreground">

@@ -46,6 +46,7 @@ model Session {
   mode            String   // 'with_material' | 'without_material'
   rawMaterial     String?  // pasted or extracted text content the user is defending
   materialTitle   String?  // optional title for the material
+  roomContext     String?  // custom room description when scenario is 'custom'; null otherwise
   extractedClaims String?  // JSON array of { claim, evidence } — 3-5 key claims LLM extracted
   status          String   @default("configured") // 'configured' | 'active' | 'ended' | 'debriefed'
   startedAt       DateTime?

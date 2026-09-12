@@ -73,26 +73,26 @@ export function HomeView({ userName, onEnterSparringRoom }: HomeViewProps) {
     : null;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
+    <div className="mx-auto max-w-5xl px-4 py-8 pb-32 sm:px-6 sm:py-12 md:pb-12">
       {/* Header */}
       <div className="mb-8">
-        <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground/70">
+        <p className="text-xs uppercase tracking-widest text-neutral-500 mb-2">
           {greeting()}
         </p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+        <h1 className="text-4xl lg:text-5xl font-bold tracking-tight text-white">
           {userName}.
         </h1>
         {moment && daysUntil !== null ? (
-          <p className="mt-2 text-base text-muted-foreground">
-            Your <span className="text-foreground/90">{moment.title}</span> is in{" "}
-            <span className="font-semibold text-primary">{daysUntil} {daysUntil === 1 ? "day" : "days"}</span>.
+          <p className="mt-2 text-sm text-neutral-400">
+            Your <span className="text-white/90">{moment.title}</span> is in{" "}
+            <span className="font-semibold text-white">{daysUntil} {daysUntil === 1 ? "day" : "days"}</span>.
           </p>
         ) : (
-          <p className="mt-2 text-base text-muted-foreground">
+          <p className="mt-2 text-sm text-neutral-400">
             No upcoming moment set.{" "}
             <button
               onClick={() => setEditingMoment(true)}
-              className="text-primary hover:underline"
+              className="text-white underline-offset-2 hover:underline"
             >
               Set one →
             </button>
@@ -100,45 +100,54 @@ export function HomeView({ userName, onEnterSparringRoom }: HomeViewProps) {
         )}
       </div>
 
-      {/* Primary CTA */}
+      {/* Primary CTA — desktop only (mobile uses floating CTA) */}
       <button
         onClick={onEnterSparringRoom}
-        className="group relative block w-full overflow-hidden rounded-xl border border-primary/40 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent p-6 text-left transition-all hover:border-primary/60 hover:from-primary/20 sm:p-8"
+        className="group relative hidden w-full overflow-hidden rounded-xl border border-white/15 bg-white/5 p-6 text-left transition-all hover:border-white/30 hover:bg-white/[0.08] sm:block md:p-8"
       >
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.2em] text-primary/80">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-neutral-500">
               Start a session
             </p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white md:text-3xl">
               Enter the Sparring Room
             </h2>
-            <p className="mt-1.5 text-sm text-muted-foreground">
+            <p className="mt-1.5 text-sm text-neutral-400">
               Bring an idea. Face the panel. Get coached.
             </p>
           </div>
-          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform group-hover:scale-110 sm:h-14 sm:w-14">
-            <ArrowRight className="h-5 w-5 sm:h-6 sm:w-6" />
+          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-white text-black transition-transform group-hover:scale-110 md:h-14 md:w-14">
+            <ArrowRight className="h-5 w-5 md:h-6 md:w-6" />
           </div>
         </div>
       </button>
 
+      {/* Mobile floating CTA — per spec */}
+      <button
+        onClick={onEnterSparringRoom}
+        className="fixed bottom-20 left-4 right-4 z-40 flex items-center justify-center gap-2 rounded-xl bg-white py-3.5 px-6 text-sm font-semibold text-black shadow-lg transition-transform active:scale-95 md:hidden"
+      >
+        Enter the Sparring Room
+        <ArrowRight className="h-4 w-4 ml-2" />
+      </button>
+
       {/* Upcoming Moment countdown */}
       {moment && daysUntil !== null && (
-        <div className="mt-5 flex items-center justify-between rounded-lg border border-border/60 bg-card/40 px-5 py-4">
+        <div className="mt-5 flex items-center justify-between rounded-lg border border-white/[0.06] bg-card/40 px-5 py-4">
           <div className="flex items-center gap-3">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <Calendar className="h-4 w-4 text-neutral-500" />
             <div>
-              <p className="text-sm font-medium text-foreground">{moment.title}</p>
+              <p className="text-sm font-medium text-white">{moment.title}</p>
               {moment.detail && (
-                <p className="text-xs text-muted-foreground">{moment.detail}</p>
+                <p className="text-xs text-neutral-400">{moment.detail}</p>
               )}
             </div>
           </div>
           <div className="flex items-center gap-3">
             <div className="text-right">
-              <p className="text-2xl font-semibold text-primary tabular-nums">{daysUntil}</p>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60">
+              <p className="text-2xl font-semibold text-white tabular-nums">{daysUntil}</p>
+              <p className="text-[10px] uppercase tracking-wider text-neutral-500">
                 {daysUntil === 1 ? "day" : "days"}
               </p>
             </div>
@@ -147,7 +156,7 @@ export function HomeView({ userName, onEnterSparringRoom }: HomeViewProps) {
               size="icon"
               onClick={() => setEditingMoment(true)}
               aria-label="Edit upcoming moment"
-              className="h-8 w-8"
+              className="h-8 w-8 text-neutral-500 hover:text-white"
             >
               <Pencil className="h-3.5 w-3.5" />
             </Button>
@@ -177,16 +186,16 @@ export function HomeView({ userName, onEnterSparringRoom }: HomeViewProps) {
 
       {/* Today's Focus */}
       {stats?.todaysFocus && (
-        <div className="mt-5 rounded-lg border border-primary/20 bg-primary/[0.04] p-5">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-primary/70">
+        <div className="mt-5 rounded-lg border border-white/10 bg-white/[0.03] p-5">
+          <p className="text-[11px] uppercase tracking-[0.2em] text-neutral-500">
             Today&apos;s Focus
           </p>
-          <p className="mt-2 text-sm text-foreground/90 leading-relaxed">
+          <p className="mt-2 text-sm text-white/90 leading-relaxed">
             {stats.todaysFocus.description}
           </p>
-          <p className="mt-2 text-xs text-muted-foreground/70">
+          <p className="mt-2 text-xs text-neutral-500">
             Pattern tag:{" "}
-            <code className="rounded bg-muted/40 px-1 py-0.5 text-[10px]">
+            <code className="rounded bg-white/5 px-1 py-0.5 text-[10px] text-neutral-400">
               {stats.todaysFocus.tag.replace(/_/g, " ")}
             </code>
           </p>

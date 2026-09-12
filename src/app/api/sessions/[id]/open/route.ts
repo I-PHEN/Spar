@@ -65,6 +65,12 @@ export async function POST(
     : [];
 
   const scenario = SCENARIOS[session.scenario as keyof typeof SCENARIOS];
+  // For custom scenarios, use the user-provided room context.
+  const scenarioLabel = scenario?.label || "Custom Session";
+  const roomContext =
+    session.scenario === "custom" && session.roomContext
+      ? session.roomContext
+      : scenario?.roomContext || "";
   const firstPersona = session.personas[0];
   if (!firstPersona) {
     return NextResponse.json({ error: "No personas configured" }, { status: 400 });
@@ -97,7 +103,7 @@ export async function POST(
   const opening = await generateOpening({
     archetype: firstPersona.archetype as ArchetypeKey,
     behaviorStyle: firstPersona.behaviorStyle as "gentle" | "moderate" | "aggressive",
-    scenarioLabel: scenario?.label || session.scenario,
+    scenarioLabel,
     claims,
     patternMemory,
     otherPersonas,
@@ -131,8 +137,8 @@ export async function POST(
       createdAt: message.createdAt,
     },
     claims,
-    scenarioLabel: scenario?.label,
-    roomContext: scenario?.roomContext,
+    scenarioLabel,
+    roomContext,
   });
 }
 

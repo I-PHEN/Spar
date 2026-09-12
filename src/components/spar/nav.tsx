@@ -1,6 +1,6 @@
 "use client";
 
-import { Sword, Home, Dumbbell, GraduationCap, TrendingUp } from "lucide-react";
+import { Swords, Home, Target, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type NavView = "home" | "practice" | "coach" | "progress";
@@ -10,40 +10,74 @@ interface NavProps {
   onNavigate: (view: NavView) => void;
 }
 
+// Per user spec: Home, Practice (Swords), Coach (Target), Progress (TrendingUp)
 const NAV_ITEMS: Array<{ key: NavView; label: string; icon: typeof Home }> = [
   { key: "home", label: "Home", icon: Home },
-  { key: "practice", label: "Practice", icon: Dumbbell },
-  { key: "coach", label: "Coach", icon: GraduationCap },
+  { key: "practice", label: "Practice", icon: Swords },
+  { key: "coach", label: "Coach", icon: Target },
   { key: "progress", label: "Progress", icon: TrendingUp },
 ];
 
 /**
- * The 4-item nav. Clean. Purposeful. No more.
- * Per brief section 2: Home / Practice / Coach / Progress.
- * Coach and Progress are placeholders in v1 (clickable but show "coming soon").
+ * Nav: desktop top bar + mobile bottom bar.
+ * Mobile bottom nav per spec:
+ *   fixed bottom-0, 64px, bg #0a0a0a, border-t border-white/6,
+ *   4 items, active = white dot above icon + white text.
  */
 export function Nav({ current, onNavigate }: NavProps) {
-  // Map sparring → practice (sparring is a sub-state of practice)
   const activeKey: NavView =
     current === "sparring" || current === "debrief" ? "practice" : current;
 
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border/60 bg-background/80 backdrop-blur-md px-4 sm:px-6 py-3">
-      <div className="flex items-center gap-2.5">
-        <div className="relative flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 ring-1 ring-primary/30">
-          <Sword className="h-4 w-4 text-primary" />
+    <>
+      {/* Desktop top bar */}
+      <header className="sticky top-0 z-30 hidden items-center justify-between border-b border-border/60 bg-background/80 px-6 py-3 backdrop-blur-md md:flex">
+        <div className="flex items-center gap-2.5">
+          <div className="relative flex h-8 w-8 items-center justify-center rounded-md bg-white/5 ring-1 ring-white/15">
+            <Swords className="h-4 w-4 text-foreground" />
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-semibold tracking-tight text-foreground">
+              Spar
+            </span>
+            <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60">
+              Sparring Room
+            </span>
+          </div>
         </div>
-        <div className="flex items-baseline gap-1.5">
-          <span className="font-semibold tracking-tight text-foreground">
-            Spar
-          </span>
-          <span className="hidden sm:inline text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60">
-            Sparring Room
-          </span>
-        </div>
-      </div>
 
-      <nav className="flex items-center gap-1">
+        <nav className="flex items-center gap-1">
+          {NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeKey === item.key;
+            return (
+              <button
+                key={item.key}
+                onClick={() => onNavigate(item.key)}
+                className={cn(
+                  "group relative flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
+                  isActive
+                    ? "text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                aria-current={isActive ? "page" : undefined}
+              >
+                <Icon className={cn("h-4 w-4", isActive && "text-foreground")} />
+                <span>{item.label}</span>
+                {isActive && (
+                  <span className="absolute -bottom-[13px] left-1/2 h-[2px] w-8 -translate-x-1/2 rounded-full bg-foreground" />
+                )}
+              </button>
+            );
+          })}
+        </nav>
+      </header>
+
+      {/* Mobile bottom nav — per user spec */}
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-50 flex h-16 items-center justify-around border-t border-white/[0.06] bg-[#0a0a0a] pb-[env(safe-area-inset-bottom)] md:hidden"
+        aria-label="Primary navigation"
+      >
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive = activeKey === item.key;
@@ -52,22 +86,22 @@ export function Nav({ current, onNavigate }: NavProps) {
               key={item.key}
               onClick={() => onNavigate(item.key)}
               className={cn(
-                "group relative flex items-center gap-2 rounded-md px-2.5 sm:px-3 py-1.5 text-sm transition-colors",
-                isActive
-                  ? "text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
+                "flex min-h-[48px] min-w-[48px] flex-col items-center justify-center gap-1 transition-colors",
+                isActive ? "text-white" : "text-neutral-500"
               )}
               aria-current={isActive ? "page" : undefined}
             >
-              <Icon className={cn("h-4 w-4", isActive && "text-primary")} />
-              <span className="hidden sm:inline">{item.label}</span>
+              {/* Active indicator: 4px dot above icon */}
               {isActive && (
-                <span className="absolute -bottom-[13px] left-1/2 h-[2px] w-8 -translate-x-1/2 rounded-full bg-primary" />
+                <span className="mb-0.5 h-1 w-1 rounded-full bg-white" />
               )}
+              {!isActive && <span className="mb-0.5 h-1 w-1" />}
+              <Icon className="h-5 w-5" />
+              <span className="text-[10px] font-medium">{item.label}</span>
             </button>
           );
         })}
       </nav>
-    </header>
+    </>
   );
 }
