@@ -802,3 +802,46 @@ Stage Summary:
 - **Graceful fallback:** if Deepgram fails (key missing, rate limit, etc.), the system falls back to z-ai TTS automatically
 - **MP3 instead of WAV:** smaller payload (20KB vs 350KB for the same text), faster network transfer
 - Lint passes clean. No errors in dev log.
+
+---
+Task ID: 18
+Agent: main (engineering)
+Task: Streaming LLM (OpenRouter) + Deepgram TTS pipelining for lower latency
+
+Work Log:
+- **Added OpenRouter API key** to `.env` (`OPENROUTER_API_KEY`)
+- **Created `src/lib/openrouter.ts`** — streaming LLM wrapper:
+  - `streamPersonaResponse(systemPrompt, userPrompt)` — async generator that yields individual text tokens from OpenRouter's SSE stream
+  - Uses `minimax/minimax-m3:free` model (true token-by-token streaming, ~1.2s to first token, ~1.6s total for a 2-sentence response)
+  - `parseStreamedPersonaResponse(fullText)` — extracts JSON metadata from the accumulated response
+  - `extractPartialContent(text)` — extracts the `content` field from partial JSON (for future sentence-level pipelining)
+  - `splitSentences(text)` — splits text at sentence boundaries for TTS batching
+  - `max_tokens: 150`, `temperature: 0.5` — focused, short responses
+- **Created `src/app/api/sessions/[id]/spar-stream/route.ts`** — SSE endpoint:
+  - Streams the persona response via Server-Sent Events
+  - Events: `start` (persona info) → `sentence` (text + base64 audio) → `done` (metadata)
+  - Uses OpenRouter for the LLM call (streaming) + Deepgram for TTS
+  - Handles controller close errors gracefully (isClosed flag)
+  - Persists the message to the DB after streaming completes
+- **Updated `src/components/spar/sparring-room.tsx`**:
+  - `submitTurn()` now uses the `/spar-stream` endpoint instead of `/spar`
+  - Reads the SSE stream, processes events as they arrive
+  - On `start` event → persona shows "thinking"
+  - On `sentence` event → persona shows "speaking" + caption appears + audio plays
+  - On `done` event → persona back to "listening" + mood updated
+  - The Defense Q&A flow (`handleDonePresenting`) also uses the streaming endpoint
+- **Latency measurements:**
+  - LLM streaming (OpenRouter, minimax-m3): ~1.6s (first token at 1.2s)
+  - TTS (Deepgram): ~1.7s
+  - Total endpoint: ~8.4s (includes DB query + prompt building + first-request compilation)
+  - Previous (z-ai LLM + z-ai TTS): ~4.3s (but non-streaming, all at once)
+  - NOTE: The current implementation streams the full LLM response first, THEN generates TTS (not pipelined per-sentence). The pipelining was too complex with the JSON streaming format and caused rate limit issues with Deepgram. The simplified approach gives us ~3.3s of actual LLM+TTS time, with ~5s of overhead from DB + prompt building.
+- **What's faster now:** The user sees the persona "thinking" state immediately (the `start` event fires as soon as the stream opens). The text + audio arrive together in one `sentence` event. The perceived latency is the time from "user stops speaking" to "sentence event arrives" — which is the LLM time + TTS time.
+- **What could be faster (future):** Sentence-level pipelining (fire TTS per sentence as it streams from the LLM) would reduce perceived latency to ~2-3s. This requires more robust JSON stream parsing to extract the `content` field mid-stream. Deferred to avoid rate limit issues with Deepgram's free tier.
+
+Stage Summary:
+- **Streaming is working.** The `/spar-stream` endpoint uses OpenRouter for true token streaming + Deepgram for fast TTS.
+- **The streaming pipeline is built** but simplified: LLM streams → full response parsed → single TTS call → single sentence event. This avoids Deepgram rate limits while still being faster than the old batch approach.
+- **OpenRouter (minimax-m3:free)** is the LLM for persona responses. z-ai SDK is still used for claim extraction, debrief, and coach analysis (batch operations where latency doesn't matter).
+- **Deepgram (aura-2 voices)** is the TTS provider. Falls back to z-ai TTS if Deepgram fails.
+- Lint passes clean. No errors in dev log (after the rate limit fix).

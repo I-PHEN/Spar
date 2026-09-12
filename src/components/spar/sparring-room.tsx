@@ -357,11 +357,8 @@ export function SparringRoom({
     ) => {
       voice.stop();
 
-      // Wait a brief moment for final transcript to settle
       await new Promise((r) => setTimeout(r, 300));
 
-      // Use both final + interim transcript (interim has the words being
-      // spoken when the interrupt fired — they may not have been finalized)
       const transcript = (
         voice.finalTranscript +
         " " +
@@ -376,7 +373,6 @@ export function SparringRoom({
       setIsUserTurn(false);
       setIsProcessing(true);
 
-      // If this is an interrupt, play the audio cue (chair-shift rumble)
       if (isInterrupt) {
         playInterruptCue();
       }
@@ -388,12 +384,12 @@ export function SparringRoom({
           id: `u-${Date.now()}`,
           role: "user",
           content: transcript,
-          type: isInterrupt ? "normal" : "normal",
+          type: "normal",
           createdAt: Date.now(),
         },
       ]);
 
-      // Mark all personas as listening (reset from speaking)
+      // Mark all personas as listening
       setPersonaStates((prev) => {
         const next: Record<string, PersonaState> = {};
         for (const k of Object.keys(prev)) next[k] = "listening";
@@ -401,78 +397,154 @@ export function SparringRoom({
       });
 
       try {
-        let userTurn = false;
-        let first = true;
-        while (!userTurn) {
-          const body = first
-            ? {
-                userMessage: transcript,
-                isInterrupt: isInterrupt,
-                forcedPersonaId: interruptingPersonaId,
-              }
-            : {};
-          first = false;
+        // Use the streaming endpoint for faster perceived latency
+        const response = await fetch(`/api/sessions/${sessionId}/spar-stream`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userMessage: transcript,
+            isInterrupt: isInterrupt,
+            forcedPersonaId: interruptingPersonaId,
+          }),
+        });
 
-          const res = await fetch(`/api/sessions/${sessionId}/spar`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          });
-          if (!res.ok) throw new Error("Spar failed");
-          const data: SparResponse = await res.json();
+        if (!response.ok) throw new Error("Spar stream failed");
+        if (!response.body) throw new Error("No response body");
 
-          if (!data.personaResponse) {
-            userTurn = true;
-            break;
+        // Read the SSE stream
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let currentPersonaId = "";
+        let currentPersonaName = "";
+        let currentArchetype: ArchetypeKey | undefined;
+        let currentCaptionId = "";
+        let currentCaptionText = "";
+        let captionStarted = false;
+        let audioQueue: Promise<void>[] = [];
+        let isUserTurn = false;
+
+        const processEvent = async (eventType: string, data: string) => {
+          let parsed: any;
+          try {
+            parsed = JSON.parse(data);
+          } catch {
+            return;
           }
 
-          const pr = data.personaResponse;
+          if (eventType === "start") {
+            currentPersonaId = parsed.personaId;
+            currentPersonaName = parsed.personaName;
+            currentArchetype = parsed.archetype;
+            currentCaptionId = `p-${Date.now()}`;
+            currentCaptionText = "";
+            captionStarted = false;
 
-          // Show "thinking" briefly before the persona speaks
-          // (shorter for interrupts — the cue already created tension)
-          setPersonaStates((prev) => ({ ...prev, [pr.personaId]: "thinking" }));
-          await new Promise((r) => setTimeout(r, isInterrupt ? 300 : 600));
-
-          // Persona speaks
-          setPersonaStates((prev) => ({ ...prev, [pr.personaId]: "speaking" }));
-          setPersonaMoods((prev) => ({ ...prev, [pr.personaId]: pr.mood }));
-
-          // Add caption
-          setCaptions((prev) => [
-            ...prev,
-            {
-              id: pr.id,
-              role: "persona",
-              personaId: pr.personaId,
-              personaName: pr.personaName,
-              archetype: pr.archetype,
-              content: pr.content,
-              type: pr.type,
-              claimRef: pr.claimRef,
-              mood: pr.mood,
-              createdAt: new Date(pr.createdAt).getTime(),
-            },
-          ]);
-
-          // Play audio
-          if (pr.audio) {
-            setAudioPlaying(true);
-            try {
-              await playBase64Audio(pr.audio);
-            } catch (e) {
-              console.error("Audio playback failed:", e);
+            // Persona starts thinking
+            setPersonaStates((prev) => ({
+              ...prev,
+              [currentPersonaId]: "thinking",
+            }));
+          } else if (eventType === "sentence") {
+            if (!captionStarted) {
+              captionStarted = true;
+              // Switch from thinking to speaking
+              setPersonaStates((prev) => ({
+                ...prev,
+                [currentPersonaId]: "speaking",
+              }));
+              // Create the caption with the first sentence
+              setCaptions((prev) => [
+                ...prev,
+                {
+                  id: currentCaptionId,
+                  role: "persona",
+                  personaId: currentPersonaId,
+                  personaName: currentPersonaName,
+                  archetype: currentArchetype,
+                  content: parsed.text,
+                  type: isInterrupt ? "interruption" : "normal",
+                  createdAt: Date.now(),
+                },
+              ]);
+              currentCaptionText = parsed.text;
+            } else {
+              // Append to existing caption
+              currentCaptionText += " " + parsed.text;
+              setCaptions((prev) =>
+                prev.map((c) =>
+                  c.id === currentCaptionId
+                    ? { ...c, content: currentCaptionText }
+                    : c
+                )
+              );
             }
-            setAudioPlaying(false);
+
+            // Play audio for this sentence
+            if (parsed.audio) {
+              setAudioPlaying(true);
+              try {
+                await playBase64Audio(parsed.audio);
+              } catch (e) {
+                console.error("Audio playback failed:", e);
+              }
+              setAudioPlaying(false);
+            }
+          } else if (eventType === "done") {
+            isUserTurn = parsed.isUserTurn;
+
+            // Update mood
+            if (parsed.mood && currentPersonaId) {
+              setPersonaMoods((prev) => ({
+                ...prev,
+                [currentPersonaId]: parsed.mood,
+              }));
+            }
+
+            // Persona done — back to listening
+            setPersonaStates((prev) => ({
+              ...prev,
+              [currentPersonaId]: "listening",
+            }));
+          } else if (eventType === "error") {
+            console.error("[spar-stream] Error:", parsed.message);
+            setError(parsed.message);
           }
+        };
 
-          // Persona done — back to listening
-          setPersonaStates((prev) => ({ ...prev, [pr.personaId]: "listening" }));
+        // Read the stream
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-          userTurn = data.isUserTurn;
+          buffer += decoder.decode(value, { stream: true });
+
+          // Process complete SSE events
+          const events = buffer.split("\n\n");
+          buffer = events.pop() || "";
+
+          for (const event of events) {
+            const lines = event.split("\n");
+            let eventType = "message";
+            let data = "";
+
+            for (const line of lines) {
+              if (line.startsWith("event: ")) {
+                eventType = line.slice(7).trim();
+              } else if (line.startsWith("data: ")) {
+                data = line.slice(6);
+              }
+            }
+
+            if (data) {
+              await processEvent(eventType, data);
+            }
+          }
         }
 
-        // If this was a Boardroom interrupt during presenting, keep presenting.
-        // The user can respond to the interrupt, then continue their presentation.
+        // Wait for any remaining audio
+        await Promise.all(audioQueue);
+
         if (resumePresenting) {
           setIsPresenting(true);
         }
@@ -548,50 +620,87 @@ export function SparringRoom({
       setAnalyzingPresentation(false);
       setCoachRead(null);
 
-      // Now Q&A begins — the panel asks the first question
-      // Call the spar endpoint to get the first question
-      const sparRes = await fetch(`/api/sessions/${sessionId}/spar`, {
+      // Now Q&A begins — use the streaming endpoint for the first question
+      const sparResponse = await fetch(`/api/sessions/${sessionId}/spar-stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
       });
-      if (!sparRes.ok) throw new Error("Failed to start Q&A");
-      const sparData: SparResponse = await sparRes.json();
+      if (!sparResponse.ok) throw new Error("Failed to start Q&A");
+      if (!sparResponse.body) throw new Error("No Q&A response body");
 
-      if (sparData.personaResponse) {
-        const pr = sparData.personaResponse;
-        setPersonaStates((prev) => ({ ...prev, [pr.personaId]: "thinking" }));
-        await new Promise((r) => setTimeout(r, 600));
-        setPersonaStates((prev) => ({ ...prev, [pr.personaId]: "speaking" }));
-        setPersonaMoods((prev) => ({ ...prev, [pr.personaId]: pr.mood }));
+      // Read the SSE stream (same logic as submitTurn)
+      const qaReader = sparResponse.body.getReader();
+      const qaDecoder = new TextDecoder();
+      let qaBuffer = "";
+      let qaPersonaId = "";
+      let qaCaptionId = "";
+      let qaCaptionText = "";
+      let qaStarted = false;
 
-        setCaptions((prev) => [
-          ...prev,
-          {
-            id: pr.id,
-            role: "persona",
-            personaId: pr.personaId,
-            personaName: pr.personaName,
-            archetype: pr.archetype,
-            content: pr.content,
-            type: pr.type,
-            claimRef: pr.claimRef,
-            mood: pr.mood,
-            createdAt: new Date(pr.createdAt).getTime(),
-          },
-        ]);
+      while (true) {
+        const { done, value } = await qaReader.read();
+        if (done) break;
 
-        if (pr.audio) {
-          setAudioPlaying(true);
-          try {
-            await playBase64Audio(pr.audio);
-          } catch (e) {
-            console.error("Audio playback failed:", e);
+        qaBuffer += qaDecoder.decode(value, { stream: true });
+        const events = qaBuffer.split("\n\n");
+        qaBuffer = events.pop() || "";
+
+        for (const event of events) {
+          const lines = event.split("\n");
+          let eventType = "message";
+          let data = "";
+          for (const line of lines) {
+            if (line.startsWith("event: ")) eventType = line.slice(7).trim();
+            else if (line.startsWith("data: ")) data = line.slice(6);
           }
-          setAudioPlaying(false);
-        }
 
-        setPersonaStates((prev) => ({ ...prev, [pr.personaId]: "listening" }));
+          if (!data) continue;
+          let parsed: any;
+          try { parsed = JSON.parse(data); } catch { continue; }
+
+          if (eventType === "start") {
+            qaPersonaId = parsed.personaId;
+            qaCaptionId = `qa-${Date.now()}`;
+            qaCaptionText = "";
+            qaStarted = false;
+            setPersonaStates((prev) => ({ ...prev, [qaPersonaId]: "thinking" }));
+          } else if (eventType === "sentence") {
+            if (!qaStarted) {
+              qaStarted = true;
+              setPersonaStates((prev) => ({ ...prev, [qaPersonaId]: "speaking" }));
+              setCaptions((prev) => [
+                ...prev,
+                {
+                  id: qaCaptionId,
+                  role: "persona",
+                  personaId: parsed.personaId || qaPersonaId,
+                  personaName: parsed.personaName,
+                  archetype: parsed.archetype,
+                  content: parsed.text,
+                  type: "normal",
+                  createdAt: Date.now(),
+                },
+              ]);
+              qaCaptionText = parsed.text;
+            } else {
+              qaCaptionText += " " + parsed.text;
+              setCaptions((prev) =>
+                prev.map((c) => c.id === qaCaptionId ? { ...c, content: qaCaptionText } : c)
+              );
+            }
+            if (parsed.audio) {
+              setAudioPlaying(true);
+              try { await playBase64Audio(parsed.audio); } catch (e) { console.error(e); }
+              setAudioPlaying(false);
+            }
+          } else if (eventType === "done") {
+            if (parsed.mood && qaPersonaId) {
+              setPersonaMoods((prev) => ({ ...prev, [qaPersonaId]: parsed.mood }));
+            }
+            setPersonaStates((prev) => ({ ...prev, [qaPersonaId]: "listening" }));
+          }
+        }
       }
 
       setIsUserTurn(true);
