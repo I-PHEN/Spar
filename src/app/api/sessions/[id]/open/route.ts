@@ -63,11 +63,11 @@ export async function POST(
       ? session.roomContext
       : scenario?.roomContext || "";
 
-  // ─── Defense experience: don't generate an opening. ──────────────────
-  // The user presents first. The session stays in "presenting" status.
-  // The frontend shows "The floor is yours" and waits for the user to
-  // present, then calls /present to analyze + start Q&A.
-  if (session.experience === "defense") {
+  // ─── Defense & Boardroom: user presents first. ─────────────────────────
+  // The user presents their material. The session stays in "presenting" status.
+  // For Defense: no interruptions during presenting.
+  // For Boardroom: the panel interrupts mid-speech (handled by the agitation engine).
+  if (session.experience === "defense" || session.experience === "boardroom") {
     await db.session.update({
       where: { id },
       data: {
@@ -75,9 +75,13 @@ export async function POST(
         startedAt: new Date(),
       },
     });
+    const openingPrompt =
+      session.experience === "defense"
+        ? "The floor is yours. Present your material."
+        : "Present. They will interrupt you.";
     return NextResponse.json({
       defenseMode: true,
-      openingPrompt: "The floor is yours. Present your material.",
+      openingPrompt,
       claims,
       scenarioLabel,
       roomContext,

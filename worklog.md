@@ -619,3 +619,51 @@ Stage Summary:
 - **Experiences change persona behavior.** Defense personas reference the presentation. Boardroom personas know they can interrupt. Drill personas are relentless on the target.
 - **Coaching is a layer, not a mode.** Toggle on/off + optional focus. Applies to all experiences.
 - Lint passes clean. No errors in dev log. Browser-verified: Defense room opens with "The floor is yours", panel is listening, no instant question.
+
+---
+Task ID: 14
+Agent: main (engineering)
+Task: Boardroom experience (mid-presentation interruption) + sound design
+
+Work Log:
+- **Created `src/hooks/use-sound.ts`** — sound utilities:
+  - `playActivationClick()` — generates a 30ms percussive sound via Web Audio API. Filtered noise burst through a bandpass filter at 2000Hz. Feels like a microphone turning on — physical, not musical. Plays when recording starts.
+  - `useWaveformAmplitude(active)` — opens a separate getUserMedia stream for amplitude analysis. Returns a 0-1 value that updates ~30fps via requestAnimationFrame. Uses an AnalyserNode to compute average frequency amplitude. Cleans up the stream when deactivated.
+- **Created `src/components/spar/waveform-bar.tsx`** — subtle waveform component:
+  - 12 thin bars (2px wide) that respond to amplitude
+  - Each bar has slightly different sensitivity for organic feel
+  - Sits next to the mic button — confirms the system is hearing you
+  - Extremely subtle: max height 16px, opacity 0.3-0.8
+- **Enabled agitation engine during Boardroom presenting:**
+  - New state: `isBoardroomPresenting` = true when experience is boardroom + user is presenting + not processing
+  - Agitation engine runs when `isBoardroomPresenting || (isUserTurn && !isPresenting)`
+  - Defense: NO agitation during presenting (uninterrupted)
+  - Boardroom: agitation RUNS during presenting (mid-speech interrupts)
+  - Open Spar/Drill: runs during normal Q&A turns
+- **Boardroom interrupt flow:**
+  - When an interrupt fires during Boardroom presenting → `submitTurn(true, personaId, resumePresenting=true)`
+  - After the persona responds, `setIsPresenting(true)` is called — the user can resume presenting
+  - The "Done Presenting" button stays available throughout
+  - The user responds to the interrupt, then continues presenting
+  - When they click "Done Presenting" → Q&A begins (same as Defense)
+- **Updated open API** — Boardroom starts in "presenting" status (same as Defense)
+  - Opening prompt: "Present. They will interrupt you." (vs Defense: "The floor is yours.")
+- **Activation sound** — plays `playActivationClick()` when `handleStartSpeaking` is called
+- **Waveform** — replaces the "Listening..." text with the waveform bar while the user speaks
+- **Presenting prompt** — different message for Boardroom vs Defense:
+  - Defense: "The floor is yours. Present your material. The panel is listening."
+  - Boardroom: "Present. They will interrupt you. The panel will cut in when they detect weakness."
+- Browser-verified: Boardroom room opens with "Present. They will interrupt you." prompt. Panel is correctly configured (Skeptic + Timekeeper aggressive + So-What). All in LISTENING state. Start presenting button available.
+
+Stage Summary:
+- **Boardroom experience is built.** User presents, panel interrupts mid-speech when they detect weakness (hedges, long answers, vague quantifiers). User recovers and continues. When done → Q&A begins.
+- **Sound design implemented (sparingly):**
+  - Activation click when recording starts (physical mic-on sound, 30ms)
+  - Subtle waveform while listening (12 thin bars, amplitude-based)
+  - No sound on finish — silence IS the transition
+  - "Processing your presentation..." visual state already exists (the analyzing indicator)
+- **The agitation engine now works in 3 contexts:**
+  1. Boardroom presenting (interrupts mid-speech)
+  2. Open Spar Q&A (interrupts during answers)
+  3. Drill Q&A (interrupts on the drill target)
+- Lint passes clean. No errors in dev log.

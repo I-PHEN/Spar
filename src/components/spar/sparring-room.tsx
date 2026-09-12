@@ -26,8 +26,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { PersonaCard } from "./persona-card";
 import { TelemetryBar } from "./telemetry-bar";
+import { WaveformBar } from "./waveform-bar";
 import { useVoiceRecognition, playBase64Audio } from "@/hooks/use-voice";
 import { useAgitationEngine, type CoachingMode, type DrillTarget } from "@/hooks/use-agitation";
+import { playActivationClick, useWaveformAmplitude } from "@/hooks/use-sound";
 import { SCENARIOS } from "@/lib/scenarios";
 import { EXPERIENCES, type ExperienceKey } from "@/lib/experiences";
 import { quickStats } from "@/lib/telemetry";
@@ -331,18 +333,28 @@ export function SparringRoom({
     };
   }, [sessionId]);
 
-  // Handle user pressing "Speak"
+  // Handle user pressing "Speak" (or "Start presenting")
   const handleStartSpeaking = useCallback(() => {
     if (!voice.isSupported) return;
     voice.reset();
     voice.start();
+    // Play the activation click — feels like a mic turning on
+    playActivationClick();
   }, [voice]);
 
   // Submit the user's turn to the panel. Used by both "Done" (normal stop)
   // and the agitation engine (interrupt). When isInterrupt=true, the persona
   // response is framed as a mid-speech interruption.
+  //
+  // For Boardroom: when an interrupt fires during presenting, after the persona
+  // responds, the user should be able to RESUME presenting (not just answer).
+  // The `resumePresenting` flag controls this.
   const submitTurn = useCallback(
-    async (isInterrupt: boolean, interruptingPersonaId?: string) => {
+    async (
+      isInterrupt: boolean,
+      interruptingPersonaId?: string,
+      resumePresenting: boolean = false
+    ) => {
       voice.stop();
 
       // Wait a brief moment for final transcript to settle
@@ -459,6 +471,11 @@ export function SparringRoom({
           userTurn = data.isUserTurn;
         }
 
+        // If this was a Boardroom interrupt during presenting, keep presenting.
+        // The user can respond to the interrupt, then continue their presentation.
+        if (resumePresenting) {
+          setIsPresenting(true);
+        }
         setIsUserTurn(true);
         setIsProcessing(false);
       } catch (e) {
@@ -591,16 +608,32 @@ export function SparringRoom({
   const handleInterrupt = useCallback(
     (personaId: string, reason: string) => {
       console.log(`[agitation] Interrupt fired: ${personaId} (${reason})`);
-      submitTurn(true, personaId);
+      // For Boardroom: interrupt during presenting → resume presenting after
+      const shouldResume = experience === "boardroom" && isPresenting;
+      submitTurn(true, personaId, shouldResume);
     },
-    [submitTurn]
+    [submitTurn, experience, isPresenting]
   );
+
+  // ─── Waveform + activation sound ──────────────────────────────────────
+  // Track amplitude while listening (for the subtle waveform bar)
+  const waveformAmplitude = useWaveformAmplitude(voice.isListening);
+
+  // For Boardroom: the agitation engine runs DURING presenting (interrupts mid-speech).
+  // For Defense: the agitation engine does NOT run during presenting (no interruptions).
+  // For Open Spar/Drill: runs during normal Q&A turns.
+  const isBoardroomPresenting =
+    experience === "boardroom" && isPresenting && !isProcessing;
+  const agitationActive =
+    voice.isListening &&
+    !isProcessing &&
+    (isBoardroomPresenting || (isUserTurn && !isPresenting));
 
   const agitation = useAgitationEngine({
     personas: personas.map((p) => ({ id: p.id, archetype: p.archetype })),
     interimTranscript: voice.interimTranscript,
     finalTranscript: voice.finalTranscript,
-    isListening: voice.isListening && isUserTurn && !isProcessing && !isPresenting,
+    isListening: agitationActive,
     coachingMode: experience === "drill" ? "drill" : "pure-spar",
     drillTarget: drillTarget || undefined,
     onInterrupt: handleInterrupt,
@@ -759,16 +792,20 @@ export function SparringRoom({
           {/* Conversation feed — scrollable */}
           <div className="flex-1 overflow-y-auto px-4 py-4 lg:px-6">
             <div className="mx-auto max-w-2xl space-y-3">
-              {/* Defense: "The floor is yours" prompt */}
+              {/* Presenting prompt (Defense & Boardroom) */}
               {isPresenting && captions.length === 0 && (
                 <div className="spar-fade-up rounded-md border border-[#1a1a1a] bg-[#0f0f0f] px-5 py-6 text-center">
                   <p className="text-sm text-neutral-300 mb-1">
-                    The floor is yours.
+                    {experience === "boardroom"
+                      ? "Present. They will interrupt you."
+                      : "The floor is yours."}
                   </p>
                   <p className="text-xs text-neutral-600">
-                    Present your material. The panel is listening. Click{" "}
-                    <span className="text-neutral-400">Done Presenting</span>{" "}
-                    when you're ready for Q&A.
+                    {experience === "boardroom"
+                      ? "Present your material. The panel will cut in when they detect weakness. Click "
+                      : "Present your material. The panel is listening. Click "}
+                    <span className="text-neutral-400">Done Presenting</span>
+                    {" "}when you're ready for Q&A.
                   </p>
                 </div>
               )}
@@ -933,17 +970,19 @@ export function SparringRoom({
               </div>
             )}
             {!isPresenting && !analyzingPresentation && (
-              <span className="text-[10px] uppercase tracking-wider text-neutral-500 hidden sm:inline">
-                {voice.isListening
-                  ? "Listening..."
-                  : isUserTurn && !isProcessing
-                  ? "Click to speak"
-                  : isProcessing
-                  ? "Panel is responding"
-                  : audioPlaying
-                  ? "Panel is speaking"
-                  : "Wait for your turn"}
-              </span>
+              voice.isListening ? (
+                <WaveformBar amplitude={waveformAmplitude} />
+              ) : (
+                <span className="text-[10px] uppercase tracking-wider text-neutral-500 hidden sm:inline">
+                  {isUserTurn && !isProcessing
+                    ? "Click to speak"
+                    : isProcessing
+                    ? "Panel is responding"
+                    : audioPlaying
+                    ? "Panel is speaking"
+                    : "Wait for your turn"}
+                </span>
+              )
             )}
           </div>
 
