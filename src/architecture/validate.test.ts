@@ -122,4 +122,33 @@ describe("architecture manifest", () => {
       ],
     });
   });
+
+  test("shows the current voice path through the session API in order", () => {
+    expect(
+      architectureManifest.edges.filter((edge) =>
+        edge.label.startsWith("current voice path:")
+      )
+    ).toEqual([
+      {
+        from: "sparring-room",
+        to: "session-api",
+        label: "current voice path: sends turn to /spar-stream",
+      },
+      {
+        from: "session-api",
+        to: "openrouter-live-generation",
+        label: "current voice path: streams persona response",
+      },
+      {
+        from: "openrouter-live-generation",
+        to: "deepgram-tts",
+        label: "current voice path: synthesizes persona audio",
+      },
+      {
+        from: "deepgram-tts",
+        to: "sparring-room",
+        label: "current voice path: returns audio to browser",
+      },
+    ]);
+  });
 });

@@ -164,11 +164,13 @@ export const architectureManifest: ArchitectureManifest = {
     { from: "page-navigation", to: "practice-configuration", label: "opens setup" },
     { from: "practice-configuration", to: "experience-definitions", label: "selects experience" },
     { from: "practice-configuration", to: "session-api", label: "creates session" },
+    { from: "sparring-room", to: "session-api", label: "current voice path: sends turn to /spar-stream" },
+    { from: "session-api", to: "openrouter-live-generation", label: "current voice path: streams persona response" },
+    { from: "openrouter-live-generation", to: "deepgram-tts", label: "current voice path: synthesizes persona audio" },
+    { from: "deepgram-tts", to: "sparring-room", label: "current voice path: returns audio to browser" },
     { from: "session-api", to: "prisma-sqlite", label: "persists session state" },
     { from: "session-api", to: "persona-prompt", label: "builds persona context" },
     { from: "persona-prompt", to: "openrouter-live-generation", label: "supplies live prompt" },
-    { from: "openrouter-live-generation", to: "deepgram-tts", label: "streams sentences for current voice path" },
-    { from: "deepgram-tts", to: "sparring-room", label: "returns persona audio" },
     { from: "session-api", to: "sparring-room", label: "returns session and turn data" },
     { from: "sparring-room", to: "web-speech-recognition", label: "starts voice input" },
     { from: "web-speech-recognition", to: "agitation-engine", label: "supplies live transcript" },
@@ -179,7 +181,6 @@ export const architectureManifest: ArchitectureManifest = {
     { from: "session-api", to: "debrief-generation", label: "ends and analyzes session" },
     { from: "debrief-generation", to: "prisma-sqlite", label: "persists summary and memory" },
     { from: "sparring-room", to: "openrouter-live-generation", label: "target voice path: stream response request" },
-    { from: "sparring-room", to: "deepgram-tts", label: "current voice path: receives synthesized audio through stream" },
   ],
   experiences: [
     {
