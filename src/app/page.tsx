@@ -74,9 +74,10 @@ export default function Page() {
   }
 
   function handleAuthContinue() {
-    // After auth: if first time → onboarding, if returning → practice
+    // After auth: ALWAYS go to onboarding
+    // (We check hasCompletedOnboarding to skip onboarding for returning users)
     if (hasCompletedOnboarding) {
-      setView("practice");
+      setView("home");
     } else {
       setView("onboarding");
     }
@@ -158,7 +159,8 @@ export default function Page() {
     };
     setCoachingFocus(focusMap[data.focusArea] || "");
 
-    setView("practice");
+    // After onboarding, go to Home (the dashboard)
+    setView("home");
   }
 
   // Sparring Room is full-screen — no nav.
