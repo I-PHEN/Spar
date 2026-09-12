@@ -21,8 +21,8 @@ const EXPERIENCE_NARRATIVES: Record<ExperienceFlow["id"], ExperienceNarrative> =
     whoSpeaksFirst: "The user presents first.",
     presentationRule: "The user presents uninterrupted, then the panel moves into analysis and Q&A.",
     interruptionPolicy: "No interruption is permitted while the presentation is in progress.",
-    storedResults: "The presentation analysis, transcript, telemetry, audio clips, debrief, and pattern memory are stored.",
-    failureBehavior: "If presentation analysis or debrief generation fails, the session cannot finish with coaching results until that server operation is retried.",
+    storedResults: "Session transcript, telemetry, and audio clips are stored. The debrief and pattern memory are stored when debrief generation succeeds; presentation analysis is stored only when coaching is enabled and the analysis succeeds.",
+    failureBehavior: "If presentation analysis fails, Q&A continues without the coach read. If debrief generation fails, ending is retried before final coaching results are available.",
   },
   boardroom: {
     whoSpeaksFirst: "The user presents first.",
@@ -34,7 +34,7 @@ const EXPERIENCE_NARRATIVES: Record<ExperienceFlow["id"], ExperienceNarrative> =
   open_spar: {
     whoSpeaksFirst: "The panel opens the exchange.",
     presentationRule: "No presentation phase; the conversation alternates between panel challenges and user answers.",
-    interruptionPolicy: "There is no presentation interruption policy; the panel advances through normal turn-taking.",
+    interruptionPolicy: "There is no presentation phase; the panel opens the exchange and live-answer interruptions can still occur.",
     storedResults: "The transcript, telemetry, audio clips, debrief, and pattern memory are stored.",
     failureBehavior: "If a live panel response fails, the current turn cannot advance; if debrief generation fails, ending is retried before results are available.",
   },
@@ -43,7 +43,7 @@ const EXPERIENCE_NARRATIVES: Record<ExperienceFlow["id"], ExperienceNarrative> =
     presentationRule: "No presentation phase; the user answers one focused question at a time.",
     interruptionPolicy: "A detected target behavior immediately produces a correction and requires a retry.",
     storedResults: "The selected target, attempts, corrections, transcript, telemetry, audio clips, debrief, and pattern memory are stored.",
-    failureBehavior: "If deterministic drill handling cannot continue, the session falls back to the configured target; if debrief generation fails, ending is retried before results are available.",
+    failureBehavior: "If deterministic correction handling fails, the session emits an error and cannot continue that correction. Only a missing stored target falls back to the hard-coded hedging target; if debrief generation fails, ending is retried before results are available.",
   },
 };
 
