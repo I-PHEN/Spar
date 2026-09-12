@@ -20,9 +20,15 @@ const NAV_ITEMS: Array<{ key: NavView; label: string; icon: typeof Home }> = [
 
 /**
  * Nav: desktop top bar + mobile bottom bar.
+ *
+ * Both use a premium glass effect:
+ *   - Semi-transparent background (content shows through subtly)
+ *   - Heavy backdrop blur + saturation boost (the glass look)
+ *   - Inset top highlight (light catching the top edge of the glass)
+ *   - Subtle border to define the glass edge
+ *
  * Mobile bottom nav per spec:
- *   fixed bottom-0, 64px, bg #0a0a0a, border-t border-white/6,
- *   4 items, active = white dot above icon + white text.
+ *   fixed bottom-0, 64px, 4 items, active = white dot above icon + white text.
  */
 export function Nav({ current, onNavigate }: NavProps) {
   const activeKey: NavView =
@@ -30,8 +36,17 @@ export function Nav({ current, onNavigate }: NavProps) {
 
   return (
     <>
-      {/* Desktop top bar */}
-      <header className="sticky top-0 z-30 hidden items-center justify-between border-b border-border/60 bg-background/80 px-6 py-3 backdrop-blur-md md:flex">
+      {/* Desktop top bar — glass */}
+      <header
+        className="sticky top-0 z-30 hidden items-center justify-between px-6 py-3 md:flex"
+        style={{
+          background: "rgba(10, 10, 10, 0.55)",
+          backdropFilter: "blur(20px) saturate(180%)",
+          WebkitBackdropFilter: "blur(20px) saturate(180%)",
+          borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+          boxShadow: "inset 0 1px 0 0 rgba(255, 255, 255, 0.06)",
+        }}
+      >
         <div className="flex items-center gap-2.5">
           <div className="relative flex h-8 w-8 items-center justify-center rounded-md bg-white/5 ring-1 ring-white/15">
             <Swords className="h-4 w-4 text-foreground" />
@@ -73,9 +88,16 @@ export function Nav({ current, onNavigate }: NavProps) {
         </nav>
       </header>
 
-      {/* Mobile bottom nav — per user spec */}
+      {/* Mobile bottom nav — glass */}
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 flex h-16 items-center justify-around border-t border-white/[0.06] bg-[#0a0a0a] pb-[env(safe-area-inset-bottom)] md:hidden"
+        className="fixed bottom-0 left-0 right-0 z-50 flex h-16 items-center justify-around pb-[env(safe-area-inset-bottom)] md:hidden"
+        style={{
+          background: "rgba(10, 10, 10, 0.65)",
+          backdropFilter: "blur(20px) saturate(180%)",
+          WebkitBackdropFilter: "blur(20px) saturate(180%)",
+          borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+          boxShadow: "inset 0 -1px 0 0 rgba(255, 255, 255, 0.04), 0 -8px 24px -12px rgba(0, 0, 0, 0.5)",
+        }}
         aria-label="Primary navigation"
       >
         {NAV_ITEMS.map((item) => {

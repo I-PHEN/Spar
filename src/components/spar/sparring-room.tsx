@@ -451,8 +451,17 @@ export function SparringRoom({
 
   return (
     <div className="flex h-[100dvh] flex-col bg-background">
-      {/* Top bar */}
-      <div className="flex items-center justify-between border-b border-white/[0.06] bg-background/80 px-4 py-2.5 backdrop-blur-md sm:px-6">
+      {/* Top bar — glass */}
+      <div
+        className="flex items-center justify-between px-4 py-2.5 sm:px-6"
+        style={{
+          background: "rgba(10, 10, 10, 0.55)",
+          backdropFilter: "blur(20px) saturate(180%)",
+          WebkitBackdropFilter: "blur(20px) saturate(180%)",
+          borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+          boxShadow: "inset 0 1px 0 0 rgba(255, 255, 255, 0.06)",
+        }}
+      >
         <div className="flex items-center gap-3 min-w-0">
           <Button variant="ghost" size="icon" onClick={() => setShowEndDialog(true)} className="h-8 w-8" aria-label="Exit session">
             <X className="h-4 w-4" />
@@ -541,8 +550,17 @@ export function SparringRoom({
         )}
       </div>
 
-      {/* Bottom control bar — voice controls */}
-      <div className="flex-shrink-0 border-t border-white/[0.06] bg-background/90 backdrop-blur-xl">
+      {/* Bottom control bar — glass */}
+      <div
+        className="flex-shrink-0"
+        style={{
+          background: "rgba(10, 10, 10, 0.65)",
+          backdropFilter: "blur(20px) saturate(180%)",
+          WebkitBackdropFilter: "blur(20px) saturate(180%)",
+          borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+          boxShadow: "inset 0 -1px 0 0 rgba(255, 255, 255, 0.04), 0 -8px 24px -12px rgba(0, 0, 0, 0.5)",
+        }}
+      >
         {/* Subtle live telemetry */}
         <TelemetryBar
           words={liveWords}
