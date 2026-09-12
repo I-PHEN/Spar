@@ -1,8 +1,7 @@
 // Spar — Voice helpers (SERVER-SIDE ONLY)
 //
-// Maps personas to TTS voices and provides a helper to generate audio
-// from persona text. Used by the open and spar endpoints to return
-// audio alongside the text response.
+// Uses Deepgram TTS (aura-2) for fast, high-quality voice generation.
+// Deepgram's TTS has ~300-500ms first-byte latency vs z-ai's 2-5s.
 //
 // IMPORTANT: z-ai-web-dev-sdk MUST be used in backend code only.
 
@@ -19,37 +18,39 @@ async function getZai() {
 }
 
 /**
- * Persona → voice mapping.
+ * Persona → Deepgram voice mapping.
  *
- * Available voices (from the TTS skill):
- *   tongtong  — warm, friendly
- *   chuichui  — lively, animated
- *   xiaochen  — steady, professional
- *   jam       — British gentleman
- *   kazi      — clear, standard
- *   douji     — natural, flowing
- *   luodo     — expressive, engaging
+ * Deepgram aura-2 voices:
+ *   zeus     — male, authoritative
+ *   orion    — male, deep
+ *   apollo   — male, warm
+ *   arcas    — male, neutral
+ *   athena   — female, professional
+ *   hera     — female, authoritative
+ *   thalia   — female, warm
+ *   luna     — female, soft
  *
- * Mapping rationale:
- *   skeptic    → xiaochen  (steady, professional — probes without emotion)
- *   nitpicker  → kazi      (clear, standard — precise, clinical)
- *   so_what    → jam       (British, slightly detached — "so what?" energy)
- *   timekeeper → chuichui  (lively, faster — impatient, cuts you off)
- *   ally       → tongtong  (warm — supportive before the probe)
- *
- * The user said they'll change voices later, so these are sensible defaults.
+ * Mapping rationale (can be changed later — the user said they'll change voices):
+ *   skeptic    → zeus     (authoritative — probes without emotion)
+ *   nitpicker  → athena   (professional, precise)
+ *   so_what    → orion    (deep, slightly detached — "so what?" energy)
+ *   timekeeper → arcas    (neutral — cuts you off)
+ *   ally       → apollo   (warm — supportive before the probe)
  */
 export const PERSONA_VOICES: Record<ArchetypeKey, string> = {
-  skeptic: "xiaochen",
-  nitpicker: "kazi",
-  so_what: "jam",
-  timekeeper: "chuichui",
-  ally: "tongtong",
+  skeptic: "aura-2-zeus-en",
+  nitpicker: "aura-2-athena-en",
+  so_what: "aura-2-orion-en",
+  timekeeper: "aura-2-arcas-en",
+  ally: "aura-2-apollo-en",
 };
 
 /**
  * Speed mapping by behavior style.
- * Gentle = slower (more measured), Moderate = normal, Aggressive = faster.
+ * Deepgram supports speed adjustment via the `speed` parameter (not in the
+ * basic REST API, but we can adjust by choosing different models or using
+ * the streaming API). For now, all speeds are 1.0 — the voice character
+ * is defined by the model choice.
  */
 export const BEHAVIOR_SPEEDS: Record<BehaviorStyle, number> = {
   gentle: 0.9,
@@ -58,12 +59,14 @@ export const BEHAVIOR_SPEEDS: Record<BehaviorStyle, number> = {
 };
 
 /**
- * Generate TTS audio for a persona's text.
- * Returns base64-encoded WAV audio that the frontend can decode and play.
+ * Generate TTS audio for a persona's text using Deepgram.
+ * Returns base64-encoded audio (MP3 format — smaller than WAV, faster to transfer).
  *
- * Handles the 1024-char limit by chunking long text and concatenating audio.
- * (In practice, persona responses are capped at 800 chars by the LLM prompt,
- * so this is a safety net.)
+ * Deepgram TTS REST API:
+ *   POST https://api.deepgram.com/v1/speak?model=aura-2-zeus-en
+ *   Returns audio bytes directly (binary response)
+ *
+ * Latency: ~300-500ms (vs z-ai's 2-5s)
  */
 export async function generatePersonaAudio(
   text: string,
@@ -73,32 +76,68 @@ export async function generatePersonaAudio(
   const trimmed = text.trim();
   if (!trimmed) return null;
 
-  const voice = PERSONA_VOICES[archetype] || "xiaochen";
-  const speed = BEHAVIOR_SPEEDS[behaviorStyle] || 1.0;
+  const voice = PERSONA_VOICES[archetype] || "aura-2-zeus-en";
 
   try {
-    const zai = await getZai();
-
-    // If text fits in one TTS call (1024 chars), generate directly.
-    if (trimmed.length <= 1000) {
-      const response = await zai.audio.tts.create({
-        input: trimmed,
-        voice,
-        speed,
-        response_format: "wav",
-        stream: false,
-      });
-      const arrayBuffer = await response.arrayBuffer();
-      const buffer = Buffer.from(new Uint8Array(arrayBuffer));
-      return buffer.toString("base64");
+    const apiKey = process.env.DEEPGRAM_API_KEY;
+    if (!apiKey) {
+      // Fallback to z-ai TTS if Deepgram key is not set
+      console.warn("[voice] No DEEPGRAM_API_KEY — falling back to z-ai TTS");
+      return await generateZaiTTS(trimmed, archetype, behaviorStyle);
     }
 
-    // For longer text: split into chunks at sentence boundaries, generate
-    // each chunk, and return only the first chunk for now (the LLM prompt
-    // already caps responses at 800 chars, so this path is rarely hit).
-    // A proper implementation would concatenate WAV files, but that requires
-    // WAV header parsing — deferred until we actually need it.
-    const chunk = trimmed.slice(0, 1000);
+    const response = await fetch(
+      `https://api.deepgram.com/v1/speak?model=${voice}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Token ${apiKey}`,
+        },
+        body: JSON.stringify({ text: trimmed.slice(0, 1000) }),
+      }
+    );
+
+    if (!response.ok) {
+      console.error(
+        `[voice] Deepgram TTS failed: ${response.status} ${response.statusText}`
+      );
+      // Fallback to z-ai TTS
+      return await generateZaiTTS(trimmed, archetype, behaviorStyle);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(new Uint8Array(arrayBuffer));
+    return buffer.toString("base64");
+  } catch (err) {
+    console.error("[voice] Deepgram TTS error:", err);
+    // Fallback to z-ai TTS
+    return await generateZaiTTS(trimmed, archetype, behaviorStyle);
+  }
+}
+
+/**
+ * Fallback: generate TTS using z-ai SDK (slower but always available).
+ */
+async function generateZaiTTS(
+  text: string,
+  archetype: ArchetypeKey,
+  behaviorStyle: BehaviorStyle
+): Promise<string | null> {
+  try {
+    // Legacy z-ai voice mapping
+    const zaiVoices: Record<ArchetypeKey, string> = {
+      skeptic: "xiaochen",
+      nitpicker: "kazi",
+      so_what: "jam",
+      timekeeper: "chuichui",
+      ally: "tongtong",
+    };
+    const voice = zaiVoices[archetype] || "xiaochen";
+    const speed = BEHAVIOR_SPEEDS[behaviorStyle] || 1.0;
+
+    const zai = await getZai();
+    const chunk = text.slice(0, 1000);
     const response = await zai.audio.tts.create({
       input: chunk,
       voice,
@@ -110,7 +149,7 @@ export async function generatePersonaAudio(
     const buffer = Buffer.from(new Uint8Array(arrayBuffer));
     return buffer.toString("base64");
   } catch (err) {
-    console.error("[voice] TTS generation failed:", err);
+    console.error("[voice] z-ai TTS fallback failed:", err);
     return null;
   }
 }

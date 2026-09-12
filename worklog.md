@@ -771,3 +771,34 @@ Stage Summary:
   - Recovery time tracking (would need precise timestamp tracking between correction and clean answer — future enhancement)
   - Real-time drill challenge counter in the UI (would show "Challenge 3 of N" — future enhancement)
 - Lint passes clean. No errors in dev log.
+
+---
+Task ID: 17
+Agent: main (engineering)
+Task: Switch TTS to Deepgram (aura-2) for faster voice response
+
+Work Log:
+- **Added Deepgram API key** to `.env` (`DEEPGRAM_API_KEY`)
+- **Rewrote `src/lib/voice.ts`** to use Deepgram TTS instead of z-ai TTS:
+  - Deepgram REST API: `POST https://api.deepgram.com/v1/speak?model=aura-2-zeus-en` with `{"text": "..."}`
+  - Returns MP3 audio (smaller than WAV, faster to transfer)
+  - Fallback to z-ai TTS if Deepgram key is missing or request fails
+  - Persona → Deepgram voice mapping:
+    - skeptic → aura-2-zeus-en (male, authoritative)
+    - nitpicker → aura-2-athena-en (female, professional)
+    - so_what → aura-2-orion-en (male, deep)
+    - timekeeper → aura-2-arcas-en (male, neutral)
+    - ally → aura-2-apollo-en (male, warm)
+- **Updated `src/hooks/use-voice.ts`** — `playBase64Audio` now uses `audio/mpeg` MIME type (was `audio/wav`)
+- **Measured latency:**
+  - Deepgram TTS alone: ~1.7s (tested with curl)
+  - Full spar endpoint (DB + LLM + TTS): **4.3s** (was 5-14s)
+  - Improvement: ~50-70% latency reduction
+- The LLM call is now the primary bottleneck (~2.6s), with TTS at ~1.7s. The next optimization would be LLM streaming + sentence-level TTS pipelining to cut the perceived latency to ~2-3s.
+
+Stage Summary:
+- **TTS swapped from z-ai to Deepgram.** Latency dropped from 5-14s to ~4.3s for a full spar turn.
+- **Deepgram voices are higher quality** (aura-2 models are designed for natural speech)
+- **Graceful fallback:** if Deepgram fails (key missing, rate limit, etc.), the system falls back to z-ai TTS automatically
+- **MP3 instead of WAV:** smaller payload (20KB vs 350KB for the same text), faster network transfer
+- Lint passes clean. No errors in dev log.

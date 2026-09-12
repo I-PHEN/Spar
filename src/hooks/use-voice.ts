@@ -239,7 +239,7 @@ export function playBase64Audio(base64: string): Promise<void> {
         byteNumbers[i] = byteChars.charCodeAt(i);
       }
       const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: "audio/wav" });
+      const blob = new Blob([byteArray], { type: "audio/mpeg" });
       const url = URL.createObjectURL(blob);
 
       const audio = new Audio(url);
