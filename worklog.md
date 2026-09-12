@@ -510,3 +510,50 @@ Stage Summary:
 - **Drill Mode integration:** when coachingMode is "drill" and the drill target matches a persona's archetype, that persona's threshold drops from 100 to 50 — they interrupt after just 2 triggers instead of 4
 - **No backend schema changes** — coachingMode and drillTarget are passed as client-side state (from practice-view → page.tsx → sparring-room). They'll be persisted to the session schema when we build the debrief differentiation (solid thing 4).
 - Lint passes clean. No errors in dev log.
+
+---
+Task ID: 12
+Agent: main (engineering)
+Task: Aesthetic refinement — premium dark, editorial, quiet. Plus timing bug fix.
+
+Work Log:
+- **Fixed the timing bug** in sparring-room.tsx: moved `setLoading(false)` to BEFORE the opening audio plays. Previously, the room only rendered after the audio finished — now the room materializes with the persona already in "speaking" state + caption visible, then the audio plays over the visible room. The `finally` block keeps a safety `setLoading(false)` in case the audio path fails.
+- **Updated globals.css:**
+  - Removed the ambient radial gradient from `body` (was simulating overhead light — spec said no gradients)
+  - Removed the `spar-ready-glow` keyframe animation (spec said no glowing borders)
+  - Removed the `premium-card`, `premium-card-hover`, `premium-surface` utilities (replaced with inline styles for finer control)
+  - Added `soft-hover` utility: `bg-[#161616] border-[#2a2a2a]` + `box-shadow: 0 0 0 3px rgba(255,255,255,0.025)` + 120ms transition
+  - Added `selected-state` utility: `bg-[#171717] border-[#343434]` (surface lift, not bright outline)
+- **Refined Practice config (practice-view.tsx):**
+  - **Content width:** `max-w-3xl` (768px) → `max-w-2xl` (672px). Tighter, more editorial.
+  - **Position:** `py-6 sm:py-8` (was `py-6 sm:py-10`). Slightly higher on the page.
+  - **Stepper:** Replaced circle-number design with a typographic timeline. Dots (1.5px) + thin connecting lines + labels. Active = white dot + white text. Complete = white dot + neutral-400 text. Future = neutral-700 dot + neutral-600 text. No circles with numbers inside.
+  - **Section headers:** Number integrated with heading (`02  What's the room?`) — smaller, muted, `tabular-nums`, `items-baseline`. Removed the trailing border line. Editorial/technical feeling.
+  - **Room cards:** Added subtle numerical identifiers (01–06) in `text-[10px] text-neutral-600 tabular-nums` at top-right. Don't overpower the title.
+  - **Selected state:** Replaced `border-white bg-white/5 ring-1 ring-white/20` with `bg-[#171717] border-[#343434]`. Small checkmark at bottom-right. The card becomes slightly more "present" — no bright outline.
+  - **Hover state:** `bg-[#101010] → bg-[#161616]`, `border-[#202020] → border-[#2a2a2a]`. Soft grey halo. No scale, no float.
+  - **Custom room:** Now a full-width footer card with a `+` icon, spanning the grid width. Gives the grid a deliberate ending instead of an isolated 7th card.
+  - **Card geometry:** `rounded-lg` (8px) → `rounded-md` (6px) across all cards. Slightly sharper.
+  - **Back navigation:** Removed the top-right Back button. Single coherent `← Back  Next →` system at the bottom. On step 1, Back becomes "← Home".
+  - **Next/Start buttons:** Structured rectangles, `h-11 rounded-md`. `bg-neutral-100 text-black hover:bg-white` when enabled. No breathing glow.
+  - **Toggle buttons:** `bg-[#1b1b1b] border-[#3a3a3a] text-neutral-100` when active (not bright white outline). `rounded-md`.
+  - **Mode cards:** Same premium selected state. Checkmark is now a small `h-4 w-4 text-neutral-300` (not a white circle with black check).
+  - **Drill focus chips:** `rounded-md` (was `rounded-full`). Same selected/hover treatment as other cards.
+  - **Seat cards:** `rounded-md`, `bg-[#101010]`, hover `bg-[#161616]`. No scale on hover. Avatar is `bg-[#1a1a1a] ring-1 ring-[#2a2a2a]`.
+  - **Seat editor modal:** `rounded-md border-[#202020]`. Archetype picker uses the same selected/hover treatment. Intensity toggle uses `bg-[#1b1b1b]` for selected. Save button is a structured rectangle.
+  - **Textareas/Inputs:** `border-[#202020]`, focus `border-[#3a3a3a]`, `focus-visible:ring-0`. No bright focus rings.
+- **Refined Home view CTA card:** Replaced `premium-card` utility with inline styles matching the new card treatment (`border-[#202020] bg-[#101010] hover:bg-[#161616] hover:border-[#2a2a2a]`).
+- **Nav:** Kept the glass effect (per user's instruction). No changes to the glass treatment.
+
+Stage Summary:
+- **Timing bug fixed.** The room now renders immediately when the session opens — the persona is already visible in "speaking" state with the caption showing, then the voice plays over the visible room. No more hearing the voice while staring at a spinner.
+- **Premium dark aesthetic achieved.** No gradients, no glassmorphism (except nav), no glowing borders, no excessive rounding. The design language is now: black + grey + white + typography + spacing + restraint.
+- **Selected states are understated.** Surface lift (`#171717` bg + `#343434` border) instead of bright white outlines. Small checkmarks. The card becomes slightly more "present" — you notice it immediately, but it doesn't scream "selected."
+- **Hover states are quiet.** Soft grey halo (`#161616` bg + `#2a2a2a` border + barely-visible 3px ring). 120ms transition. No scale, no float, no glow.
+- **Stepper is a typographic timeline.** Dots + thin lines + labels. No circles with numbers.
+- **Section numbers are editorial.** `02  What's the room?` — smaller, muted, integrated with the heading.
+- **Room cards have numerical identifiers** (01–06) that don't overpower the titles.
+- **Custom room is a full-width footer card** with a `+` icon — gives the grid a deliberate ending.
+- **Content width tightened** to `max-w-2xl` — feels like a deliberate content column, not unused space.
+- **Single coherent navigation** — `← Back  Next →` at the bottom only. No competing top-right Back.
+- Lint passes clean. No errors in dev log. Browser-verified all 4 steps + seat editor + drill chips.

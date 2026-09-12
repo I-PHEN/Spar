@@ -282,7 +282,12 @@ export function SparringRoom({
             },
           ]);
 
-          // Play the opening audio
+          // Show the room immediately — before the audio plays.
+          // The persona is already in "speaking" state with the caption visible,
+          // so the user sees the room materialize as the voice begins.
+          if (mounted) setLoading(false);
+
+          // Play the opening audio (the room is already visible)
           if (m.audio) {
             setAudioPlaying(true);
             try {
@@ -300,6 +305,7 @@ export function SparringRoom({
       } catch (e) {
         if (mounted) setError(String(e));
       } finally {
+        // Safety: ensure loading is false even if the audio path failed
         if (mounted) setLoading(false);
       }
     })();

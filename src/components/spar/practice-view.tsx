@@ -18,6 +18,7 @@ import {
   Gauge,
   MessageSquare,
   Pencil,
+  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -245,70 +246,70 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10 pb-32">
-      {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.2em] text-neutral-500">
-            Suit up
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-            Configure the room
-          </h1>
-        </div>
-        <Button variant="ghost" size="sm" onClick={onCancel}>
-          <ArrowLeft className="h-4 w-4 mr-1" /> Back
-        </Button>
+    <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6 sm:py-8 pb-32">
+      {/* Header — no top-right Back, navigation lives at the bottom */}
+      <div className="mb-8">
+        <p className="text-[11px] uppercase tracking-[0.18em] text-neutral-600">
+          Suit up
+        </p>
+        <h1 className="mt-1.5 text-2xl font-semibold tracking-tight text-white sm:text-[28px]">
+          Configure the room
+        </h1>
       </div>
 
-      {/* Stepper */}
-      <div className="mb-8 flex items-center justify-between">
-        {STEP_LABELS.map((label, i) => {
-          const isComplete = i < currentStep;
-          const isCurrent = i === currentStep;
-          const isClickable = i <= currentStep || stepValid.slice(0, i).every(Boolean);
-          return (
-            <div key={label} className="flex items-center flex-1 last:flex-none">
-              <button
-                onClick={() => isClickable && goToStep(i)}
-                disabled={!isClickable}
-                className={cn(
-                  "flex items-center gap-2 transition-colors",
-                  isClickable ? "cursor-pointer" : "cursor-not-allowed"
+      {/* Stepper — typographic timeline: ●────●────○────○ */}
+      <div className="mb-10">
+        <div className="flex items-center">
+          {STEP_LABELS.map((label, i) => {
+            const isComplete = i < currentStep;
+            const isCurrent = i === currentStep;
+            const isClickable = i <= currentStep || stepValid.slice(0, i).every(Boolean);
+            return (
+              <div key={label} className="flex items-center flex-1 last:flex-none">
+                <button
+                  onClick={() => isClickable && goToStep(i)}
+                  disabled={!isClickable}
+                  className={cn(
+                    "flex items-center gap-2.5 transition-colors",
+                    isClickable ? "cursor-pointer" : "cursor-not-allowed"
+                  )}
+                >
+                  {/* Dot: filled (complete/current), hollow (future) */}
+                  <span
+                    className={cn(
+                      "h-1.5 w-1.5 rounded-full transition-colors",
+                      isComplete
+                        ? "bg-white"
+                        : isCurrent
+                        ? "bg-white"
+                        : "bg-neutral-700"
+                    )}
+                  />
+                  <span
+                    className={cn(
+                      "text-xs font-medium hidden sm:inline transition-colors tracking-tight",
+                      isCurrent
+                        ? "text-white"
+                        : isComplete
+                        ? "text-neutral-400"
+                        : "text-neutral-600"
+                    )}
+                  >
+                    {label}
+                  </span>
+                </button>
+                {i < STEP_LABELS.length - 1 && (
+                  <div
+                    className={cn(
+                      "flex-1 h-px mx-3 transition-colors",
+                      i < currentStep ? "bg-neutral-600" : "bg-neutral-800"
+                    )}
+                  />
                 )}
-              >
-                <span
-                  className={cn(
-                    "flex h-7 w-7 items-center justify-center rounded-full border text-xs font-medium transition-all",
-                    isComplete
-                      ? "border-white bg-white text-black"
-                      : isCurrent
-                      ? "border-white text-white"
-                      : "border-white/15 text-neutral-600"
-                  )}
-                >
-                  {isComplete ? <Check className="h-3.5 w-3.5" /> : i + 1}
-                </span>
-                <span
-                  className={cn(
-                    "text-xs font-medium hidden sm:inline transition-colors",
-                    isCurrent ? "text-white" : isComplete ? "text-neutral-400" : "text-neutral-600"
-                  )}
-                >
-                  {label}
-                </span>
-              </button>
-              {i < STEP_LABELS.length - 1 && (
-                <div
-                  className={cn(
-                    "flex-1 h-px mx-2 transition-colors",
-                    i < currentStep ? "bg-white/30" : "bg-white/10"
-                  )}
-                />
-              )}
-            </div>
-          );
-        })}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Step content */}
@@ -348,53 +349,66 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
 
       {/* Error */}
       {error && (
-        <div className="mt-6 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+        <div className="mt-6 rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
           {error}
         </div>
       )}
 
-      {/* Navigation */}
-      <div className="mt-8 flex items-center justify-between">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={prevStep}
-          disabled={currentStep === 0}
-          className="text-neutral-400 hover:text-white"
-        >
-          <ArrowLeft className="h-4 w-4 mr-1" /> Back
-        </Button>
+      {/* Navigation — single coherent system */}
+      <div className="mt-10 flex items-center justify-between">
+        {currentStep > 0 ? (
+          <button
+            onClick={prevStep}
+            className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-white transition-colors px-2 py-2"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back
+          </button>
+        ) : (
+          <button
+            onClick={onCancel}
+            className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-white transition-colors px-2 py-2"
+          >
+            <ArrowLeft className="h-4 w-4" /> Home
+          </button>
+        )}
 
         {currentStep < 3 ? (
-          <Button
+          <button
             onClick={nextStep}
             disabled={!stepValid[currentStep]}
-            size="sm"
+            className={cn(
+              "flex items-center gap-2 px-5 h-11 rounded-md text-sm font-medium transition-all",
+              stepValid[currentStep]
+                ? "bg-neutral-100 text-black hover:bg-white"
+                : "bg-neutral-900 text-neutral-600 cursor-not-allowed"
+            )}
           >
-            Next <ArrowRight className="h-4 w-4 ml-1" />
-          </Button>
+            Next <ArrowRight className="h-4 w-4" />
+          </button>
         ) : (
-          <div className="flex flex-col items-end gap-1">
-            <Button
+          <div className="flex flex-col items-end gap-1.5">
+            <button
               onClick={handleStart}
               disabled={!canStart}
-              size="sm"
               className={cn(
-                canStart && "spar-ready-glow"
+                "flex items-center gap-2 px-5 h-11 rounded-md text-sm font-medium transition-all",
+                canStart
+                  ? "bg-neutral-100 text-black hover:bg-white"
+                  : "bg-neutral-900 text-neutral-600 cursor-not-allowed"
               )}
             >
               {creating ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Building...
+                  <Loader2 className="h-4 w-4 animate-spin" /> Building...
                 </>
               ) : (
                 <>
-                  Start Sparring <ArrowRight className="h-4 w-4 ml-2" />
+                  Start Sparring <ArrowRight className="h-4 w-4" />
                 </>
               )}
-            </Button>
+            </button>
             {!canStart && disabledReason && (
-              <p className="text-[10px] text-neutral-600">{disabledReason}</p>
+              <p className="text-[11px] text-neutral-600">{disabledReason}</p>
             )}
           </div>
         )}
@@ -403,23 +417,28 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
       {/* Sticky start button (mobile) */}
       {currentStep === 3 && (
         <div className="fixed bottom-20 left-4 right-4 z-40 md:hidden">
-          <Button
+          <button
             onClick={handleStart}
             disabled={!canStart}
-            className="w-full h-12 text-base"
+            className={cn(
+              "w-full h-12 rounded-md text-sm font-medium flex items-center justify-center gap-2 transition-all",
+              canStart
+                ? "bg-neutral-100 text-black hover:bg-white"
+                : "bg-neutral-900 text-neutral-600 cursor-not-allowed"
+            )}
           >
             {creating ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Building...
+                <Loader2 className="h-4 w-4 animate-spin" /> Building...
               </>
             ) : (
               <>
-                Start Sparring <ArrowRight className="h-4 w-4 ml-2" />
+                Start Sparring <ArrowRight className="h-4 w-4" />
               </>
             )}
-          </Button>
+          </button>
           {!canStart && disabledReason && (
-            <p className="text-center text-[10px] text-neutral-600 mt-2">
+            <p className="text-center text-[11px] text-neutral-600 mt-2">
               {disabledReason}
             </p>
           )}
@@ -505,7 +524,7 @@ function Step1Material({
               value={materialTitle}
               onChange={(e) => setMaterialTitle(e.target.value)}
               placeholder="e.g., PhD Dissertation Defense — Chapter 4"
-              className="bg-[#0a0a0a] border-white/10 text-white placeholder:text-neutral-600 focus:border-white/30 focus-visible:ring-white/20"
+              className="bg-[#0a0a0a] border-[#202020] text-white placeholder:text-neutral-600 focus:border-[#3a3a3a] focus-visible:ring-0 rounded-md"
             />
           </div>
           <div className="space-y-1.5">
@@ -518,7 +537,7 @@ function Step1Material({
               onChange={(e) => setMaterial(e.target.value)}
               placeholder="Paste your pitch, abstract, strategy memo, proposal, or talking points. The more substance, the sharper the panel."
               rows={6}
-              className="bg-[#0a0a0a] border-white/10 text-white placeholder:text-neutral-600 focus:border-white/30 focus-visible:ring-white/20 resize-y"
+              className="bg-[#0a0a0a] border-[#202020] text-white placeholder:text-neutral-600 focus:border-[#3a3a3a] focus-visible:ring-0 rounded-md resize-y"
             />
             <div className="flex items-center justify-between text-[11px] text-neutral-600">
               <span>
@@ -543,7 +562,7 @@ function Step1Material({
             onChange={(e) => setTopic(e.target.value)}
             placeholder="e.g., I'm defending my startup's go-to-market strategy for an enterprise SaaS product targeting mid-market healthcare."
             rows={3}
-            className="bg-[#0a0a0a] border-white/10 text-white placeholder:text-neutral-600 focus:border-white/30 focus-visible:ring-white/20"
+            className="bg-[#0a0a0a] border-[#202020] text-white placeholder:text-neutral-600 focus:border-[#3a3a3a] focus-visible:ring-0 rounded-md"
           />
           <p className="text-[11px] text-neutral-600">
             The panel will challenge the central claim in your topic. Be specific.
@@ -567,28 +586,76 @@ function Step2Room({
   customRoom: string;
   setCustomRoom: (s: string) => void;
 }) {
+  // Split predefined scenarios from the "custom" option
+  const predefined = SCENARIO_LIST.filter((s) => s.key !== "custom");
+  const customDef = SCENARIO_LIST.find((s) => s.key === "custom");
+
   return (
     <div>
       <SectionHeader number="02" title="What's the room?" />
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-        {SCENARIO_LIST.map((s) => (
-          <button
-            key={s.key}
-            onClick={() => setScenario(s.key)}
-            className={cn(
-              "rounded-lg border p-3 text-left transition-all",
-              scenario === s.key
-                ? "border-white bg-white/5 ring-1 ring-white/20"
-                : "border-white/[0.06] bg-[#111] hover:border-white/15"
-            )}
-          >
-            <p className="text-sm font-medium text-white">{s.label}</p>
-            <p className="mt-1 text-[11px] text-neutral-500 line-clamp-2">
-              {s.description}
-            </p>
-          </button>
-        ))}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {predefined.map((s, i) => {
+          const isSelected = scenario === s.key;
+          return (
+            <button
+              key={s.key}
+              onClick={() => setScenario(s.key)}
+              className={cn(
+                "relative rounded-md border p-3 text-left transition-all",
+                isSelected
+                  ? "bg-[#171717] border-[#343434]"
+                  : "bg-[#101010] border-[#202020] hover:bg-[#161616] hover:border-[#2a2a2a]"
+              )}
+              style={!isSelected ? { boxShadow: "0 0 0 3px rgba(255,255,255,0.0)" } : undefined}
+            >
+              {/* Numerical identifier — subtle, top-right */}
+              <span className="absolute top-2 right-2.5 text-[10px] text-neutral-600 tabular-nums">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <p className="text-sm font-medium text-white pr-6">{s.label}</p>
+              <p className="mt-1 text-[11px] text-neutral-500 line-clamp-2 leading-relaxed">
+                {s.description}
+              </p>
+              {/* Selection indicator — small checkmark, bottom-right */}
+              {isSelected && (
+                <div className="absolute bottom-2 right-2">
+                  <Check className="h-3.5 w-3.5 text-neutral-300" />
+                </div>
+              )}
+            </button>
+          );
+        })}
       </div>
+
+      {/* Custom room — full-width footer card */}
+      {customDef && (
+        <button
+          onClick={() => setScenario("custom")}
+          className={cn(
+            "mt-2 w-full flex items-center gap-3 rounded-md border p-3 text-left transition-all",
+            scenario === "custom"
+              ? "bg-[#171717] border-[#343434]"
+              : "bg-[#101010] border-[#202020] hover:bg-[#161616] hover:border-[#2a2a2a]"
+          )}
+        >
+          <div className={cn(
+            "flex h-8 w-8 items-center justify-center rounded-md border transition-colors",
+            scenario === "custom" ? "border-[#3a3a3a] bg-[#1b1b1b]" : "border-[#202020]"
+          )}>
+            <Plus className="h-4 w-4 text-neutral-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-white">Custom room</p>
+            <p className="mt-0.5 text-[11px] text-neutral-500">
+              Configure the scenario yourself.
+            </p>
+          </div>
+          {scenario === "custom" && (
+            <Check className="h-3.5 w-3.5 text-neutral-300 flex-shrink-0" />
+          )}
+        </button>
+      )}
+
       {scenario === "custom" && (
         <div className="mt-4 space-y-1.5">
           <Label htmlFor="custom-room" className="text-[10px] uppercase tracking-wider text-neutral-500">
@@ -600,7 +667,7 @@ function Step2Room({
             onChange={(e) => setCustomRoom(e.target.value)}
             placeholder="e.g., A hiring committee of 3 senior engineers interviewing me for a staff engineer role. They'll probe my system design decisions, my leadership philosophy, and a past incident where I caused an outage."
             rows={4}
-            className="bg-[#0a0a0a] border-white/10 text-white placeholder:text-neutral-600 focus:border-white/30 focus-visible:ring-white/20 resize-y"
+            className="bg-[#0a0a0a] border-[#202020] text-white placeholder:text-neutral-600 focus:border-[#3a3a3a] focus-visible:ring-0 rounded-md resize-y"
           />
           <div className="flex items-center justify-between text-[11px] text-neutral-600">
             <span>
@@ -680,7 +747,7 @@ function SeatCard({
     return (
       <button
         onClick={onClick}
-        className="flex w-[140px] sm:w-[160px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-white/10 bg-transparent py-8 transition-all hover:border-white/30 hover:bg-white/[0.02]"
+        className="flex w-[140px] sm:w-[160px] flex-col items-center justify-center rounded-md border border-dashed border-[#252525] bg-transparent py-8 transition-all hover:border-[#3a3a3a] hover:bg-[#0f0f0f]"
       >
         <span className="text-[10px] uppercase tracking-wider text-neutral-600 mb-1">
           Seat {index + 1}
@@ -695,21 +762,21 @@ function SeatCard({
     <button
       onClick={onClick}
       className={cn(
-        "group relative flex w-[140px] sm:w-[160px] flex-col items-center rounded-xl border bg-[#111] p-4 transition-all hover:scale-[1.03] hover:border-white/30",
-        "border-white/[0.08]"
+        "group relative flex w-[140px] sm:w-[160px] flex-col items-center rounded-md border bg-[#101010] p-4 transition-all hover:bg-[#161616] hover:border-[#2a2a2a]",
+        "border-[#202020]"
       )}
     >
-      <span className="absolute top-2 left-2 text-[9px] font-mono text-neutral-600">
+      <span className="absolute top-2 left-2 text-[9px] text-neutral-600 tabular-nums">
         {index + 1}
       </span>
 
       {/* Avatar (geometric, 48px) */}
-      <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-lg bg-white/5 ring-1 ring-white/10">
-        <Icon className="h-5 w-5 text-white/80" />
+      <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-md bg-[#1a1a1a] ring-1 ring-[#2a2a2a]">
+        <Icon className="h-5 w-5 text-neutral-300" />
       </div>
 
       {/* Name */}
-      <p className="text-center text-xs font-semibold text-white leading-tight">
+      <p className="text-center text-xs font-medium text-white leading-tight">
         {seat.name}
       </p>
 
@@ -776,7 +843,7 @@ function SeatEditor({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md bg-[#0a0a0a] border-white/10">
+      <DialogContent className="sm:max-w-md bg-[#0a0a0a] border-[#202020] rounded-md">
         <DialogHeader>
           <DialogTitle className="text-white">
             Configure Seat {seatIndex + 1}
@@ -793,7 +860,7 @@ function SeatEditor({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={ARCHETYPES[archetype].defaultName}
-              className="bg-[#0a0a0a] border-white/10 text-white placeholder:text-neutral-600 focus:border-white/30 focus-visible:ring-white/20"
+              className="bg-[#0a0a0a] border-[#202020] text-white placeholder:text-neutral-600 focus:border-[#3a3a3a] focus-visible:ring-0 rounded-md"
             />
           </div>
 
@@ -816,14 +883,14 @@ function SeatEditor({
                       }
                     }}
                     className={cn(
-                      "p-3 rounded-lg border text-center transition-all",
+                      "p-3 rounded-md border text-center transition-all",
                       isSelected
-                        ? "border-white bg-white/5 ring-1 ring-white/20"
-                        : "border-white/[0.06] hover:border-white/15 bg-[#111]"
+                        ? "bg-[#171717] border-[#343434]"
+                        : "bg-[#101010] border-[#202020] hover:bg-[#161616] hover:border-[#2a2a2a]"
                     )}
                   >
-                    <div className="mb-1.5 flex h-8 w-8 mx-auto items-center justify-center rounded-md bg-white/5">
-                      <Icon className="h-4 w-4 text-white/80" />
+                    <div className="mb-1.5 flex h-8 w-8 mx-auto items-center justify-center rounded-md bg-[#1a1a1a] ring-1 ring-[#2a2a2a]">
+                      <Icon className="h-4 w-4 text-neutral-300" />
                     </div>
                     <p className="text-[11px] font-medium text-white leading-tight">
                       {arch.defaultName.replace("The ", "")}
@@ -839,15 +906,15 @@ function SeatEditor({
             <Label className="text-[10px] uppercase tracking-widest text-neutral-500">
               Intensity
             </Label>
-            <div className="flex bg-[#0a0a0a] rounded-lg p-1 border border-white/10">
+            <div className="flex bg-[#0a0a0a] rounded-md p-1 border border-[#202020]">
               {([1, 2, 3] as const).map((level) => (
                 <button
                   key={level}
                   onClick={() => setIntensity(level)}
                   className={cn(
-                    "flex-1 py-2 text-xs rounded-md transition-all flex items-center justify-center gap-1.5",
+                    "flex-1 py-2 text-xs rounded transition-all flex items-center justify-center gap-1.5",
                     intensity === level
-                      ? "bg-white/10 text-white"
+                      ? "bg-[#1b1b1b] text-neutral-100"
                       : "text-neutral-500 hover:text-neutral-300"
                   )}
                 >
@@ -871,17 +938,19 @@ function SeatEditor({
 
         <div className="flex gap-2 mt-2">
           {canRemove && seat.filled && (
-            <Button
-              variant="ghost"
+            <button
               onClick={onRemove}
-              className="text-neutral-500 hover:text-red-400 mr-auto"
+              className="text-sm text-neutral-500 hover:text-red-400 transition-colors mr-auto"
             >
-              <X className="h-4 w-4 mr-1" /> Remove
-            </Button>
+              <X className="h-4 w-4 mr-1 inline" /> Remove
+            </button>
           )}
-          <Button onClick={handleSave} className="bg-white text-black hover:bg-white/90">
+          <button
+            onClick={handleSave}
+            className="px-4 h-10 rounded-md bg-neutral-100 text-black hover:bg-white text-sm font-medium transition-all"
+          >
             Save Configuration
-          </Button>
+          </button>
         </div>
       </DialogContent>
     </Dialog>
@@ -921,10 +990,10 @@ function Step4Mode({
                   }
                 }}
                 className={cn(
-                  "w-full text-left rounded-xl border p-4 transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-white/20",
+                  "w-full text-left rounded-md border p-4 transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-white/10",
                   isSelected
-                    ? "border-white bg-white/5 ring-1 ring-white/20"
-                    : "border-white/[0.06] bg-[#111] hover:border-white/15"
+                    ? "bg-[#171717] border-[#343434]"
+                    : "bg-[#101010] border-[#202020] hover:bg-[#161616] hover:border-[#2a2a2a]"
                 )}
               >
                 <div className="flex items-start gap-3">
@@ -949,10 +1018,10 @@ function Step4Mode({
                               setDrillTarget(opt.id);
                             }}
                             className={cn(
-                              "text-xs px-3 py-1.5 rounded-full border transition-colors",
+                              "text-xs px-3 py-1.5 rounded-md border transition-colors",
                               drillTarget === opt.id
-                                ? "border-white text-white bg-white/10"
-                                : "border-white/10 text-neutral-400 hover:border-white/20"
+                                ? "bg-[#1b1b1b] border-[#3a3a3a] text-neutral-100"
+                                : "bg-[#101010] border-[#202020] text-neutral-400 hover:bg-[#161616] hover:border-[#2a2a2a]"
                             )}
                           >
                             {opt.label}
@@ -962,8 +1031,8 @@ function Step4Mode({
                     )}
                   </div>
                   {isSelected && (
-                    <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center flex-shrink-0">
-                      <Check className="w-3 h-3 text-black" />
+                    <div className="flex-shrink-0">
+                      <Check className="h-4 w-4 text-neutral-300" />
                     </div>
                   )}
                 </div>
@@ -995,10 +1064,9 @@ function Step4Mode({
 
 function SectionHeader({ number, title }: { number: string; title: string }) {
   return (
-    <div className="mb-4 flex items-center gap-3">
-      <span className="font-mono text-xs text-neutral-600">{number}</span>
-      <h2 className="text-base font-medium text-white">{title}</h2>
-      <div className="flex-1 border-t border-white/[0.06]" />
+    <div className="mb-5 flex items-baseline gap-2.5">
+      <span className="text-xs text-neutral-600 tabular-nums">{number}</span>
+      <h2 className="text-base font-medium text-white tracking-tight">{title}</h2>
     </div>
   );
 }
@@ -1018,11 +1086,12 @@ function ToggleButton({
     <button
       onClick={onClick}
       className={cn(
-        "flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-all",
+        "flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-medium transition-all",
         active
-          ? "border-white bg-white/5 text-white"
-          : "border-white/[0.06] bg-[#111] text-neutral-400 hover:border-white/15"
+          ? "bg-[#1b1b1b] border-[#3a3a3a] text-neutral-100"
+          : "bg-[#101010] border-[#202020] text-neutral-400 hover:bg-[#161616] hover:border-[#2a2a2a]"
       )}
+      style={!active ? { boxShadow: "0 0 0 3px rgba(255,255,255,0.025)" } : undefined}
     >
       {icon}
       {label}

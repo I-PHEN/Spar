@@ -103,7 +103,8 @@ export function HomeView({ userName, onEnterSparringRoom }: HomeViewProps) {
       {/* Primary CTA — clean, single action */}
       <button
         onClick={onEnterSparringRoom}
-        className="group premium-card premium-card-hover relative block w-full overflow-hidden rounded-xl p-6 text-left transition-all sm:p-8"
+        className="group relative block w-full overflow-hidden rounded-md border border-[#202020] bg-[#101010] hover:bg-[#161616] hover:border-[#2a2a2a] p-6 text-left transition-all sm:p-8"
+        style={{ boxShadow: "0 0 0 3px rgba(255,255,255,0.0)" }}
       >
         <div className="flex items-center justify-between gap-4">
           <div>
