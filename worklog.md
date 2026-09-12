@@ -358,3 +358,49 @@ Stage Summary:
 - **What the user needs to test themselves:** Microphone input (can't be tested in headless browser), audio playback (TTS voices — user said they'll change voices later), and the actual voice interaction flow (speak → stop → persona responds).
 - **What's NOT in this build (deliberately deferred):** Smart interruption (detecting when to cut the user off mid-speech — requires a separate interrupt detector loop), "I need a moment" as a full whisper system (currently just shows a static coach line), slide viewer (only relevant for "with material" mode with slides), mood system (cut per earlier discussion — persona tone IS the mood).
 - Lint passes clean. No errors in dev log.
+
+---
+Task ID: 9
+Agent: main (engineering)
+Task: Sparring Room layout overhaul — panel to sidebar, content-first, narrow bottom bar
+
+Work Log:
+- **Added accent colors per archetype** (`personas.ts`): added `accentBorder` field to each archetype definition:
+  - skeptic = `border-l-blue-400`
+  - nitpicker = `border-l-red-400`
+  - so_what = `border-l-amber-400`
+  - timekeeper = `border-l-emerald-400`
+  - ally = `border-l-violet-400`
+  Used ONLY as the left border on the active speaker's card (not on avatars or card backgrounds).
+- **Redesigned persona card** (`persona-card.tsx`):
+  - Full names — `whitespace-normal break-words` (no truncation, allow wrap)
+  - Accent left border (`border-l-2`) when speaking or about-to-interrupt
+  - Card scales up slightly when active (`scale-[1.02]`) with glow shadow
+  - Interrupt meter: 5 dots that fill based on `interruptLevel` prop (0-5). Dots 1-3 are white, dots 4-5 are amber (warning state)
+  - Status dot: listening=gray, thinking=amber+pulse, speaking=white+glow
+  - Two variants: "sidebar" (full, vertical, with interrupt meter) and "compact" (mobile horizontal, no meter)
+- **Interrupt meter logic** (in `sparring-room.tsx`):
+  - Tracks speaking duration via `speakingStartRef` + `setInterval`
+  - Fills 1 dot per ~4 seconds of speaking (caps at 5)
+  - Resets when processing starts (persona takes over)
+  - At 4+ dots, dots turn amber (warning — panel is about to interrupt)
+- **Rebuilt sparring room layout** (`sparring-room.tsx`):
+  - **Desktop (lg+, 1024px+):** 2-column layout — main area (flex-1) + right sidebar (380px, min 320, max 420). Body is `flex-col lg:flex-row`.
+  - **Mobile (<lg):** Stacked vertically — mobile panel (horizontal scroll, compact cards, 200px each) → main area → bottom bar. Sidebar is `hidden` (display: none confirmed).
+  - **Main area structure:** content strip at top (claims as horizontal chips: "DEFENDING: C1 RLHF Effectiveness, C2 ...") → conversation feed (scrollable, max-w-2xl, centered).
+  - **Top bar tightened:** `py-3` (was py-2.5), subtitle `text-xs max-w-xl truncate` (was line-clamp-1).
+  - **Bottom bar narrowed:** removed the TelemetryBar row entirely. Single row: Moment | Mic (h-12, was h-16) | End. `py-2` (was py-3). Status text inline next to mic button instead of below.
+  - **Content strip:** shows up to 3 extracted claims as compact chips with claim ID + label. Only visible when claims exist.
+  - Glass effect maintained on top bar + bottom bar.
+- Browser-verified on both desktop (1440x900) and mobile (390x844):
+  - Desktop: sidebar is 380px wide, full names visible (The Skeptic, The So-What, The Nitpicker — no truncation), content strip shows claims, conversation feed scrolls.
+  - Mobile: sidebar hidden (display: none), mobile panel shows compact cards with full names, content strip + conversation feed take remaining space, bottom bar is narrow.
+
+Stage Summary:
+- **Layout transformed from chat-app to presentation room.** No more dead center space, no truncated names, no cramped horizontal panel.
+- **Desktop:** content strip + conversation feed on the left (flex-1), panel sidebar on the right (380px) with full persona cards, interrupt meters, and accent borders.
+- **Mobile:** panel as horizontal scroll on top, content + conversation in the middle, narrow bottom bar with mic.
+- **Interrupt meter** fills as the user speaks (1 dot per 4 seconds, amber at 4+), resets when persona responds. Atmospheric tension, not a gameable score.
+- **Accent colors** (blue/amber/red/emerald/violet) appear only as the left border on the active speaker's card — useful signal without re-colorizing the room.
+- **Bottom bar** is now one narrow row (was two rows). Mic button is h-12 (was h-16). Status text is inline.
+- Lint passes clean. No errors in dev log.

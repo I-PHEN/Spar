@@ -120,15 +120,54 @@ export function SparringRoom({
   const [liveHedges, setLiveHedges] = useState(0);
   const [liveHasEvidence, setLiveHasEvidence] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
+  const [interruptLevel, setInterruptLevel] = useState(0);
 
   const sparInFlight = useRef(false);
   const captionsEndRef = useRef<HTMLDivElement>(null);
+  const speakingStartRef = useRef<number | null>(null);
+  const interruptTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Timer
   useEffect(() => {
     const t = setInterval(() => setElapsedSec(Math.floor((Date.now() - sessionStart) / 1000)), 1000);
     return () => clearInterval(t);
   }, [sessionStart]);
+
+  // Interrupt meter — fills while the user speaks, resets on persona response.
+  // One dot per ~4 seconds of speaking. At 5 dots, the panel is "about to interrupt."
+  useEffect(() => {
+    if (voice.isListening) {
+      speakingStartRef.current = Date.now();
+      setInterruptLevel(0);
+      interruptTimerRef.current = setInterval(() => {
+        if (!speakingStartRef.current) return;
+        const elapsed = (Date.now() - speakingStartRef.current) / 1000;
+        // Fill 1 dot per 4 seconds, cap at 5
+        const level = Math.min(5, Math.floor(elapsed / 4));
+        setInterruptLevel(level);
+      }, 500);
+    } else {
+      speakingStartRef.current = null;
+      if (interruptTimerRef.current) {
+        clearInterval(interruptTimerRef.current);
+        interruptTimerRef.current = null;
+      }
+      // Don't reset immediately — let it fade after persona responds
+    }
+    return () => {
+      if (interruptTimerRef.current) {
+        clearInterval(interruptTimerRef.current);
+        interruptTimerRef.current = null;
+      }
+    };
+  }, [voice.isListening]);
+
+  // Reset interrupt meter when processing starts (persona takes over)
+  useEffect(() => {
+    if (isProcessing) {
+      setInterruptLevel(0);
+    }
+  }, [isProcessing]);
 
   // Auto-scroll captions
   useEffect(() => {
@@ -451,9 +490,9 @@ export function SparringRoom({
 
   return (
     <div className="flex h-[100dvh] flex-col bg-background">
-      {/* Top bar — glass */}
+      {/* Top bar — glass, tightened to py-3 */}
       <div
-        className="flex items-center justify-between px-4 py-2.5 sm:px-6"
+        className="flex items-center justify-between px-4 py-3 sm:px-6"
         style={{
           background: "rgba(10, 10, 10, 0.55)",
           backdropFilter: "blur(20px) saturate(180%)",
@@ -470,7 +509,7 @@ export function SparringRoom({
             <p className="truncate text-sm font-medium text-white">
               {scenarioLabel}
             </p>
-            <p className="hidden sm:block text-[11px] text-neutral-500 line-clamp-1">
+            <p className="hidden sm:block text-xs text-neutral-500 max-w-xl truncate">
               {roomContext}
             </p>
           </div>
@@ -497,60 +536,102 @@ export function SparringRoom({
         </div>
       </div>
 
-      {/* Main area — panel-centric for voice */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        {/* The Panel — horizontal on all screen sizes */}
-        <div className="flex-shrink-0 border-b border-white/[0.06] px-4 py-4 sm:px-6 sm:py-5">
-          <div className="mx-auto flex max-w-3xl items-start justify-center gap-3 sm:gap-4">
+      {/* Body — stacked on mobile, 2-column on desktop */}
+      <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
+        {/* Mobile panel — horizontal scroll (below lg, stacks on top) */}
+        <div
+          className="lg:hidden flex-shrink-0 border-b border-white/[0.06] overflow-x-auto px-4 py-3"
+          style={{
+            background: "rgba(10, 10, 10, 0.4)",
+          }}
+        >
+          <div className="flex gap-2.5">
             {personas.map((p) => (
-              <div key={p.id} className="flex-1 max-w-[200px]">
+              <div key={p.id} className="flex-shrink-0 w-[200px]">
                 <PersonaCard
                   archetype={p.archetype}
                   name={p.name}
                   behaviorStyle={p.behaviorStyle}
                   state={personaStates[p.id] || "idle"}
                   mood={personaMoods[p.id] || "neutral"}
-                  compact
+                  interruptLevel={interruptLevel}
+                  variant="compact"
                 />
               </div>
             ))}
           </div>
         </div>
 
-        {/* Captions — the conversation transcript */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
-          <div className="mx-auto max-w-2xl space-y-4">
-            {captions.map((c) => (
-              <CaptionRow key={c.id} entry={c} />
-            ))}
-            {/* Processing indicator */}
-            {isProcessing && (
-              <div className="flex items-center gap-2 text-xs text-neutral-500">
-                <span className="flex gap-0.5">
-                  <span className="spar-thinking-dot inline-block h-1.5 w-1.5 rounded-full bg-neutral-400" />
-                  <span className="spar-thinking-dot inline-block h-1.5 w-1.5 rounded-full bg-neutral-400" />
-                  <span className="spar-thinking-dot inline-block h-1.5 w-1.5 rounded-full bg-neutral-400" />
+        {/* Main area — content + conversation */}
+        <div className="flex flex-1 flex-col overflow-hidden min-w-0">
+          {/* Content strip — claims or topic */}
+          {claims.length > 0 && (
+            <div className="flex-shrink-0 border-b border-white/[0.04] px-4 py-2 lg:px-6">
+              <div className="flex items-center gap-2 overflow-x-auto">
+                <span className="text-[10px] uppercase tracking-wider text-neutral-600 flex-shrink-0">
+                  Defending:
                 </span>
-                The panel is thinking...
+                {claims.slice(0, 3).map((c) => (
+                  <div
+                    key={c.id}
+                    className="flex items-center gap-1.5 rounded-md border border-white/[0.06] bg-white/[0.02] px-2 py-1 flex-shrink-0"
+                  >
+                    <span className="text-[9px] font-mono text-neutral-500">C{c.id}</span>
+                    <span className="text-[11px] text-neutral-400 truncate max-w-[160px]">
+                      {c.label}
+                    </span>
+                  </div>
+                ))}
               </div>
-            )}
-            <div ref={captionsEndRef} />
+            </div>
+          )}
+
+          {/* Conversation feed — scrollable */}
+          <div className="flex-1 overflow-y-auto px-4 py-4 lg:px-6">
+            <div className="mx-auto max-w-2xl space-y-3">
+              {captions.map((c) => (
+                <CaptionRow key={c.id} entry={c} />
+              ))}
+              {/* Processing indicator */}
+              {isProcessing && (
+                <div className="flex items-center gap-2 text-xs text-neutral-500">
+                  <span className="flex gap-0.5">
+                    <span className="spar-thinking-dot inline-block h-1.5 w-1.5 rounded-full bg-neutral-400" />
+                    <span className="spar-thinking-dot inline-block h-1.5 w-1.5 rounded-full bg-neutral-400" />
+                    <span className="spar-thinking-dot inline-block h-1.5 w-1.5 rounded-full bg-neutral-400" />
+                  </span>
+                  The panel is thinking...
+                </div>
+              )}
+              <div ref={captionsEndRef} />
+            </div>
           </div>
         </div>
 
-        {/* Claims toggle (mobile) */}
-        {claims.length > 0 && (
-          <button
-            onClick={() => setShowClaimsPanel(true)}
-            className="lg:hidden fixed bottom-24 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white ring-1 ring-white/20"
-            aria-label="View your material"
-          >
-            <FileText className="h-4 w-4" />
-          </button>
-        )}
+        {/* Right sidebar — Panel (desktop only, lg+) */}
+        <aside
+          className="hidden lg:flex flex-col border-l border-white/[0.05] bg-[#0a0a0a] overflow-y-auto px-3 py-4"
+          style={{ width: "380px", minWidth: "320px", maxWidth: "420px" }}
+        >
+          <p className="text-[10px] uppercase tracking-[0.18em] text-neutral-600 px-1 mb-3">
+            The Panel
+          </p>
+          {personas.map((p) => (
+            <PersonaCard
+              key={p.id}
+              archetype={p.archetype}
+              name={p.name}
+              behaviorStyle={p.behaviorStyle}
+              state={personaStates[p.id] || "idle"}
+              mood={personaMoods[p.id] || "neutral"}
+              interruptLevel={interruptLevel}
+              variant="sidebar"
+            />
+          ))}
+        </aside>
       </div>
 
-      {/* Bottom control bar — glass */}
+      {/* Bottom bar — narrow, glass */}
       <div
         className="flex-shrink-0"
         style={{
@@ -561,16 +642,7 @@ export function SparringRoom({
           boxShadow: "inset 0 -1px 0 0 rgba(255, 255, 255, 0.04), 0 -8px 24px -12px rgba(0, 0, 0, 0.5)",
         }}
       >
-        {/* Subtle live telemetry */}
-        <TelemetryBar
-          words={liveWords}
-          hedges={liveHedges}
-          latencyMs={0}
-          hasEvidence={liveHasEvidence}
-          muted={!voice.isListening}
-        />
-        {/* Main controls */}
-        <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <div className="flex items-center justify-between gap-3 px-4 py-2 sm:px-6">
           {/* Left — I need a moment */}
           <Button
             variant="ghost"
@@ -579,52 +651,44 @@ export function SparringRoom({
             disabled={!isUserTurn || isProcessing || audioPlaying}
             className="text-neutral-400 hover:text-white"
           >
-            <Hand className="h-4 w-4 mr-1.5" />
+            <Hand className="h-4 w-4 sm:mr-1.5" />
             <span className="hidden sm:inline">I need a moment</span>
-            <span className="sm:hidden">Moment</span>
           </Button>
 
-          {/* Center — Speak / Done button */}
-          <div className="flex flex-col items-center gap-1">
+          {/* Center — Speak / Done button + status */}
+          <div className="flex items-center gap-3">
             {!voice.isSupported ? (
               <div className="text-center">
-                <p className="text-xs text-neutral-500 mb-2">
+                <p className="text-xs text-neutral-500">
                   Voice needs Chrome or Edge
                 </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onExit}
-                >
-                  Back to Home
-                </Button>
               </div>
             ) : isUserTurn && !isProcessing ? (
               voice.isListening ? (
                 <button
                   onClick={handleStopSpeaking}
-                  className="flex h-16 w-16 items-center justify-center rounded-full bg-white text-black shadow-lg transition-transform active:scale-95"
+                  className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-black shadow-lg transition-transform active:scale-95"
                   aria-label="Stop speaking"
                 >
-                  <Square className="h-5 w-5 fill-current" />
+                  <Square className="h-4 w-4 fill-current" />
                 </button>
               ) : (
                 <button
                   onClick={handleStartSpeaking}
-                  className="group flex h-16 w-16 items-center justify-center rounded-full bg-white text-black shadow-lg transition-transform active:scale-95 spar-ready-glow"
+                  className="group flex h-12 w-12 items-center justify-center rounded-full bg-white text-black shadow-lg transition-transform active:scale-95 spar-ready-glow"
                   aria-label="Start speaking"
                 >
-                  <Mic className="h-6 w-6" />
+                  <Mic className="h-5 w-5" />
                 </button>
               )
             ) : (
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10 text-neutral-500">
-                <Pause className="h-5 w-5" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 text-neutral-500">
+                <Pause className="h-4 w-4" />
               </div>
             )}
-            <span className="text-[10px] uppercase tracking-wider text-neutral-500">
+            <span className="text-[10px] uppercase tracking-wider text-neutral-500 hidden sm:inline">
               {voice.isListening
-                ? "Listening... click to stop"
+                ? "Listening..."
                 : isUserTurn && !isProcessing
                 ? "Click to speak"
                 : isProcessing
@@ -668,14 +732,14 @@ export function SparringRoom({
 
       {/* Mic permission error */}
       {voice.error && (
-        <div className="fixed bottom-24 left-4 right-4 z-40 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+        <div className="fixed bottom-20 left-4 right-4 z-40 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
           {voice.error}
         </div>
       )}
 
       {/* Error toast */}
       {error && captions.length > 0 && (
-        <div className="fixed bottom-24 left-4 right-4 z-40 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+        <div className="fixed bottom-20 left-4 right-4 z-40 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
           {error}
         </div>
       )}

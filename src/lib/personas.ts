@@ -30,6 +30,8 @@ export interface ArchetypeDefinition {
   initials: string;
   /** Muted accent hue for the avatar (oklch, very desaturated) */
   accentHue: string;
+  /** Accent color for the active speaker's left border (Tailwind class) */
+  accentBorder: string;
   /** Lucide icon name for the archetype */
   icon: string;
 }
@@ -60,6 +62,7 @@ export const ARCHETYPES: Record<ArchetypeKey, ArchetypeDefinition> = {
     ],
     initials: "SK",
     accentHue: "oklch(0.68 0.13 250)", // primary blue family
+    accentBorder: "border-l-blue-400",
     icon: "search",
   },
   nitpicker: {
@@ -87,6 +90,7 @@ export const ARCHETYPES: Record<ArchetypeKey, ArchetypeDefinition> = {
     ],
     initials: "NP",
     accentHue: "oklch(0.70 0.10 60)", // muted amber
+    accentBorder: "border-l-red-400",
     icon: "microscope",
   },
   so_what: {
@@ -114,6 +118,7 @@ export const ARCHETYPES: Record<ArchetypeKey, ArchetypeDefinition> = {
     ],
     initials: "SW",
     accentHue: "oklch(0.65 0.08 180)", // muted teal
+    accentBorder: "border-l-amber-400",
     icon: "target",
   },
   timekeeper: {
@@ -141,6 +146,7 @@ export const ARCHETYPES: Record<ArchetypeKey, ArchetypeDefinition> = {
     ],
     initials: "TK",
     accentHue: "oklch(0.62 0.10 145)", // muted sage
+    accentBorder: "border-l-emerald-400",
     icon: "timer",
   },
   ally: {
@@ -168,6 +174,7 @@ export const ARCHETYPES: Record<ArchetypeKey, ArchetypeDefinition> = {
     ],
     initials: "AL",
     accentHue: "oklch(0.65 0.12 15)", // muted rose
+    accentBorder: "border-l-violet-400",
     icon: "handshake",
   },
 };
