@@ -3,9 +3,9 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Spar design language — pure dark mode.
-   Deep charcoal + slate + white accent. No blue. No color noise.
-   Premium, calm, focused. The whole product is the dark "room". */
+/* Spar — premium dark design language.
+   Pure dark, white accent, depth via elevation + ambient light.
+   No color. Premium, calm, focused. The whole product is the dark "room". */
 
 @theme inline {
   --color-background: var(--background);
@@ -48,101 +48,140 @@
 }
 
 :root {
-  --radius: 0.5rem;
+  --radius: 0.625rem;
 
-  /* Pure dark base — no blue tint. #0a0a0a */
-  --background: oklch(0.14 0 0);
-  --foreground: oklch(0.93 0 0);              /* soft white */
+  /* Deep base — slightly darker for more contrast against elevated cards.
+     Think of a dimly-lit room with a single overhead light. */
+  --background: oklch(0.115 0 0);     /* #070707 */
+  --foreground: oklch(0.95 0 0);      /* near-white */
 
-  /* Slate surfaces — all neutral, no hue */
-  --card: oklch(0.19 0 0);                     /* #181818 */
-  --card-foreground: oklch(0.93 0 0);
-  --popover: oklch(0.17 0 0);                 /* #141414 */
-  --popover-foreground: oklch(0.93 0 0);
+  /* Elevated surfaces — each layer lifts slightly. */
+  --card: oklch(0.165 0 0);           /* #161616 */
+  --card-foreground: oklch(0.95 0 0);
+  --popover: oklch(0.145 0 0);        /* #121212 */
+  --popover-foreground: oklch(0.95 0 0);
 
-  /* Primary = white. Used for CTAs, active states, highlights. */
-  --primary: oklch(0.96 0 0);                  /* near-white #F5F5F5 */
-  --primary-foreground: oklch(0.10 0 0);       /* dark text on white */
+  /* Primary = white. Used sparingly for CTAs + active states. */
+  --primary: oklch(0.97 0 0);
+  --primary-foreground: oklch(0.08 0 0);
 
-  /* Secondary — lifted slate */
-  --secondary: oklch(0.23 0 0);               /* #232323 */
-  --secondary-foreground: oklch(0.93 0 0);
+  /* Secondary — lifted surface for hovers. */
+  --secondary: oklch(0.21 0 0);
+  --secondary-foreground: oklch(0.95 0 0);
 
   /* Muted */
-  --muted: oklch(0.23 0 0);
-  --muted-foreground: oklch(0.58 0 0);        /* #8A8A8A neutral gray */
+  --muted: oklch(0.19 0 0);
+  --muted-foreground: oklch(0.60 0 0);  /* brighter for readability */
 
   /* Accent */
-  --accent: oklch(0.26 0 0);                   /* #2A2A2A */
-  --accent-foreground: oklch(0.93 0 0);
+  --accent: oklch(0.22 0 0);
+  --accent-foreground: oklch(0.95 0 0);
 
-  --destructive: oklch(0.60 0.18 25);
+  --destructive: oklch(0.62 0.18 25);
   --destructive-foreground: oklch(0.98 0 0);
 
-  /* Borders — very subtle */
-  --border: oklch(0.28 0 0);                   /* #2E2E2E */
-  --input: oklch(0.23 0 0);
-  --ring: oklch(0.93 0 0);                     /* white ring */
+  /* Borders — slightly more visible for definition */
+  --border: oklch(0.26 0 0);
+  --input: oklch(0.19 0 0);
+  --ring: oklch(0.97 0 0);
 
-  /* Chart colors — monochrome + subtle differentiation for later */
-  --chart-1: oklch(0.93 0 0);
+  /* Charts — monochrome */
+  --chart-1: oklch(0.95 0 0);
   --chart-2: oklch(0.65 0 0);
   --chart-3: oklch(0.50 0 0);
   --chart-4: oklch(0.75 0 0);
   --chart-5: oklch(0.40 0 0);
 
-  --sidebar: oklch(0.16 0 0);
-  --sidebar-foreground: oklch(0.93 0 0);
-  --sidebar-primary: oklch(0.96 0 0);
-  --sidebar-primary-foreground: oklch(0.10 0 0);
-  --sidebar-accent: oklch(0.23 0 0);
-  --sidebar-accent-foreground: oklch(0.93 0 0);
-  --sidebar-border: oklch(0.28 0 0);
-  --sidebar-ring: oklch(0.93 0 0);
+  --sidebar: oklch(0.135 0 0);
+  --sidebar-foreground: oklch(0.95 0 0);
+  --sidebar-primary: oklch(0.97 0 0);
+  --sidebar-primary-foreground: oklch(0.08 0 0);
+  --sidebar-accent: oklch(0.21 0 0);
+  --sidebar-accent-foreground: oklch(0.95 0 0);
+  --sidebar-border: oklch(0.26 0 0);
+  --sidebar-ring: oklch(0.97 0 0);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
   body {
     @apply bg-background text-foreground;
-    /* No gradient, no texture. Pure flat dark. */
+    /* Ambient light from above — zero chroma (gray, not blue).
+       Simulates a soft overhead light hitting the top of the page.
+       This is what gives premium dark apps their depth without color. */
+    background-image:
+      radial-gradient(ellipse 70% 50% at 50% -10%, oklch(0.20 0 0) 0%, transparent 55%);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
   }
 
-  /* Custom scrollbar — slim, dark */
+  /* Scrollbar — slim, refined */
   ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
     background: oklch(0.28 0 0);
-    border-radius: 3px;
+    border-radius: 4px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
   }
   ::-webkit-scrollbar-thumb:hover {
     background: oklch(0.38 0 0);
+    background-clip: padding-box;
   }
 
-  /* Selection — white tint on dark */
   ::selection {
-    background: oklch(0.96 0 0 / 0.20);
+    background: oklch(0.97 0 0 / 0.18);
     color: oklch(0.98 0 0);
   }
 }
 
-/* Custom animations — monochrome, white-based */
+/* Premium elevation utilities — the key to depth in dark mode.
+   Cards float: subtle top highlight (light from above) + bottom shadow. */
+
+@utility premium-card {
+  background: var(--card);
+  border: 1px solid oklch(0.26 0 0);
+  box-shadow:
+    0 1px 0 0 oklch(1 0 0 / 0.05) inset,
+    0 1px 3px 0 oklch(0 0 0 / 0.3),
+    0 8px 24px -8px oklch(0 0 0 / 0.4);
+}
+
+@utility premium-card-hover {
+  box-shadow:
+    0 1px 0 0 oklch(1 0 0 / 0.07) inset,
+    0 2px 4px 0 oklch(0 0 0 / 0.3),
+    0 12px 32px -8px oklch(0 0 0 / 0.5);
+  border-color: oklch(0.32 0 0);
+}
+
+@utility premium-surface {
+  background: var(--card);
+  border: 1px solid oklch(0.22 0 0);
+}
+
+/* Custom animations */
 
 @keyframes spar-pulse {
   0%, 100% {
-    box-shadow: 0 0 0 0 oklch(0.96 0 0 / 0.35);
+    box-shadow: 0 0 0 0 oklch(0.97 0 0 / 0.35), 0 0 0 0 oklch(0.97 0 0 / 0);
     opacity: 1;
   }
   50% {
-    box-shadow: 0 0 0 6px oklch(0.96 0 0 / 0);
-    opacity: 0.85;
+    box-shadow: 0 0 0 4px oklch(0.97 0 0 / 0.15), 0 0 0 8px oklch(0.97 0 0 / 0);
+    opacity: 0.88;
   }
 }
 .spar-pulse {
@@ -184,8 +223,17 @@
   display: inline-block;
   width: 0.5em;
   height: 1.1em;
-  background: oklch(0.96 0 0);
+  background: oklch(0.97 0 0);
   margin-left: 2px;
   vertical-align: text-bottom;
   animation: spar-caret 1s steps(1) infinite;
+}
+
+/* "Ready to spar" — subtle breathing glow on the start button when enabled */
+@keyframes spar-ready-glow {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.97 0 0 / 0.0), 0 4px 16px -2px oklch(0.97 0 0 / 0.15); }
+  50% { box-shadow: 0 0 0 0 oklch(0.97 0 0 / 0.0), 0 8px 24px -2px oklch(0.97 0 0 / 0.25); }
+}
+.spar-ready-glow {
+  animation: spar-ready-glow 2.5s ease-in-out infinite;
 }

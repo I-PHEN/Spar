@@ -7,9 +7,13 @@ import {
   Flame,
   Target,
   Sparkles,
-  Plus,
   Pencil,
   X,
+  Loader2,
+  Lightbulb,
+  Gauge,
+  MessageSquare,
+  Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,7 +30,10 @@ import { cn } from "@/lib/utils";
 
 interface HomeViewProps {
   userName: string;
+  /** Called when user wants the full Practice flow (has material / wants to configure). */
   onEnterSparringRoom: () => void;
+  /** Called with a session ID when a quick spar session is created. */
+  onQuickSparStarted: (sessionId: string) => void;
 }
 
 interface UpcomingMoment {
@@ -52,10 +59,42 @@ function greeting(): string {
   return "Good evening";
 }
 
-export function HomeView({ userName, onEnterSparringRoom }: HomeViewProps) {
+// One-tap topic presets. Each pre-fills the quick spar input + scenario.
+const TOPIC_PRESETS: Array<{
+  icon: typeof Lightbulb;
+  label: string;
+  topic: string;
+  scenario: "custom";
+}> = [
+  {
+    icon: Lightbulb,
+    label: "Defend an idea",
+    topic: "I believe remote-first teams can build better products than hybrid teams, if they invest heavily in async communication and written culture.",
+    scenario: "custom",
+  },
+  {
+    icon: Gauge,
+    label: "Pressure-test a number",
+    topic: "I'm projecting 40% month-over-month growth for the next 6 months based on our current trajectory and a planned sales hire in month 3.",
+    scenario: "custom",
+  },
+  {
+    icon: MessageSquare,
+    label: "Practice a hard conversation",
+    topic: "I need to tell my co-founder that I think we should pivot away from our current product direction because the market signal isn't there.",
+    scenario: "custom",
+  },
+];
+
+export function HomeView({ userName, onEnterSparringRoom, onQuickSparStarted }: HomeViewProps) {
   const [moment, setMoment] = useState<UpcomingMoment | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [editingMoment, setEditingMoment] = useState(false);
+
+  // Quick spar state
+  const [quickTopic, setQuickTopic] = useState("");
+  const [quickStarting, setQuickStarting] = useState(false);
+  const [quickError, setQuickError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([fetch("/api/upcoming-moment"), fetch("/api/stats")])
@@ -72,11 +111,45 @@ export function HomeView({ userName, onEnterSparringRoom }: HomeViewProps) {
     ? Math.max(0, Math.ceil((new Date(moment.date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
     : null;
 
+  const quickTopicValid = quickTopic.trim().length >= 5;
+
+  async function startQuickSpar(topicOverride?: string) {
+    const topic = (topicOverride ?? quickTopic).trim();
+    if (topic.length < 5) {
+      setQuickError("Give us at least 5 characters to work with.");
+      return;
+    }
+    setQuickStarting(true);
+    setQuickError(null);
+    try {
+      const res = await fetch("/api/sessions/quick", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setQuickError(data.error || "Failed to start session");
+        return;
+      }
+      onQuickSparStarted(data.session.id);
+    } catch (e) {
+      setQuickError(String(e));
+    } finally {
+      setQuickStarting(false);
+    }
+  }
+
+  function handlePreset(presetTopic: string) {
+    setQuickTopic(presetTopic);
+    startQuickSpar(presetTopic);
+  }
+
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 pb-32 sm:px-6 sm:py-12 md:pb-12">
+    <div className="mx-auto max-w-5xl px-4 py-8 pb-32 sm:px-6 sm:py-12 md:pb-16">
       {/* Header */}
       <div className="mb-8">
-        <p className="text-xs uppercase tracking-widest text-neutral-500 mb-2">
+        <p className="text-xs uppercase tracking-[0.2em] text-neutral-500 mb-2">
           {greeting()}
         </p>
         <h1 className="text-4xl lg:text-5xl font-bold tracking-tight text-white">
@@ -100,41 +173,114 @@ export function HomeView({ userName, onEnterSparringRoom }: HomeViewProps) {
         )}
       </div>
 
-      {/* Primary CTA — desktop only (mobile uses floating CTA) */}
-      <button
-        onClick={onEnterSparringRoom}
-        className="group relative hidden w-full overflow-hidden rounded-xl border border-white/15 bg-white/5 p-6 text-left transition-all hover:border-white/30 hover:bg-white/[0.08] sm:block md:p-8"
-      >
-        <div className="flex items-center justify-between gap-4">
+      {/* Quick Spar — the low-friction path */}
+      <div className="premium-card rounded-xl p-5 sm:p-6">
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <p className="text-[11px] uppercase tracking-[0.2em] text-neutral-500">
-              Start a session
-            </p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white md:text-3xl">
-              Enter the Sparring Room
+            <h2 className="text-lg font-semibold tracking-tight text-white">
+              Spar on a topic
             </h2>
-            <p className="mt-1.5 text-sm text-neutral-400">
-              Bring an idea. Face the panel. Get coached.
+            <p className="text-xs text-neutral-500 mt-0.5">
+              Type what's on your mind. We'll build the room.
             </p>
           </div>
-          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-white text-black transition-transform group-hover:scale-110 md:h-14 md:w-14">
-            <ArrowRight className="h-5 w-5 md:h-6 md:w-6" />
+          <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[10px] uppercase tracking-wider text-neutral-400">
+            <span className="h-1.5 w-1.5 rounded-full bg-white/60" />
+            Fast path
+          </span>
+        </div>
+
+        <div className="relative">
+          <Textarea
+            value={quickTopic}
+            onChange={(e) => setQuickTopic(e.target.value)}
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                e.preventDefault();
+                startQuickSpar();
+              }
+            }}
+            placeholder="e.g., I think we should raise prices 30% next quarter because our churn is low and the product is underpriced."
+            rows={3}
+            className="resize-none bg-background/50 border-white/10 text-sm placeholder:text-neutral-600 focus-visible:border-white/30 focus-visible:ring-white/20 pr-32"
+            disabled={quickStarting}
+          />
+          <div className="absolute bottom-2.5 right-2.5 flex items-center gap-2">
+            <span className="hidden sm:inline text-[10px] text-neutral-600">
+              ⌘↵
+            </span>
+            <button
+              onClick={() => startQuickSpar()}
+              disabled={!quickTopicValid || quickStarting}
+              className={cn(
+                "flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-xs font-medium transition-all",
+                quickTopicValid && !quickStarting
+                  ? "bg-white text-black hover:bg-white/90 spar-ready-glow"
+                  : "bg-white/10 text-neutral-500 cursor-not-allowed"
+              )}
+            >
+              {quickStarting ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Building...
+                </>
+              ) : (
+                <>
+                  Spar
+                  <Send className="h-3.5 w-3.5" />
+                </>
+              )}
+            </button>
           </div>
         </div>
-      </button>
 
-      {/* Mobile floating CTA — per spec */}
+        {quickError && (
+          <p className="mt-2 text-xs text-red-400">{quickError}</p>
+        )}
+
+        {/* One-tap presets */}
+        <div className="mt-4 flex flex-wrap gap-2">
+          {TOPIC_PRESETS.map((preset) => {
+            const Icon = preset.icon;
+            return (
+              <button
+                key={preset.label}
+                onClick={() => handlePreset(preset.topic)}
+                disabled={quickStarting}
+                className="group flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-1.5 text-xs text-neutral-400 transition-all hover:border-white/20 hover:bg-white/5 hover:text-white disabled:opacity-50"
+              >
+                <Icon className="h-3.5 w-3.5 text-neutral-500 group-hover:text-white transition-colors" />
+                {preset.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Full practice — secondary path */}
       <button
         onClick={onEnterSparringRoom}
-        className="fixed bottom-20 left-4 right-4 z-40 flex items-center justify-center gap-2 rounded-xl bg-white py-3.5 px-6 text-sm font-semibold text-black shadow-lg transition-transform active:scale-95 md:hidden"
+        className="group mt-3 flex w-full items-center justify-between gap-4 rounded-xl border border-white/10 bg-white/[0.02] p-4 text-left transition-all hover:border-white/20 hover:bg-white/[0.04]"
       >
-        Enter the Sparring Room
-        <ArrowRight className="h-4 w-4 ml-2" />
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-white/5 text-neutral-400 ring-1 ring-white/10 transition-colors group-hover:text-white">
+            <ArrowRight className="h-4 w-4 rotate-45" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-white">
+              Bring material &amp; configure the room
+            </p>
+            <p className="text-xs text-neutral-500 mt-0.5">
+              Upload a pitch, deck, or proposal. Pick your panel.
+            </p>
+          </div>
+        </div>
+        <ArrowRight className="h-4 w-4 text-neutral-600 group-hover:text-white transition-colors" />
       </button>
 
       {/* Upcoming Moment countdown */}
       {moment && daysUntil !== null && (
-        <div className="mt-5 flex items-center justify-between rounded-lg border border-white/[0.06] bg-card/40 px-5 py-4">
+        <div className="mt-4 flex items-center justify-between rounded-xl border border-white/[0.06] bg-card/40 px-5 py-4">
           <div className="flex items-center gap-3">
             <Calendar className="h-4 w-4 text-neutral-500" />
             <div>
@@ -146,7 +292,7 @@ export function HomeView({ userName, onEnterSparringRoom }: HomeViewProps) {
           </div>
           <div className="flex items-center gap-3">
             <div className="text-right">
-              <p className="text-2xl font-semibold text-white tabular-nums">{daysUntil}</p>
+              <p className="text-2xl font-bold text-white tabular-nums">{daysUntil}</p>
               <p className="text-[10px] uppercase tracking-wider text-neutral-500">
                 {daysUntil === 1 ? "day" : "days"}
               </p>
@@ -165,7 +311,7 @@ export function HomeView({ userName, onEnterSparringRoom }: HomeViewProps) {
       )}
 
       {/* Quick Stats Row */}
-      <div className="mt-5 grid grid-cols-3 gap-3 sm:gap-4">
+      <div className="mt-4 grid grid-cols-3 gap-3">
         <StatCard
           icon={<Sparkles className="h-3.5 w-3.5" />}
           label="Sessions this week"
@@ -186,7 +332,7 @@ export function HomeView({ userName, onEnterSparringRoom }: HomeViewProps) {
 
       {/* Today's Focus */}
       {stats?.todaysFocus && (
-        <div className="mt-5 rounded-lg border border-white/10 bg-white/[0.03] p-5">
+        <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.02] p-5">
           <p className="text-[11px] uppercase tracking-[0.2em] text-neutral-500">
             Today&apos;s Focus
           </p>
@@ -202,7 +348,15 @@ export function HomeView({ userName, onEnterSparringRoom }: HomeViewProps) {
         </div>
       )}
 
-      {/* Set Upcoming Moment Dialog */}
+      {/* Mobile floating CTA */}
+      <button
+        onClick={onEnterSparringRoom}
+        className="fixed bottom-20 left-4 right-4 z-40 flex items-center justify-center gap-2 rounded-xl bg-white py-3.5 px-6 text-sm font-semibold text-black shadow-lg transition-transform active:scale-95 md:hidden"
+      >
+        Configure a custom room
+        <ArrowRight className="h-4 w-4 ml-2" />
+      </button>
+
       <UpcomingMomentDialog
         open={editingMoment}
         onOpenChange={setEditingMoment}
@@ -232,17 +386,17 @@ function StatCard({
   sub?: string;
 }) {
   return (
-    <div className="rounded-lg border border-border/60 bg-card/40 px-4 py-3.5">
-      <div className="flex items-center gap-1.5 text-muted-foreground/70">
+    <div className="rounded-xl border border-white/[0.06] bg-card/40 px-4 py-3.5 transition-colors hover:border-white/10">
+      <div className="flex items-center gap-1.5 text-neutral-500">
         {icon}
         <span className="text-[10px] uppercase tracking-wider">{label}</span>
       </div>
       <div className="mt-1.5 flex items-baseline gap-1">
-        <span className="text-xl font-semibold text-foreground tabular-nums sm:text-2xl">
+        <span className="text-xl font-bold text-white tabular-nums sm:text-2xl">
           {value}
         </span>
         {sub && (
-          <span className="text-xs text-muted-foreground/60">{sub}</span>
+          <span className="text-xs text-neutral-500">{sub}</span>
         )}
       </div>
     </div>

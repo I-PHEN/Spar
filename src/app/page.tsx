@@ -42,6 +42,12 @@ export default function Page() {
     setView("sparring");
   }
 
+  // Quick spar — jump straight from Home topic input into the room.
+  function handleQuickSparStarted(sessionId: string) {
+    setActiveSessionId(sessionId);
+    setView("sparring");
+  }
+
   function handleSessionEnded() {
     // Fetch the session to get the scenario label for the debrief header
     if (activeSessionId) {
@@ -85,6 +91,7 @@ export default function Page() {
           <HomeView
             userName={userName}
             onEnterSparringRoom={() => setView("practice")}
+            onQuickSparStarted={handleQuickSparStarted}
           />
         )}
         {view === "practice" && (

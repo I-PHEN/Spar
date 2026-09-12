@@ -272,3 +272,49 @@ Stage Summary:
 - **Custom scenario works**: selecting "Custom" in the scenario picker reveals a "Describe who's in the room" textarea. The description is stored in the DB and feeds into the persona system prompts. Verified end-to-end with a hiring committee description.
 - **Mobile nav per spec**: fixed bottom bar (64px, #0a0a0a, border-t white/6), 4 items with active white dot above icon, Swords icon for Practice. Floating CTA on Home (bg-white text-black, fixed bottom-20). Desktop keeps the top sticky bar.
 - Lint passes clean. No errors in dev log. Browser-verified on both desktop (1440x900) and mobile (390x844).
+
+---
+Task ID: 7
+Agent: main (engineering)
+Task: Premium dark theme + Quick Spar low-friction path + interactive polish
+
+Work Log:
+- **Premium dark theme overhaul (`globals.css`):**
+  - Background darkened slightly to `oklch(0.115 0 0)` (#070707) for more contrast against elevated cards.
+  - Added ambient light from above: `radial-gradient(ellipse 70% 50% at 50% -10%, oklch(0.20 0 0) 0%, transparent 55%)` — zero chroma (gray, not blue), simulates a soft overhead light. This is what gives premium dark apps depth without color.
+  - Added three elevation utility classes: `premium-card` (top highlight inset + bottom shadow), `premium-card-hover` (lifted), `premium-surface` (flat). Cards now "float" with depth.
+  - Brightened `--muted-foreground` from 0.55 to 0.60 for readability.
+  - Added `spar-ready-glow` animation: a subtle breathing glow on the enabled Spar button (2.5s ease-in-out) — signals readiness without being flashy.
+  - Added font smoothing (`-webkit-font-smoothing: antialiased`) for crisper text on dark.
+  - Refined scrollbar with transparent border padding for a slimmer look.
+- **Quick Spar API (`POST /api/sessions/quick`):**
+  - Minimal-friction endpoint: accepts `{ topic, scenario?, roomContext? }`.
+  - Creates a session with a sensible default panel (Skeptic moderate + So-What moderate — the balanced "explore a topic" pair).
+  - Runs claim extraction on the topic if it's 10+ chars, so the panel can still reference specific claims.
+  - Sets mode to `without_material`, scenario defaults to `custom` with a generic room context.
+  - Returns the session ID → frontend drops straight into the Sparring Room.
+- **Home redesign (`home-view.tsx`):**
+  - New primary card: "Spar on a topic" — a textarea with placeholder example + a Spar button that has the `spar-ready-glow` breathing animation when enabled.
+  - Cmd/Ctrl+Enter keyboard shortcut to submit.
+  - Three one-tap preset chips below the input: "Defend an idea", "Pressure-test a number", "Practice a hard conversation" — each pre-fills a topic and immediately starts a quick spar session on click.
+  - Secondary path below: "Bring material & configure the room" — a subtler card that links to the full Practice flow (for when you have a deck/proposal and want to pick your panel).
+  - The old big blue-gradient CTA is gone. The Quick Spar card is the new hero.
+  - Mobile floating CTA relabeled to "Configure a custom room" (since Quick Spar is now the primary mobile path).
+  - All cards use `premium-card` elevation for depth.
+- **Page wiring (`page.tsx`):**
+  - Added `handleQuickSparStarted(sessionId)` — sets the active session and jumps straight to the Sparring Room view, skipping the Practice config entirely.
+  - Passed `onQuickSparStarted` to HomeView.
+- Browser-verified end-to-end on both desktop (1440x900) and mobile (390x844):
+  - Desktop: typed a topic about firing a toxic salesperson → clicked Spar → straight into the room, Skeptic delivered a relevant opening referencing Claim 1.
+  - One-tap preset: clicked "Defend an idea" → straight into a session about remote-first teams.
+  - Mobile: typed a topic about quitting a stable job → clicked Spar → straight into the room.
+  - Zero config friction on all three paths.
+
+Stage Summary:
+- **Premium feel achieved**: cards now float with subtle shadows + top highlights, ambient light from above adds depth, typography is bolder (font-bold on headlines, tabular-nums on stats), the enabled Spar button has a breathing glow. No color — pure monochrome depth.
+- **Friction reduced to near-zero for topic-based sparring**: Home → type topic (or tap a preset) → Spar button → room. 3 seconds, no config. The full Practice flow still exists as a secondary path for when you have material.
+- **Three ways to start sparring now**:
+  1. Quick Spar (Home) — type a topic, hit Spar. Default panel. Zero config.
+  2. One-tap presets (Home) — click a preset, straight into a relevant session.
+  3. Full Practice (Home → Practice) — upload material, pick scenario, configure panel.
+- Lint passes clean. No errors in dev log.
