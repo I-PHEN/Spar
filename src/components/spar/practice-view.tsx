@@ -902,10 +902,18 @@ function Step4Mode({
           const isSelected = coachingMode === mode.id;
           return (
             <div key={mode.id}>
-              <button
+              <div
+                role="button"
+                tabIndex={0}
                 onClick={() => setCoachingMode(mode.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setCoachingMode(mode.id);
+                  }
+                }}
                 className={cn(
-                  "w-full text-left rounded-xl border p-4 transition-all",
+                  "w-full text-left rounded-xl border p-4 transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-white/20",
                   isSelected
                     ? "border-white bg-white/5 ring-1 ring-white/20"
                     : "border-white/[0.06] bg-[#111] hover:border-white/15"
@@ -924,11 +932,14 @@ function Step4Mode({
 
                     {/* Drill options — only visible when Drill Mode selected */}
                     {mode.id === "drill" && isSelected && (
-                      <div className="flex flex-wrap gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex flex-wrap gap-2 mt-3">
                         {DRILL_TARGETS.map((opt) => (
                           <button
                             key={opt.id}
-                            onClick={() => setDrillTarget(opt.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDrillTarget(opt.id);
+                            }}
                             className={cn(
                               "text-xs px-3 py-1.5 rounded-full border transition-colors",
                               drillTarget === opt.id
@@ -948,7 +959,7 @@ function Step4Mode({
                     </div>
                   )}
                 </div>
-              </button>
+              </div>
             </div>
           );
         })}
