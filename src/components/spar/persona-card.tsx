@@ -118,7 +118,10 @@ export function PersonaCard({
           </span>
         ) : (
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-2 w-2 rounded-full bg-neutral-600" />
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-neutral-500 opacity-60" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-neutral-500" />
+            </span>
             <span className="uppercase tracking-wider">{moodInfo.label}</span>
           </span>
         )}

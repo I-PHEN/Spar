@@ -969,21 +969,10 @@ export function SparringRoom({
                 <Pause className="h-4 w-4" />
               </div>
             )}
-            {/* Waveform + listening indicator — shows across ALL modes whenever listening */}
+            {/* Waveform — shows whenever the user is speaking, across ALL modes */}
             {!analyzingPresentation && (
               voice.isListening ? (
-                <div className="flex items-center gap-2.5">
-                  <span className="flex items-center gap-1.5">
-                    <span className="relative flex h-1.5 w-1.5">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-neutral-400 opacity-75" />
-                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-neutral-300" />
-                    </span>
-                    <span className="text-[10px] uppercase tracking-wider text-neutral-500 hidden sm:inline">
-                      Listening
-                    </span>
-                  </span>
-                  <WaveformBar amplitude={waveformAmplitude} />
-                </div>
+                <WaveformBar amplitude={waveformAmplitude} />
               ) : (
                 <span className="text-[10px] uppercase tracking-wider text-neutral-500 hidden sm:inline">
                   {isUserTurn && !isProcessing
