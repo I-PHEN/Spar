@@ -114,7 +114,7 @@ export function getThreshold(
 
   const drillArchetype = drillArchetypeMap[drillTarget];
   if (archetype === drillArchetype) {
-    return 50; // Hypersensitive — interrupts after ~2 triggers instead of ~4
+    return 30; // Very sensitive — interrupts on the FIRST instance of the target behavior
   }
 
   return DEFAULT_THRESHOLD;

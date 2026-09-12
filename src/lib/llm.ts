@@ -143,6 +143,8 @@ interface GeneratePersonaParams {
   userMessage: string;
   /** When true, the persona is interrupting the user mid-speech. The response should open with a sharp cutting-in phrase. */
   isInterrupt?: boolean;
+  /** Additional interrupt instruction (e.g., drill-specific correction phrase) */
+  extraInterruptInstruction?: string;
 }
 
 interface RawPersonaResponse {
@@ -186,6 +188,8 @@ Open your response with a sharp cutting-in phrase — "Hold on—", "Let me stop
 Set "type": "interruption" in your JSON response.`
       : ""
 }
+
+${params.extraInterruptInstruction || ""}
 
 Respond now with your JSON object. Remember: 1-3 sentences max, in-character, strict JSON.`;
 
@@ -326,6 +330,22 @@ interface GenerateDebriefParams {
       coachRead: string;
     } | null;
   };
+  /** Optional: drill data (Drill Mode only).
+   * When provided, the debrief is a focused report on the drill target. */
+  drillSection?: {
+    target: string;
+    label: string;
+    totalChallenges: number;
+    resolvedChallenges: number;
+    attempt1Clean: number;
+    attempt2Clean: number;
+    attempt3Plus: number;
+    fastestRecovery: number;
+    slowestRecovery: number;
+    avgRecovery: number;
+    totalScore: number;
+    maxScore: number;
+  };
 }
 
 interface RawDebrief {
@@ -358,68 +378,31 @@ export async function generateDebrief(
   const zai = await getZai();
 
   const hasPresentation = !!params.presentationSection;
+  const hasDrill = !!params.drillSection;
 
-  const systemPrompt = `You are Spar's coaching engine. After every sparring session, you write a debrief for the user.
+  // Build the system prompt in parts to avoid nested template literal complexity
+  const basePrompt = `You are Spar's coaching engine. After every sparring session, you write a debrief for the user.
 
 Your voice:
 - Honest, specific, forward-looking. Like a coach who has just watched the tape with you.
 - NEVER score. NEVER grade. Use coaching language: "focus," "pattern," "baseline," "next."
 - Ground every observation in a SPECIFIC moment from the transcript (cite what was said, when).
 - Be direct about weaknesses. Don't soften. The user came here to get better, not to feel good.
-- Be specific about strengths. Generic praise ("you communicated well") is forbidden. Reference what they actually did.
+- Be specific about strengths. Generic praise ("you communicated well") is forbidden. Reference what they actually did.`;
 
-${hasPresentation ? `# THIS SESSION HAS A PRESENTATION PHASE
-This was a Defense or Boardroom session. The user presented their material first, then faced Q&A.
+  const drillPrompt = hasDrill
+    ? `\n\n# THIS IS A DRILL SESSION\nThis was a targeted drill session focused on: ${params.drillSection!.label}\n\nThe debrief should be FOCUSED on the drill target. The main sections evaluate the drill performance specifically — how many times the behavior was detected, how quickly the user corrected it, and what the pattern is.\n\nThe telemetry below includes the drill challenge statistics. Interpret them in the debrief.`
+    : "";
 
-The debrief has 7 sections. You produce the first 6; section 7 (shareableSummary) is a markdown summary.
+  const presentationPrompt = hasPresentation
+    ? `\n\n# THIS SESSION HAS A PRESENTATION PHASE\nThis was a Defense or Boardroom session. The user presented their material first, then faced Q&A.\n\nThe debrief has 7 sections. You produce the first 6; section 7 (shareableSummary) is a markdown summary.\n\nSection 2 ("Your Presentation") is the NEW section. It evaluates HOW the user presented — delivery, not content:\n- Opening strength: Did they state their thesis early, or bury it in setup?\n- Structure: Did they signpost? Clear beginning, middle, end?\n- Pace: Was it consistent? Rushed setup vs. slow substance?\n- Confidence: Did they hedge their central claim? "I think the results suggest..." vs "The results show..."\n- Clarity: Was the core message understandable?\n\nYou have the presentation transcript AND the coach's initial pre-Q&A read. Build on the coach's observations — go deeper. The coach gave a quick heads-up; you give the full evaluation.\n\n# YOUR OUTPUT — STRICT JSON\n{\n  "momentDescription": "<Section 1: The Moment. The single most challenging Q&A exchange. 2-4 sentences.>",\n  "presentationEvaluation": "<Section 2: Your Presentation. Evaluate HOW they presented — structure, pace, confidence, clarity. 3-5 sentences. Reference specific moments from the presentation transcript. Build on the coach's pre-Q&A read.>",\n  "whatWentWell": ["<Section 3: 2-3 observations. Can draw from both presentation and Q&A.>"],\n  "thePattern": "<Section 4: ONE recurring behavior across the session.>",\n  "oneThingToPractice": "<Section 5: SINGLE actionable focus for next session.>",\n  "telemetryInsights": {\n    "pace": "<Section 6a: Pace interpretation.>",\n    "fillers": "<Section 6b: Filler/hedge interpretation.>",\n    "recovery": "<Section 6c: Recovery interpretation.>",\n    "evidence": "<Section 6d: Evidence interpretation.>"\n  },\n  "shareableSummary": "<Section 7: Markdown summary weaving all sections together.>"\n}`
+    : `\n\nThe debrief has 6 sections. You produce the first 5; section 6 (shareableSummary) is a markdown summary of all of them.\n\n# YOUR OUTPUT — STRICT JSON\n{\n  "momentDescription": "<Section 1: The Moment. Pick the single most challenging exchange — when the user was pushed hardest. Describe what was asked, what they did, and the recovery. 2-4 sentences. Reference the specific claim/topic.>",\n  "whatWentWell": [\n    "<Section 2: What You Did Well. 2-3 specific, evidence-based observations. Each one references a specific moment from the transcript.>"\n  ],\n  "thePattern": "<Section 3: The Pattern. Identify ONE recurring behavior across the session. E.g., 'You over-explain when questioned on methodology.' Frame it as a pattern, not a one-off. 2-3 sentences. If there's a pattern from previous sessions (provided below), connect this session's pattern to it.>",\n  "oneThingToPractice": "<Section 4: One Thing to Practice. A SINGLE, actionable focus for the next session. Not a list. One sentence of the focus, then 1-2 sentences on how to practice it.>",\n  "telemetryInsights": {\n    "pace": "<Section 5a: Pace — interpret avgWordsPerResponse and avgResponseMs. Compare to a target (15-25 words/response, <5s response time). Frame as insight, not number.>",\n    "fillers": "<Section 5b: Fillers — interpret hedgeCount and hedgesPerResponse. Target: <1 per response. Note if it got worse under pressure.>",\n    "recovery": "<Section 5c: Recovery — interpret deflections vs answeredDirectly. Target: answer directly >80% of the time.>",\n    "evidence": "<Section 5d: Evidence — interpret evidenceCitations / userTurns. Target: cite evidence in >50% of responses.>"\n  },\n  "shareableSummary": "<Section 6: A markdown summary the user could send to a mentor. Should weave together sections 1-5 into a tight 1-paragraph narrative + the one thing to practice.>"\n}`;
 
-Section 2 ("Your Presentation") is the NEW section. It evaluates HOW the user presented — delivery, not content:
-- Opening strength: Did they state their thesis early, or bury it in setup?
-- Structure: Did they signpost? Clear beginning, middle, end?
-- Pace: Was it consistent? Rushed setup vs. slow substance?
-- Confidence: Did they hedge their central claim? "I think the results suggest..." vs "The results show..."
-- Clarity: Was the core message understandable?
+  const rulesPrompt = `\n\n# RULES\n- Reference SPECIFIC moments from the transcript. "At one point you said X" — not "you tended to X."\n- Do not invent. If you can't find evidence for an observation, don't make it.\n- The Pattern must connect to the user's previous patterns (if provided) — this is what makes Spar feel like it KNOWS them.\n- One Thing to Practice must be CONCRETE and doable in the next session.` +
+    (hasPresentation ? "\n- The presentation evaluation must reference SPECIFIC moments from the presentation transcript, not generalize." : "") +
+    (hasDrill ? "\n- In a drill session, the Pattern section should specifically reference when the user struggled most with the drill target (e.g., 'You hedged most when challenged on numbers'). The One Thing to Practice should be about the drill target." : "");
 
-You have the presentation transcript AND the coach's initial pre-Q&A read. Build on the coach's observations — go deeper. The coach gave a quick heads-up; you give the full evaluation.
-
-# YOUR OUTPUT — STRICT JSON
-{
-  "momentDescription": "<Section 1: The Moment. The single most challenging Q&A exchange. 2-4 sentences.>",
-  "presentationEvaluation": "<Section 2: Your Presentation. Evaluate HOW they presented — structure, pace, confidence, clarity. 3-5 sentences. Reference specific moments from the presentation transcript. Build on the coach's pre-Q&A read.>",
-  "whatWentWell": ["<Section 3: 2-3 observations. Can draw from both presentation and Q&A.>"],
-  "thePattern": "<Section 4: ONE recurring behavior across the session.>",
-  "oneThingToPractice": "<Section 5: SINGLE actionable focus for next session.>",
-  "telemetryInsights": {
-    "pace": "<Section 6a: Pace interpretation.>",
-    "fillers": "<Section 6b: Filler/hedge interpretation.>",
-    "recovery": "<Section 6c: Recovery interpretation.>",
-    "evidence": "<Section 6d: Evidence interpretation.>"
-  },
-  "shareableSummary": "<Section 7: Markdown summary weaving all sections together.>"
-}` : `The debrief has 6 sections. You produce the first 5; section 6 (shareableSummary) is a markdown summary of all of them.
-
-# YOUR OUTPUT — STRICT JSON
-{
-  "momentDescription": "<Section 1: The Moment. Pick the single most challenging exchange — when the user was pushed hardest. Describe what was asked, what they did, and the recovery. 2-4 sentences. Reference the specific claim/topic.>",
-  "whatWentWell": [
-    "<Section 2: What You Did Well. 2-3 specific, evidence-based observations. Each one references a specific moment from the transcript.>"
-  ],
-  "thePattern": "<Section 3: The Pattern. Identify ONE recurring behavior across the session. E.g., 'You over-explain when questioned on methodology.' Frame it as a pattern, not a one-off. 2-3 sentences. If there's a pattern from previous sessions (provided below), connect this session's pattern to it.>",
-  "oneThingToPractice": "<Section 4: One Thing to Practice. A SINGLE, actionable focus for the next session. Not a list. One sentence of the focus, then 1-2 sentences on how to practice it.>",
-  "telemetryInsights": {
-    "pace": "<Section 5a: Pace — interpret avgWordsPerResponse and avgResponseMs. Compare to a target (15-25 words/response, <5s response time). Frame as insight, not number.>",
-    "fillers": "<Section 5b: Fillers — interpret hedgeCount and hedgesPerResponse. Target: <1 per response. Note if it got worse under pressure.>",
-    "recovery": "<Section 5c: Recovery — interpret deflections vs answeredDirectly. Target: answer directly >80% of the time.>",
-    "evidence": "<Section 5d: Evidence — interpret evidenceCitations / userTurns. Target: cite evidence in >50% of responses.>"
-  },
-  "shareableSummary": "<Section 6: A markdown summary the user could send to a mentor. Should weave together sections 1-5 into a tight 1-paragraph narrative + the one thing to practice.>"
-}`}
-
-# RULES
-- Reference SPECIFIC moments from the transcript. "At one point you said X" — not "you tended to X."
-- Do not invent. If you can't find evidence for an observation, don't make it.
-- The Pattern must connect to the user's previous patterns (if provided) — this is what makes Spar feel like it KNOWS them.
-- One Thing to Practice must be CONCRETE and doable in the next session.${hasPresentation ? "\n- The presentation evaluation must reference SPECIFIC moments from the presentation transcript, not generalize." : ""}`;
+  const systemPrompt = basePrompt + drillPrompt + presentationPrompt + rulesPrompt;
 
   const telemetrySummary = `# TELEMETRY
 - User turns: ${params.telemetry.userTurns}
@@ -455,9 +438,28 @@ ${params.presentationSection.analysis ? JSON.stringify(params.presentationSectio
 NOTE: The "FULL TRANSCRIPT" below is the Q&A phase. The presentation transcript above is Phase 1. Evaluate them separately in the debrief.`
     : "";
 
+  // Drill stats block — only for Drill Mode sessions
+  const drillBlock = params.drillSection
+    ? `\n# DRILL STATISTICS
+- Drill target: ${params.drillSection.label}
+- Total challenges: ${params.drillSection.totalChallenges}
+- Resolved (user eventually answered cleanly): ${params.drillSection.resolvedChallenges}
+- Unresolved: ${params.drillSection.unresolvedChallenges}
+- Clean on attempt 1: ${params.drillSection.attempt1Clean}
+- Clean on attempt 2: ${params.drillSection.attempt2Clean}
+- Took 3+ attempts: ${params.drillSection.attempt3Plus}
+- Fastest recovery: ${params.drillSection.fastestRecovery}s
+- Slowest recovery: ${params.drillSection.slowestRecovery}s
+- Average recovery: ${params.drillSection.avgRecovery}s
+- Score: ${params.drillSection.totalScore}/${params.drillSection.maxScore}
+
+Interpret these numbers in the debrief. Focus on the drill target.`
+    : "";
+
   const userPrompt = `# SCENARIO
 ${params.scenarioLabel}
 ${presentationBlock}
+${drillBlock}
 
 # THE CLAIMS THE USER WAS DEFENDING
 ${params.claims.length > 0 ? params.claims.map((c) => `${c.id}. ${c.label}: ${c.claim}`).join("\n") : "(User defended from memory — no material uploaded.)"}

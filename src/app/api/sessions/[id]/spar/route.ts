@@ -17,6 +17,8 @@ import {
   buildPatternMemoryContext,
 } from "@/lib/llm";
 import { generatePersonaAudio } from "@/lib/voice";
+import { buildDrillPrompt, buildDrillInterruptInstruction } from "@/lib/drills";
+import type { DrillTarget } from "@/lib/types";
 import { SCENARIOS } from "@/lib/scenarios";
 import type { ArchetypeKey, ExtractedClaim } from "@/lib/types";
 
@@ -167,7 +169,7 @@ export async function POST(
       : session.experience === "boardroom"
       ? "\n## EXPERIENCE: BOARDROOM\nYou are in a high-pressure boardroom. The user is presenting and you may interrupt mid-speech when they show weakness."
       : session.experience === "drill"
-      ? `\n## EXPERIENCE: DRILL\nThis is a targeted drill session. Your sole purpose is to force the user to fix: ${session.drillTarget || "hedging"}. Be relentless. Every instance of this weakness must be interrupted immediately. Do not let it slide.`
+      ? buildDrillPrompt((session.drillTarget as DrillTarget) || "hedging")
       : "";
 
   const otherPersonas = session.personas
@@ -212,6 +214,13 @@ export async function POST(
     transcript: transcriptStr,
     userMessage: userMessageForLlm,
     isInterrupt: body.isInterrupt || false,
+    // For drill interrupts, add the drill-specific interrupt instruction
+    extraInterruptInstruction:
+      body.isInterrupt && session.experience === "drill"
+        ? buildDrillInterruptInstruction(
+            (session.drillTarget as DrillTarget) || "hedging"
+          )
+        : undefined,
   });
 
   // Persist persona response.

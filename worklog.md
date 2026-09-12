@@ -714,3 +714,60 @@ Stage Summary:
   - The coach's initial read appears as a callout within the presentation evaluation section
 - **What the presentation evaluation measures:** opening strength, structure, pace, confidence, clarity. It references specific moments from the presentation transcript (e.g., "Your presentation began with hedging language...").
 - Lint passes clean. No errors in dev log.
+
+---
+Task ID: 16
+Agent: main (engineering)
+Task: Drill Mode made real — drill-specific prompts, correction loop, drill debrief
+
+Work Log:
+- **Created `src/lib/drills.ts`** — the drill mechanics module:
+  - `DRILL_DEFINITIONS` — maps each drill target to: correction phrase, acknowledgment phrase, lead archetype, scoring guide (3/2/1/0 points per attempt)
+  - `buildDrillPrompt(target)` — appended to persona system prompt during drill sessions. Instructs the persona to interrupt immediately on the target behavior, say the correction phrase, and not move on until the user answers cleanly
+  - `buildDrillInterruptInstruction(target)` — added to the user prompt when isInterrupt=true in a drill session. Overrides the generic interrupt instruction with a drill-specific coaching correction ("Drop the qualifier. Say it directly.")
+  - `DrillChallenge` and `DrillSessionStats` interfaces for tracking
+  - `scoreAttempt(attempts)` — 3 pts for attempt 1, 2 for attempt 2, 1 for attempt 3, 0 for 3+
+- **Updated spar API** (`src/app/api/sessions/[id]/spar/route.ts`):
+  - Imports `buildDrillPrompt` and `buildDrillInterruptInstruction`
+  - When experience is "drill", the persona system prompt gets the drill instruction (relentless, targets the specific weakness)
+  - When `isInterrupt=true` AND experience is "drill", the user prompt gets the drill-specific interrupt instruction (forces a coaching correction, not a question)
+  - Passes `extraInterruptInstruction` to `generatePersonaResponse()`
+- **Updated `generatePersonaResponse()`** in llm.ts:
+  - Accepts `extraInterruptInstruction?: string` parameter
+  - Appended to the user prompt after the standard interrupt instruction
+- **Lowered drill threshold** from 50 to 30 in `triggers.ts`:
+  - In drill mode, the drill-target persona interrupts on the FIRST instance of the target behavior (30 agitation = 1 hedge word, vs 100 = 4 hedges in normal mode)
+- **Updated `generateDebrief()`** in llm.ts:
+  - Accepts optional `drillSection` parameter with drill stats (total challenges, resolved, attempts, recovery times, score)
+  - System prompt switches to drill-focused mode: "The debrief should be FOCUSED on the drill target"
+  - User prompt includes a "DRILL STATISTICS" block with all the challenge data
+  - Rules prompt adds drill-specific guidance for the Pattern and One Thing to Practice sections
+  - Refactored the entire system prompt construction to use string concatenation (basePrompt + drillPrompt + presentationPrompt + rulesPrompt) to avoid nested template literal parsing errors
+- **Updated `/end` endpoint**:
+  - Detects drill sessions (`session.experience === "drill"`)
+  - Counts drill challenges from the transcript (interruption messages = challenges)
+  - Counts attempts per challenge (user messages between interruptions)
+  - Calculates scores (3/2/1/0 per attempt)
+  - Passes drill stats to `generateDebrief()` as `drillSection`
+- **Updated sparring-room** — shows a "Drill: [target]" badge in the top bar when in drill mode
+- **API-verified end-to-end:**
+  - Created a drill session targeting hedging
+  - Panel spoke first (not defense mode — correct for drill)
+  - Sent a hedging response → persona responded with type `interruption`: "Wait—drop the qualifier. Say it directly. No 'I think,' no 'maybe.' Make the claim."
+  - TTS audio generated successfully
+  - Ended session → debrief was drill-focused: moment description referenced the hedging challenge, pattern analysis connected to the user's hedging behavior
+
+Stage Summary:
+- **Drill Mode is now real.** The persona doesn't just ask questions — it actively watches for the drill target behavior and interrupts with a coaching correction.
+- **The drill loop:** detect → interrupt with correction → user retries → if still detected, another interrupt → if clean, acknowledgment + next question
+- **Drill-specific prompts:** Each drill target has its own correction phrase:
+  - Hedging: "Drop the qualifier. Say it directly."
+  - Over-explaining: "Too long. Answer in 15 words or less."
+  - Recovery speed: "Too slow. Answer now."
+  - Evidence gaps: "What's your source? Cite specific evidence."
+- **Threshold lowered to 30:** First instance of the target behavior triggers an immediate interrupt (vs 100 in normal mode)
+- **Drill debrief:** Focused on the drill target, includes challenge statistics (total challenges, clean on attempt 1/2/3+, score)
+- **What's NOT here yet (deliberately deferred):**
+  - Recovery time tracking (would need precise timestamp tracking between correction and clean answer — future enhancement)
+  - Real-time drill challenge counter in the UI (would show "Challenge 3 of N" — future enhancement)
+- Lint passes clean. No errors in dev log.

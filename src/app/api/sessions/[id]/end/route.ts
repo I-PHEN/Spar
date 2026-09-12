@@ -17,6 +17,8 @@ import {
   classifyPatternTag,
   type GenerateDebriefParams,
 } from "@/lib/llm";
+import { getDrillDefinition } from "@/lib/drills";
+import type { DrillTarget } from "@/lib/types";
 import { SCENARIOS } from "@/lib/scenarios";
 import {
   aggregateTelemetry,
@@ -200,6 +202,71 @@ export async function POST(
     }
   }
 
+  // ─── Drill stats (Drill Mode only) ─────────────────────────────────────
+  // Count drill challenges from the transcript. Each "interruption" type
+  // message from a persona = one drill challenge. Each subsequent user
+  // message before the next non-interruption persona message = an attempt.
+  let drillSection: GenerateDebriefParams["drillSection"] | undefined;
+  if (session.experience === "drill") {
+    const drillTarget = (session.drillTarget as DrillTarget) || "hedging";
+    const def = getDrillDefinition(drillTarget);
+
+    // Count interruptions (drill challenges) in the transcript
+    const interruptions = messages.filter(
+      (m) => m.role === "persona" && m.type === "interruption"
+    );
+    const totalChallenges = interruptions.length;
+
+    // Count user messages between interruptions to estimate attempts
+    // (each user message after an interruption = one attempt)
+    let attempt1Clean = 0;
+    let attempt2Clean = 0;
+    let attempt3Plus = 0;
+    let resolved = 0;
+
+    for (let i = 0; i < interruptions.length; i++) {
+      const interruptIdx = messages.indexOf(interruptions[i]);
+      // Count user messages until the next non-interruption persona message
+      // (that's the acknowledgment "Good. Next.")
+      let attempts = 0;
+      for (let j = interruptIdx + 1; j < messages.length; j++) {
+        if (messages[j].role === "user") {
+          attempts++;
+        } else if (
+          messages[j].role === "persona" &&
+          messages[j].type !== "interruption"
+        ) {
+          // This is the acknowledgment — resolved
+          break;
+        }
+      }
+      if (attempts === 1) attempt1Clean++;
+      else if (attempts === 2) attempt2Clean++;
+      else if (attempts >= 3) attempt3Plus++;
+      if (attempts > 0) resolved++;
+    }
+
+    const totalScore =
+      attempt1Clean * 3 + attempt2Clean * 2 + attempt3Plus * 1;
+    const maxScore = totalChallenges * 3;
+
+    drillSection = {
+      target: drillTarget,
+      label: def.label,
+      totalChallenges,
+      resolvedChallenges: resolved,
+      unresolvedChallenges: totalChallenges - resolved,
+      attempt1Clean,
+      attempt2Clean,
+      attempt3Plus,
+      fastestRecovery: 0, // Would need timestamp tracking — future enhancement
+      slowestRecovery: 0,
+      avgRecovery: 0,
+      totalScore,
+      maxScore,
+    };
+  }
+
   // Generate the debrief.
   const debrief = await generateDebrief({
     scenarioLabel,
@@ -212,6 +279,7 @@ export async function POST(
     telemetry,
     patternMemory,
     presentationSection,
+    drillSection,
   });
 
   // Persist the summary.

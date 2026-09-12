@@ -709,10 +709,17 @@ export function SparringRoom({
           <Button variant="ghost" size="icon" onClick={() => setShowEndDialog(true)} className="h-8 w-8" aria-label="Exit session">
             <X className="h-4 w-4" />
           </Button>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-white">
-              {scenarioLabel}
-            </p>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <p className="truncate text-sm font-medium text-white">
+                {scenarioLabel}
+              </p>
+              {experience === "drill" && drillTarget && (
+                <span className="flex-shrink-0 rounded border border-[#2a2a2a] bg-[#171717] px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-neutral-300">
+                  Drill: {drillTarget.replace(/-/g, " ")}
+                </span>
+              )}
+            </div>
             <p className="hidden sm:block text-xs text-neutral-500 max-w-xl truncate">
               {roomContext}
             </p>
