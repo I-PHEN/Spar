@@ -171,30 +171,18 @@ export default function Page() {
     );
   }
 
-  // Hero — always the first thing you see
+  // Hero — full screen, no app nav. Has its own minimal header.
   if (view === "hero") {
-    return (
-      <div className="flex min-h-screen flex-col">
-        <Nav current="home" onNavigate={navigate} />
-        <main className="flex-1">
-          <HeroView onEnter={handleHeroEnter} />
-        </main>
-      </div>
-    );
+    return <HeroView onEnter={handleHeroEnter} />;
   }
 
-  // Onboarding — full screen, no nav
+  // Onboarding — full screen, no nav at all
   if (view === "onboarding") {
     return (
-      <div className="flex min-h-screen flex-col">
-        <Nav current="home" onNavigate={navigate} />
-        <main className="flex-1">
-          <OnboardingView
-            onComplete={handleOnboardingComplete}
-            onBack={() => setView("hero")}
-          />
-        </main>
-      </div>
+      <OnboardingView
+        onComplete={handleOnboardingComplete}
+        onBack={() => setView("hero")}
+      />
     );
   }
 

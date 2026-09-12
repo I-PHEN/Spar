@@ -1,21 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Swords } from "lucide-react";
 
 interface HeroViewProps {
   onEnter: () => void;
 }
 
 /**
- * Hero section — the landing page for first-time users.
+ * Hero section — the landing page.
  *
- * Full viewport, centered content, animated waveform visual.
- * Replaces Home when the user has no sessions yet.
+ * Full viewport, no app nav. Has its own minimal header:
+ *   - Logo (left)
+ *   - "Sign In" button (right) — fake for now, triggers onEnter
+ *
+ * Below the fold: headline, subtitle, CTA, social proof.
  */
 export function HeroView({ onEnter }: HeroViewProps) {
   return (
-    <div className="relative flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center px-4 py-16">
+    <div className="relative flex min-h-screen flex-col bg-background">
       {/* Subtle ambient glow at the top */}
       <div
         className="pointer-events-none absolute top-0 left-1/2 h-[400px] w-[600px] -translate-x-1/2 opacity-30"
@@ -25,46 +28,65 @@ export function HeroView({ onEnter }: HeroViewProps) {
         }}
       />
 
-      <div className="relative z-10 mx-auto max-w-2xl text-center">
-        {/* Animated waveform visual */}
-        <HeroWaveform />
-
-        {/* Headline */}
-        <h1 className="mt-8 text-4xl font-bold tracking-tight text-white sm:text-5xl sm:leading-[1.1]">
-          The sparring room for
-          <br />
-          your next big moment.
-        </h1>
-
-        {/* Subtitle */}
-        <p className="mx-auto mt-5 max-w-lg text-base leading-relaxed text-neutral-400">
-          Practice defending your ideas under live pressure. An AI panel
-          challenges you, interrupts you, and coaches you after. The more
-          you spar, the better you get.
-        </p>
-
-        {/* CTA */}
+      {/* Minimal header — logo + Sign In only */}
+      <header className="relative z-20 flex items-center justify-between px-6 py-4">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md border border-[#2a2a2a] bg-[#101010]">
+            <Swords className="h-4 w-4 text-neutral-300" />
+          </div>
+          <span className="font-semibold tracking-tight text-white">Spar</span>
+        </div>
         <button
           onClick={onEnter}
-          className="group mt-8 inline-flex items-center gap-2 rounded-md bg-neutral-100 px-6 h-12 text-sm font-medium text-black transition-all hover:bg-white"
+          className="text-sm text-neutral-400 hover:text-white transition-colors"
         >
-          Enter the Sparring Room
-          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          Sign In
         </button>
+      </header>
 
-        {/* Social proof */}
-        <div className="mt-12 border-t border-[#1a1a1a] pt-6">
-          <p className="text-[11px] uppercase tracking-[0.15em] text-neutral-600">
-            For founders, researchers, and leaders preparing for
+      {/* Main content */}
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-8">
+        <div className="mx-auto max-w-2xl text-center">
+          {/* Animated waveform visual */}
+          <HeroWaveform />
+
+          {/* Headline */}
+          <h1 className="mt-8 text-4xl font-bold tracking-tight text-white sm:text-5xl sm:leading-[1.1]">
+            The sparring room for
+            <br />
+            your next big moment.
+          </h1>
+
+          {/* Subtitle */}
+          <p className="mx-auto mt-5 max-w-lg text-base leading-relaxed text-neutral-400">
+            Practice defending your ideas under live pressure. An AI panel
+            challenges you, interrupts you, and coaches you after. The more
+            you spar, the better you get.
           </p>
-          <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-neutral-500">
-            <span>Thesis defenses</span>
-            <span className="text-neutral-700">·</span>
-            <span>Investor pitches</span>
-            <span className="text-neutral-700">·</span>
-            <span>Board presentations</span>
-            <span className="text-neutral-700">·</span>
-            <span>Interviews</span>
+
+          {/* CTA */}
+          <button
+            onClick={onEnter}
+            className="group mt-8 inline-flex items-center gap-2 rounded-md bg-neutral-100 px-6 h-12 text-sm font-medium text-black transition-all hover:bg-white"
+          >
+            Get Started
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          </button>
+
+          {/* Social proof */}
+          <div className="mt-12 border-t border-[#1a1a1a] pt-6">
+            <p className="text-[11px] uppercase tracking-[0.15em] text-neutral-600">
+              For founders, researchers, and leaders preparing for
+            </p>
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-neutral-500">
+              <span>Thesis defenses</span>
+              <span className="text-neutral-700">·</span>
+              <span>Investor pitches</span>
+              <span className="text-neutral-700">·</span>
+              <span>Board presentations</span>
+              <span className="text-neutral-700">·</span>
+              <span>Interviews</span>
+            </div>
           </div>
         </div>
       </div>
@@ -74,19 +96,13 @@ export function HeroView({ onEnter }: HeroViewProps) {
 
 /**
  * Animated waveform — a row of thin bars that pulse with varying heights.
- * Represents the "room being alive." Subtle, not flashy.
- *
- * Uses a mounted flag to avoid hydration mismatch (the random-ish heights
- * differ between server and client renders due to float precision).
  */
 function HeroWaveform() {
   const [mounted, setMounted] = useState(false);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    // Defer to avoid setState-in-effect lint
     const interval = setInterval(() => setTick((t) => t + 1), 80);
-    // Set mounted on next tick
     const mountedTimer = setTimeout(() => setMounted(true), 0);
     return () => {
       clearInterval(interval);
@@ -95,7 +111,6 @@ function HeroWaveform() {
   }, []);
 
   if (!mounted) {
-    // Static placeholder during SSR — avoids hydration mismatch
     return (
       <div className="flex items-center justify-center gap-[2px] h-8">
         {Array.from({ length: 32 }, (_, i) => (
