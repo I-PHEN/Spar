@@ -11,9 +11,12 @@ import {
 import type { ArchitectureManifest } from "@/architecture/types";
 import { cn } from "@/lib/utils";
 import { ComponentDetail } from "./component-detail";
+import { DataMemory } from "./data-memory";
 import { ExperienceFlows } from "./experience-flows";
 import { GuidedTour } from "./guided-tour";
+import { LatencyLab } from "./latency-lab";
 import { SystemMap } from "./system-map";
+import { VoicePipeline } from "./voice-pipeline";
 
 const TABS: Array<{ id: ExplorerTab; label: string }> = [
   { id: "map", label: "System map" },
@@ -23,29 +26,6 @@ const TABS: Array<{ id: ExplorerTab; label: string }> = [
   { id: "data", label: "Data & memory" },
   { id: "latency", label: "Latency lab" },
 ];
-
-const PANEL_INTRO: Record<Exclude<ExplorerTab, "map">, { title: string; body: string }> = {
-  tour: {
-    title: "Follow one system journey",
-    body: "Walk through session startup, a voice turn, an interruption, or the end-to-debrief path one subsystem at a time.",
-  },
-  experiences: {
-    title: "Compare conversation state machines",
-    body: "See where Defense, Boardroom, Open Spar, and Drill share machinery—and where their turn rules diverge.",
-  },
-  voice: {
-    title: "Trace speech to response",
-    body: "Follow recognition, turn detection, generation, speech synthesis, playback, cancellation, and fallback boundaries.",
-  },
-  data: {
-    title: "Track what the system remembers",
-    body: "Inspect persisted session records, coaching memory, summaries, telemetry, and browser-side audio clips.",
-  },
-  latency: {
-    title: "Inspect turn timing",
-    body: "Read local stage timing, token use, cache behavior, estimated cost, and fallback events without contacting a provider.",
-  },
-};
 
 interface ArchitectureExplorerProps {
   manifest: ArchitectureManifest;
@@ -171,20 +151,12 @@ export function ArchitectureExplorer({ manifest }: ArchitectureExplorerProps) {
                 />
               ) : tab.id === "experiences" ? (
                 <ExperienceFlows flows={manifest.experiences} />
+              ) : tab.id === "voice" ? (
+                <VoicePipeline />
+              ) : tab.id === "data" ? (
+                <DataMemory />
               ) : (
-                <div className="flex min-h-[28rem] items-center justify-center rounded-xl border border-dashed border-border bg-card/25 px-6 py-16 text-center">
-                  <div className="max-w-lg">
-                    <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                      {tab.label}
-                    </p>
-                    <h2 className="mt-3 text-xl font-semibold tracking-tight">
-                      {PANEL_INTRO[tab.id].title}
-                    </h2>
-                    <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                      {PANEL_INTRO[tab.id].body}
-                    </p>
-                  </div>
-                </div>
+                <LatencyLab />
               )}
             </section>
           );
