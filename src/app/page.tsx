@@ -11,50 +11,33 @@ import { DebriefView } from "@/components/spar/debrief-view";
 import { SCENARIOS } from "@/lib/scenarios";
 import type { ExperienceKey, DrillTarget } from "@/lib/experiences";
 import { GraduationCap, TrendingUp, Hammer } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
-type View = NavView | "hero" | "onboarding" | "loading" | "sparring" | "debrief";
+type View = NavView | "hero" | "onboarding" | "sparring" | "debrief";
 
 export default function Page() {
-  const [view, setView] = useState<View>("loading");
+  // Always start at the hero — it's the landing page.
+  // The user clicks "Enter the Sparring Room" to proceed.
+  const [view, setView] = useState<View>("hero");
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [scenarioLabel, setScenarioLabel] = useState<string | undefined>();
   const [userName, setUserName] = useState<string>("there");
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
-  const [sessionCount, setSessionCount] = useState(0);
   const [experience, setExperience] = useState<ExperienceKey>("defense");
   const [drillTarget, setDrillTarget] = useState<DrillTarget | null>(null);
   const [coachingEnabled, setCoachingEnabled] = useState(true);
   const [coachingFocus, setCoachingFocus] = useState("");
 
-  // Load user + check if they've done onboarding
+  // Load user name (for the dashboard after they enter)
   useEffect(() => {
-    Promise.all([fetch("/api/user"), fetch("/api/stats")])
-      .then(async ([ur, sr]) => {
-        const uData = await ur.json();
-        const sData = await sr.json();
-        if (sData?.totalSessions !== undefined) {
-          setSessionCount(sData.totalSessions);
-        }
-        // Show hero if the user hasn't completed onboarding (name is still "Founder")
-        // OR if they have no sessions yet
-        if (uData?.name && uData.name !== "Founder") {
-          setUserName(uData.name);
+    fetch("/api/user")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.name && d.name !== "Founder") {
+          setUserName(d.name);
           setHasCompletedOnboarding(true);
-          setView("home");
-        } else if (sData?.totalSessions > 0) {
-          // Has sessions but name is still "Founder" — skip hero, go home
-          setUserName("there");
-          setHasCompletedOnboarding(true);
-          setView("home");
-        } else {
-          // New user — show hero
-          setView("hero");
         }
       })
-      .catch(() => {
-        setView("hero");
-      });
+      .catch(() => {});
   }, []);
 
   function navigate(v: NavView) {
@@ -62,7 +45,36 @@ export default function Page() {
       setView(v);
       return;
     }
+    // If user clicks "Home" from the nav while on hero/onboarding, and they've
+    // already onboarded, go to the dashboard. Otherwise stay on hero.
+    if (v === "home") {
+      if (hasCompletedOnboarding) {
+        setView("home");
+      } else {
+        setView("hero");
+      }
+      return;
+    }
+    if (v === "practice") {
+      // If they haven't onboarded yet, send them through onboarding first
+      if (!hasCompletedOnboarding) {
+        setView("onboarding");
+      } else {
+        setView("practice");
+      }
+      return;
+    }
     setView(v);
+  }
+
+  function handleHeroEnter() {
+    // If the user has already onboarded, go straight to practice
+    // Otherwise, start the onboarding flow
+    if (hasCompletedOnboarding) {
+      setView("practice");
+    } else {
+      setView("onboarding");
+    }
   }
 
   function handleSessionCreated(
@@ -159,31 +171,23 @@ export default function Page() {
     );
   }
 
-  // Loading state — blank page while checking if user has onboarded
-  if (view === "loading") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-neutral-700 border-t-neutral-300" />
-      </div>
-    );
-  }
-
-  // Hero and Onboarding are full-screen — no nav.
+  // Hero — always the first thing you see
   if (view === "hero") {
     return (
       <div className="flex min-h-screen flex-col">
-        <Nav current="home" onNavigate={() => setView("hero")} />
+        <Nav current="home" onNavigate={navigate} />
         <main className="flex-1">
-          <HeroView onEnter={() => setView("onboarding")} />
+          <HeroView onEnter={handleHeroEnter} />
         </main>
       </div>
     );
   }
 
+  // Onboarding — full screen, no nav
   if (view === "onboarding") {
     return (
       <div className="flex min-h-screen flex-col">
-        <Nav current="home" onNavigate={() => setView("hero")} />
+        <Nav current="home" onNavigate={navigate} />
         <main className="flex-1">
           <OnboardingView
             onComplete={handleOnboardingComplete}
