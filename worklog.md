@@ -893,3 +893,47 @@ Stage Summary:
 - **The pipelining works:** the user hears the first sentence at ~2-3s, then subsequent sentences arrive as they're generated. The total time is still ~7s for a 3-sentence response, but the perceived latency is the time to FIRST audio, not total.
 - **The remaining bottleneck is Deepgram's sequential TTS.** With a paid tier (no rate limits), we could parallelize TTS calls and cut the total time significantly.
 - Lint passes clean. No errors in dev log.
+
+---
+Task ID: 20
+Agent: main (engineering)
+Task: Hero section + onboarding flow
+
+Work Log:
+- **Created `src/components/spar/hero-view.tsx`** — full-viewport landing page:
+  - Animated waveform visual (32 thin bars that pulse with sine wave phases, updated every 80ms)
+  - Headline: "The sparring room for your next big moment."
+  - Subtitle describing the product (AI panel challenges, interrupts, coaches)
+  - Single CTA: "Enter the Sparring Room" (white button, the one bright element)
+  - Social proof: "For founders, researchers, and leaders preparing for thesis defenses, investor pitches, board presentations, interviews"
+  - Subtle ambient glow at the top (radial gradient, barely visible)
+  - Centered content column (max-w-2xl), generous whitespace
+- **Created `src/components/spar/onboarding-view.tsx`** — 3-step wizard:
+  - Step 1: "What are you preparing for?" — 6 cards (Thesis Defense, Investor Pitch, Board Update, Interview, Conference Talk, Something Else)
+  - Step 2: "What do you want to work on?" — 6 options (Confidence under pressure, Hedging less, Being more concise, Better evidence, Recovery speed, I don't know yet)
+  - Step 3: "What should we call you?" — single text input, large, centered
+  - Step indicator (3 thin bars at the top, fills as you progress)
+  - Back/Next navigation with validation (can't proceed without selecting)
+  - Premium selected state (bg-[#171717] border-[#343434] + checkmark)
+- **Updated `src/app/page.tsx`** — wired hero → onboarding → practice config:
+  - New views: "hero" and "onboarding"
+  - On page load: checks if user name is "Founder" (default, pre-onboarding) AND session count is 0. If so, shows hero. Otherwise shows Home dashboard.
+  - Hero "Enter the Sparring Room" → onboarding step 1
+  - Onboarding "Start" → saves user name via POST /api/user → maps preparingFor to experience (thesis/pitch/conference → defense, board → boardroom, interview/custom → open_spar) → maps focusArea to coaching focus string → navigates to practice config
+  - Hero and onboarding are full-screen (nav visible but no footer)
+- **Updated `src/app/api/user/route.ts`** — added POST endpoint to update the user's name (used by onboarding step 3)
+- **Browser-verified end-to-end:**
+  - Reset the DB (cleared all sessions, reset name to "Founder")
+  - Opened the page → hero showed with animated waveform
+  - Clicked "Enter the Sparring Room" → onboarding step 1 appeared
+  - Selected "Thesis Defense" → Next → step 2 appeared
+  - Selected "Hedging less" → Next → step 3 appeared
+  - Typed "Alex" → Start → landed on Practice config page
+  - Navigated to Home → "Good morning, Alex." (name was saved to DB)
+- Lint passes clean. No errors.
+
+Stage Summary:
+- **Hero section built.** Full-viewport landing with animated waveform, headline, subtitle, CTA, and social proof. Shows for first-time users (name="Founder", 0 sessions).
+- **Onboarding flow built.** 3-step wizard that collects: what they're preparing for, what they want to work on, and their name. Pre-fills the experience and coaching focus based on their choices.
+- **The flow: Hero → Onboarding → Practice config → Sparring Room.** A new user goes from landing to sparring in under 30 seconds.
+- **The hero replaces Home for new users.** After their first session, Home becomes the dashboard (greeting + stats + focus + CTA).

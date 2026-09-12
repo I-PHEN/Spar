@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Nav, type NavView } from "@/components/spar/nav";
+import { HeroView } from "@/components/spar/hero-view";
+import { OnboardingView } from "@/components/spar/onboarding-view";
 import { HomeView } from "@/components/spar/home-view";
 import { PracticeView } from "@/components/spar/practice-view";
 import { SparringRoom } from "@/components/spar/sparring-room";
@@ -11,26 +13,48 @@ import type { ExperienceKey, DrillTarget } from "@/lib/experiences";
 import { GraduationCap, TrendingUp, Hammer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-type View = NavView | "sparring" | "debrief";
+type View = NavView | "hero" | "onboarding" | "sparring" | "debrief";
 
 export default function Page() {
-  const [view, setView] = useState<View>("home");
+  const [view, setView] = useState<View>("hero");
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [scenarioLabel, setScenarioLabel] = useState<string | undefined>();
   const [userName, setUserName] = useState<string>("there");
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+  const [sessionCount, setSessionCount] = useState(0);
   const [experience, setExperience] = useState<ExperienceKey>("defense");
   const [drillTarget, setDrillTarget] = useState<DrillTarget | null>(null);
   const [coachingEnabled, setCoachingEnabled] = useState(true);
   const [coachingFocus, setCoachingFocus] = useState("");
 
-  // Load user once
+  // Load user + check if they've done onboarding
   useEffect(() => {
-    fetch("/api/user")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d?.name) setUserName(d.name);
+    Promise.all([fetch("/api/user"), fetch("/api/stats")])
+      .then(async ([ur, sr]) => {
+        const uData = await ur.json();
+        const sData = await sr.json();
+        if (sData?.totalSessions !== undefined) {
+          setSessionCount(sData.totalSessions);
+        }
+        // Show hero if the user hasn't completed onboarding (name is still "Founder")
+        // OR if they have no sessions yet
+        if (uData?.name && uData.name !== "Founder") {
+          setUserName(uData.name);
+          setHasCompletedOnboarding(true);
+          setView("home");
+        } else if (sData?.totalSessions > 0) {
+          // Has sessions but name is still "Founder" — skip hero, go home
+          setUserName("there");
+          setHasCompletedOnboarding(true);
+          setView("home");
+        } else {
+          // New user — show hero
+          setView("hero");
+        }
       })
-      .catch(() => {});
+      .catch(() => {
+        setView("hero");
+      });
   }, []);
 
   function navigate(v: NavView) {
@@ -79,6 +103,47 @@ export default function Page() {
     setView("home");
   }
 
+  function handleOnboardingComplete(data: {
+    name: string;
+    preparingFor: string;
+    focusArea: string;
+  }) {
+    // Update the user's name
+    fetch("/api/user", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: data.name }),
+    }).catch(() => {});
+
+    setUserName(data.name);
+    setHasCompletedOnboarding(true);
+
+    // Map onboarding choices to experience defaults
+    const preparingMap: Record<string, ExperienceKey> = {
+      thesis: "defense",
+      pitch: "defense",
+      board: "boardroom",
+      interview: "open_spar",
+      conference: "defense",
+      custom: "open_spar",
+    };
+    const exp = preparingMap[data.preparingFor] || "open_spar";
+    setExperience(exp);
+
+    // Map focus area to coaching focus
+    const focusMap: Record<string, string> = {
+      confidence: "Building confidence under pressure",
+      hedging: "Reducing hedge words and qualifiers",
+      concision: "Being more concise and direct",
+      evidence: "Grounding claims in specific evidence",
+      recovery: "Improving recovery speed after interruptions",
+      unsure: "",
+    };
+    setCoachingFocus(focusMap[data.focusArea] || "");
+
+    setView("practice");
+  }
+
   // Sparring Room is full-screen — no nav.
   if (view === "sparring" && activeSessionId) {
     return (
@@ -91,6 +156,32 @@ export default function Page() {
         coachingEnabled={coachingEnabled}
         coachingFocus={coachingFocus}
       />
+    );
+  }
+
+  // Hero and Onboarding are full-screen — no nav.
+  if (view === "hero") {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <Nav current="home" onNavigate={() => setView("hero")} />
+        <main className="flex-1">
+          <HeroView onEnter={() => setView("onboarding")} />
+        </main>
+      </div>
+    );
+  }
+
+  if (view === "onboarding") {
+    return (
+      <div className="flex min-h-screen flex-col">
+        <Nav current="home" onNavigate={() => setView("hero")} />
+        <main className="flex-1">
+          <OnboardingView
+            onComplete={handleOnboardingComplete}
+            onBack={() => setView("hero")}
+          />
+        </main>
+      </div>
     );
   }
 
