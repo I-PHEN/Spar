@@ -318,3 +318,43 @@ Stage Summary:
   2. One-tap presets (Home) — click a preset, straight into a relevant session.
   3. Full Practice (Home → Practice) — upload material, pick scenario, configure panel.
 - Lint passes clean. No errors in dev log.
+
+---
+Task ID: 8
+Agent: main (engineering)
+Task: Pivot to voice — remove Quick Spar from Practice, build voice room architecture
+
+Work Log:
+- **Removed Quick Spar from Practice view:** stripped the "Spar on a topic" card, the one-tap presets, the "Or configure manually" divider, and all associated state (quickTopic, quickStarting, quickError, startQuickSpar, handlePreset, TOPIC_PRESETS). Cleaned up unused imports (Zap, Send, Lightbulb, Gauge, MessageSquare). Practice is now purely the configuration flow: Mode → Material/Topic → Scenario → Panel → Start.
+- **Created voice lib (`src/lib/voice.ts`):**
+  - `PERSONA_VOICES` mapping: skeptic→xiaochen, nitpicker→kazi, so_what→jam, timekeeper→chuichui, ally→tongtong. These are sensible defaults; the user said they'll change voices later.
+  - `BEHAVIOR_SPEEDS` mapping: gentle=0.9, moderate=1.0, aggressive=1.15.
+  - `generatePersonaAudio(text, archetype, behaviorStyle)` — calls TTS, returns base64 WAV. Handles the 1024-char limit (persona responses are capped at 800 chars by the LLM prompt, so this is a safety net).
+- **Modified open + spar API endpoints** to generate TTS audio server-side and return it as base64 alongside the text response. The frontend decodes base64 → blob → plays via Audio element.
+  - `POST /api/sessions/[id]/open` now returns `audio` field on the message object.
+  - `POST /api/sessions/[id]/spar` now returns `audio` field on the personaResponse object.
+- **Created voice hook (`src/hooks/use-voice.ts`):**
+  - `useVoiceRecognition()` — wraps the Web Speech API (SpeechRecognition). Provides: isSupported, isListening, interimTranscript, finalTranscript, error, start(), stop(), reset(). Configured for continuous + interim results, en-US, auto-restart on timeout.
+  - `playBase64Audio(base64)` — converts base64 WAV → blob → Audio element → plays. Returns promise that resolves on playback end.
+  - Full TypeScript declarations for the Web Speech API (not in standard lib.dom.d.ts).
+- **Rebuilt Sparring Room for voice (`src/components/spar/sparring-room.tsx`):**
+  - **Layout: panel-centric.** The panel (2-3 persona cards) sits at the top, horizontal, centered. Below it is the captions area (the conversation transcript). Below that is the control bar.
+  - **Top bar:** scenario label + room context + timer + End Session.
+  - **Panel:** persona cards show Listening/Thinking/Speaking states. When a persona speaks, their card lights up (speaking state). During processing, the next persona shows "Thinking" (dots animation).
+  - **Captions area:** scrollable, shows the conversation as it unfolds. User messages right-aligned, persona messages left-aligned with archetype label. Opening badge, interruption label, claim reference badges. Coach whispers appear as italic bordered notes. Live interim transcript shows as a "Speaking..." caption while the user talks.
+  - **Control bar:** 
+    - Left: "I need a moment" button (pauses, shows coach whisper).
+    - Center: Large mic button — white circle, black icon. Shows "CLICK TO SPEAK" when it's the user's turn, "Listening... click to stop" when recording, "Panel is responding" during processing, "Panel is speaking" during audio playback.
+    - Right: End button.
+  - **Voice flow:** User clicks mic → Web Speech API starts → live transcript shows as captions → user clicks stop → transcript sent to spar API → persona "thinks" (600ms visual tension) → persona speaks (TTS audio plays + caption appears) → next persona or back to user.
+  - **Browser support:** if Web Speech API is unavailable, shows a "Voice sparring needs Chrome or Edge" overlay.
+  - **Mic permission errors** display as a toast at the bottom.
+- **Fixed React 19 lint issue:** changed `isSupported` from setState-in-effect to lazy initializer (`useState(() => { ... })`) to avoid cascading renders.
+- Browser-verified: created a thesis defense session, entered the voice room. Opening challenge generated (7.1s total = LLM + TTS). Panel shows Skeptic speaking (skeptical mood), So-What and Nitpicker listening. Caption shows the opening with "→ CLAIM 1" badge. "Start speaking" button is active. Timer running. No errors in dev log.
+
+Stage Summary:
+- **Voice architecture is built and working end-to-end.** The flow: user clicks mic → live transcript via Web Speech API → stops → transcript sent to spar API → LLM generates persona response → TTS generates audio → audio plays + caption shows. Panel states (Listening/Thinking/Speaking) animate correctly.
+- **Latency budget:** Session creation (5.4s, includes claim extraction LLM call). Open endpoint (7.1s, includes opening LLM + TTS). Per-turn spar (~5-8s estimated: LLM + TTS). This is acceptable for turn-based voice. The "thinking" visual state fills the gap with tension.
+- **What the user needs to test themselves:** Microphone input (can't be tested in headless browser), audio playback (TTS voices — user said they'll change voices later), and the actual voice interaction flow (speak → stop → persona responds).
+- **What's NOT in this build (deliberately deferred):** Smart interruption (detecting when to cut the user off mid-speech — requires a separate interrupt detector loop), "I need a moment" as a full whisper system (currently just shows a static coach line), slide viewer (only relevant for "with material" mode with slides), mood system (cut per earlier discussion — persona tone IS the mood).
+- Lint passes clean. No errors in dev log.

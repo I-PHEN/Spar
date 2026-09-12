@@ -10,6 +10,7 @@ import {
   generateOpening,
   buildPatternMemoryContext,
 } from "@/lib/llm";
+import { generatePersonaAudio } from "@/lib/voice";
 import { SCENARIOS } from "@/lib/scenarios";
 import { ARCHETYPES } from "@/lib/personas";
 import type { ArchetypeKey, ExtractedClaim } from "@/lib/types";
@@ -121,6 +122,13 @@ export async function POST(
     },
   });
 
+  // Generate TTS audio for the opening challenge.
+  const audio = await generatePersonaAudio(
+    opening.content,
+    firstPersona.archetype as ArchetypeKey,
+    firstPersona.behaviorStyle as "gentle" | "moderate" | "aggressive"
+  );
+
   return NextResponse.json({
     alreadyStarted: false,
     message: {
@@ -134,6 +142,7 @@ export async function POST(
       type: "opening",
       claimRef: opening.claimRef ?? null,
       mood: opening.mood,
+      audio,
       createdAt: message.createdAt,
     },
     claims,

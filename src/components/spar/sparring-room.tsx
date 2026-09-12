@@ -3,16 +3,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   X,
-  Send,
+  Mic,
+  Square,
   Loader2,
   ChevronLeft,
-  ChevronRight,
-  FileText,
   Clock,
   AlertCircle,
+  Hand,
+  FileText,
+  Pause,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,8 +25,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { PersonaCard } from "./persona-card";
-import { Transcript, type TranscriptMessage } from "./transcript";
 import { TelemetryBar } from "./telemetry-bar";
+import { useVoiceRecognition, playBase64Audio } from "@/hooks/use-voice";
 import { SCENARIOS } from "@/lib/scenarios";
 import { quickStats } from "@/lib/telemetry";
 import type {
@@ -58,8 +59,18 @@ type PersonaState =
   | "speaking"
   | "about-to-interrupt";
 
-interface LiveMessage extends TranscriptMessage {
-  streamProgress?: number;
+interface CaptionEntry {
+  id: string;
+  role: "user" | "persona";
+  personaId?: string;
+  personaName?: string;
+  archetype?: ArchetypeKey;
+  content: string;
+  type: MessageType;
+  claimRef?: number | null;
+  mood?: PersonaMood;
+  isLive?: boolean; // user's live interim transcript
+  createdAt: number;
 }
 
 interface SparResponse {
@@ -76,6 +87,7 @@ interface SparResponse {
     type: MessageType;
     claimRef: number | null;
     mood: PersonaMood;
+    audio: string | null;
     createdAt: string;
   } | null;
 }
@@ -89,12 +101,9 @@ export function SparringRoom({
   const [claims, setClaims] = useState<ExtractedClaim[]>([]);
   const [scenarioLabel, setScenarioLabel] = useState<string>("");
   const [roomContext, setRoomContext] = useState<string>("");
-  const [messages, setMessages] = useState<LiveMessage[]>([]);
+  const [captions, setCaptions] = useState<CaptionEntry[]>([]);
   const [personaStates, setPersonaStates] = useState<Record<string, PersonaState>>({});
   const [personaMoods, setPersonaMoods] = useState<Record<string, PersonaMood>>({});
-  const [composerValue, setComposerValue] = useState("");
-  const [isUserTurn, setIsUserTurn] = useState(false);
-  const [waitingForPersonas, setWaitingForPersonas] = useState(false);
   const [loading, setLoading] = useState(true);
   const [ending, setEnding] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -102,13 +111,18 @@ export function SparringRoom({
   const [showClaimsPanel, setShowClaimsPanel] = useState(false);
   const [sessionStart] = useState(Date.now());
   const [elapsedSec, setElapsedSec] = useState(0);
-  const [lastPersonaAt, setLastPersonaAt] = useState<number | null>(null);
+
+  // Voice state
+  const voice = useVoiceRecognition();
+  const [isUserTurn, setIsUserTurn] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [liveWords, setLiveWords] = useState(0);
   const [liveHedges, setLiveHedges] = useState(0);
   const [liveHasEvidence, setLiveHasEvidence] = useState(false);
+  const [audioPlaying, setAudioPlaying] = useState(false);
 
-  // Use a ref to track in-flight spar calls (prevent double-submits)
   const sparInFlight = useRef(false);
+  const captionsEndRef = useRef<HTMLDivElement>(null);
 
   // Timer
   useEffect(() => {
@@ -116,13 +130,47 @@ export function SparringRoom({
     return () => clearInterval(t);
   }, [sessionStart]);
 
-  // Live telemetry as user types
+  // Auto-scroll captions
   useEffect(() => {
-    const s = quickStats(composerValue);
+    captionsEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [captions]);
+
+  // Live telemetry as user speaks
+  useEffect(() => {
+    const fullText = voice.finalTranscript + voice.interimTranscript;
+    const s = quickStats(fullText);
     setLiveWords(s.words);
     setLiveHedges(s.hedges);
     setLiveHasEvidence(s.hasEvidence);
-  }, [composerValue]);
+  }, [voice.finalTranscript, voice.interimTranscript]);
+
+  // Show live interim transcript as a caption
+  useEffect(() => {
+    if (voice.isListening && voice.interimTranscript) {
+      setCaptions((prev) => {
+        const existing = prev.find((c) => c.isLive);
+        if (existing) {
+          return prev.map((c) =>
+            c.id === existing.id ? { ...c, content: voice.interimTranscript } : c
+          );
+        }
+        return [
+          ...prev,
+          {
+            id: "live-user",
+            role: "user" as const,
+            content: voice.interimTranscript,
+            type: "normal" as MessageType,
+            isLive: true,
+            createdAt: Date.now(),
+          },
+        ];
+      });
+    } else if (!voice.isListening) {
+      // Remove the live caption when not listening
+      setCaptions((prev) => prev.filter((c) => !c.isLive));
+    }
+  }, [voice.interimTranscript, voice.isListening]);
 
   // Initial load: fetch session + open
   useEffect(() => {
@@ -139,11 +187,16 @@ export function SparringRoom({
           ? safeParseArray(session.extractedClaims)
           : [];
         const scenario = SCENARIOS[session.scenario as keyof typeof SCENARIOS];
+        const scenarioLabel = scenario?.label || "Custom Session";
+        const roomContext =
+          session.scenario === "custom" && session.roomContext
+            ? session.roomContext
+            : scenario?.roomContext || "";
 
         setPersonas(session.personas);
         setClaims(parsedClaims);
-        setScenarioLabel(scenario?.label || session.scenario);
-        setRoomContext(scenario?.roomContext || "");
+        setScenarioLabel(scenarioLabel);
+        setRoomContext(roomContext);
 
         const states: Record<string, PersonaState> = {};
         const moods: Record<string, PersonaMood> = {};
@@ -154,7 +207,7 @@ export function SparringRoom({
         setPersonaStates(states);
         setPersonaMoods(moods);
 
-        // Open the session
+        // Open the session — panel speaks first
         const oRes = await fetch(`/api/sessions/${sessionId}/open`, {
           method: "POST",
         });
@@ -163,8 +216,8 @@ export function SparringRoom({
         if (!mounted) return;
 
         if (oData.alreadyStarted && Array.isArray(oData.messages)) {
-          // Restoring — map stored messages to live messages
-          setMessages(
+          // Restoring — map stored messages to captions
+          setCaptions(
             oData.messages.map((m: any) => ({
               id: m.id,
               role: m.role,
@@ -174,15 +227,17 @@ export function SparringRoom({
               content: m.content,
               type: m.type,
               claimRef: m.claimRef,
-              createdAt: m.createdAt,
+              createdAt: new Date(m.createdAt).getTime(),
             }))
           );
           setIsUserTurn(true);
         } else if (oData.message) {
           const m = oData.message;
+          // Mark the speaking persona
           setPersonaStates((prev) => ({ ...prev, [m.personaId]: "speaking" }));
           setPersonaMoods((prev) => ({ ...prev, [m.personaId]: m.mood }));
-          setMessages([
+
+          setCaptions([
             {
               id: m.id,
               role: "persona",
@@ -193,17 +248,24 @@ export function SparringRoom({
               type: "opening",
               claimRef: m.claimRef,
               mood: m.mood,
-              streaming: true,
-              streamProgress: 0,
-              createdAt: m.createdAt,
+              createdAt: new Date(m.createdAt).getTime(),
             },
           ]);
-          // Stream the opening message
-          streamMessage(m.id, m.content).then(() => {
-            setPersonaStates((prev) => ({ ...prev, [m.personaId]: "listening" }));
-            setLastPersonaAt(Date.now());
-            setIsUserTurn(true);
-          });
+
+          // Play the opening audio
+          if (m.audio) {
+            setAudioPlaying(true);
+            try {
+              await playBase64Audio(m.audio);
+            } catch (e) {
+              console.error("Audio playback failed:", e);
+            }
+            setAudioPlaying(false);
+          }
+
+          // Persona done — back to listening
+          setPersonaStates((prev) => ({ ...prev, [m.personaId]: "listening" }));
+          setIsUserTurn(true);
         }
       } catch (e) {
         if (mounted) setError(String(e));
@@ -216,54 +278,41 @@ export function SparringRoom({
     };
   }, [sessionId]);
 
-  // Stream a message character-by-character. Returns a promise that resolves
-  // when the full content has been revealed.
-  const streamMessage = useCallback((messageId: string, content: string) => {
-    return new Promise<void>((resolve) => {
-      let chars = 0;
-      const totalLen = content.length;
-      // Reveal ~3 chars per 25ms = ~120 chars/sec. Fast enough to feel live,
-      // slow enough to read.
-      const revealPerTick = Math.max(1, Math.floor(totalLen / 120));
-      const interval = setInterval(() => {
-        chars = Math.min(totalLen, chars + revealPerTick);
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === messageId
-              ? { ...m, streamProgress: chars, streaming: chars < totalLen }
-              : m
-          )
-        );
-        if (chars >= totalLen) {
-          clearInterval(interval);
-          resolve();
-        }
-      }, 25);
-    });
-  }, []);
+  // Handle user pressing "Speak"
+  const handleStartSpeaking = useCallback(() => {
+    if (!voice.isSupported) return;
+    voice.reset();
+    voice.start();
+  }, [voice]);
 
-  // Handle user submitting a message
-  const handleSend = useCallback(async () => {
+  // Handle user pressing "Done" (stop speaking)
+  const handleStopSpeaking = useCallback(async () => {
+    voice.stop();
+
+    // Wait a brief moment for final transcript to settle
+    await new Promise((r) => setTimeout(r, 300));
+
+    const transcript = voice.finalTranscript.trim();
+    if (!transcript || transcript.length < 3) {
+      return;
+    }
+
     if (sparInFlight.current) return;
-    const text = composerValue.trim();
-    if (!text || !isUserTurn || waitingForPersonas) return;
-
     sparInFlight.current = true;
-    const responseMs = lastPersonaAt ? Date.now() - lastPersonaAt : 0;
-
-    // Add user message
-    const userMsgId = `u-${Date.now()}`;
-    const userMessage: LiveMessage = {
-      id: userMsgId,
-      role: "user",
-      content: text,
-      type: "normal",
-      createdAt: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, userMessage]);
-    setComposerValue("");
     setIsUserTurn(false);
-    setWaitingForPersonas(true);
+    setIsProcessing(true);
+
+    // Add the finalized user message to captions
+    setCaptions((prev) => [
+      ...prev.filter((c) => !c.isLive),
+      {
+        id: `u-${Date.now()}`,
+        role: "user",
+        content: transcript,
+        type: "normal",
+        createdAt: Date.now(),
+      },
+    ]);
 
     // Mark all personas as listening (reset from speaking)
     setPersonaStates((prev) => {
@@ -276,9 +325,7 @@ export function SparringRoom({
       let userTurn = false;
       let first = true;
       while (!userTurn) {
-        const body = first
-          ? { userMessage: text, responseMs }
-          : {};
+        const body = first ? { userMessage: transcript } : {};
         first = false;
 
         const res = await fetch(`/api/sessions/${sessionId}/spar`, {
@@ -295,12 +342,17 @@ export function SparringRoom({
         }
 
         const pr = data.personaResponse;
-        // Mark persona as speaking
+
+        // Show "thinking" briefly before the persona speaks
+        setPersonaStates((prev) => ({ ...prev, [pr.personaId]: "thinking" }));
+        await new Promise((r) => setTimeout(r, 600));
+
+        // Persona speaks
         setPersonaStates((prev) => ({ ...prev, [pr.personaId]: "speaking" }));
         setPersonaMoods((prev) => ({ ...prev, [pr.personaId]: pr.mood }));
 
-        // Add the message in streaming state
-        setMessages((prev) => [
+        // Add caption
+        setCaptions((prev) => [
           ...prev,
           {
             id: pr.id,
@@ -312,37 +364,43 @@ export function SparringRoom({
             type: pr.type,
             claimRef: pr.claimRef,
             mood: pr.mood,
-            streaming: true,
-            streamProgress: 0,
-            createdAt: pr.createdAt,
+            createdAt: new Date(pr.createdAt).getTime(),
           },
         ]);
 
-        // Wait for the typing animation to complete
-        await streamMessage(pr.id, pr.content);
+        // Play audio
+        if (pr.audio) {
+          setAudioPlaying(true);
+          try {
+            await playBase64Audio(pr.audio);
+          } catch (e) {
+            console.error("Audio playback failed:", e);
+          }
+          setAudioPlaying(false);
+        }
 
         // Persona done — back to listening
         setPersonaStates((prev) => ({ ...prev, [pr.personaId]: "listening" }));
-        setLastPersonaAt(Date.now());
 
         userTurn = data.isUserTurn;
       }
 
       setIsUserTurn(true);
-      setWaitingForPersonas(false);
+      setIsProcessing(false);
     } catch (e) {
       setError(String(e));
       setIsUserTurn(true);
-      setWaitingForPersonas(false);
+      setIsProcessing(false);
     } finally {
       sparInFlight.current = false;
     }
-  }, [composerValue, isUserTurn, waitingForPersonas, lastPersonaAt, sessionId, streamMessage]);
+  }, [voice, sessionId]);
 
-  // End the session
+  // End session
   async function handleEnd() {
     setShowEndDialog(false);
     setEnding(true);
+    voice.stop();
     try {
       const res = await fetch(`/api/sessions/${sessionId}/end`, { method: "POST" });
       if (!res.ok) throw new Error("Failed to end session");
@@ -353,26 +411,33 @@ export function SparringRoom({
     }
   }
 
-  // Keyboard: Cmd/Ctrl+Enter to send
-  function onKeyDown(e: React.KeyboardEvent) {
-    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-      e.preventDefault();
-      handleSend();
-    }
+  // "I need a moment" — pauses panel, shows a coach whisper
+  function handleNeedMoment() {
+    setCaptions((prev) => [
+      ...prev,
+      {
+        id: `coach-${Date.now()}`,
+        role: "persona",
+        personaName: "Coach",
+        content: "Pause. Take a breath. Acknowledge the concern in one sentence, then answer with one piece of evidence.",
+        type: "coach_whisper" as MessageType,
+        createdAt: Date.now(),
+      },
+    ]);
   }
 
   if (loading) {
     return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3">
+      <div className="flex h-[100dvh] flex-col items-center justify-center gap-3">
         <Loader2 className="h-7 w-7 animate-spin text-white" />
         <p className="text-sm text-muted-foreground">Entering the room...</p>
       </div>
     );
   }
 
-  if (error && messages.length === 0) {
+  if (error && captions.length === 0) {
     return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 px-6 text-center">
+      <div className="flex h-[100dvh] flex-col items-center justify-center gap-3 px-6 text-center">
         <AlertCircle className="h-7 w-7 text-destructive" />
         <p className="text-sm text-muted-foreground">{error}</p>
         <Button variant="outline" onClick={onExit}>
@@ -385,24 +450,24 @@ export function SparringRoom({
   const elapsedDisplay = formatTime(elapsedSec);
 
   return (
-    <div className="flex h-[100dvh] flex-col">
+    <div className="flex h-[100dvh] flex-col bg-background">
       {/* Top bar */}
-      <div className="flex items-center justify-between border-b border-border/60 bg-background/80 px-4 py-2.5 backdrop-blur-md sm:px-6">
+      <div className="flex items-center justify-between border-b border-white/[0.06] bg-background/80 px-4 py-2.5 backdrop-blur-md sm:px-6">
         <div className="flex items-center gap-3 min-w-0">
           <Button variant="ghost" size="icon" onClick={() => setShowEndDialog(true)} className="h-8 w-8" aria-label="Exit session">
             <X className="h-4 w-4" />
           </Button>
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-foreground">
+            <p className="truncate text-sm font-medium text-white">
               {scenarioLabel}
             </p>
-            <p className="hidden sm:block text-[11px] text-muted-foreground/60 line-clamp-1">
+            <p className="hidden sm:block text-[11px] text-neutral-500 line-clamp-1">
               {roomContext}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 font-mono text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5 font-mono text-xs text-neutral-400">
             <Clock className="h-3.5 w-3.5" />
             {elapsedDisplay}
           </div>
@@ -423,178 +488,178 @@ export function SparringRoom({
         </div>
       </div>
 
-      {/* Main 3-column area */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left: material / claims (desktop only) */}
-        <aside className="hidden lg:flex w-64 flex-col border-r border-border/60 bg-card/20">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
-            <span className="text-[11px] uppercase tracking-wider text-muted-foreground/70">
-              Your material
-            </span>
-          </div>
-          <div className="flex-1 overflow-y-auto px-4 py-3">
-            {claims.length > 0 ? (
-              <div className="space-y-3">
-                <p className="text-[11px] text-muted-foreground/70">
-                  {claims.length} key {claims.length === 1 ? "claim" : "claims"} extracted. The panel will challenge these.
-                </p>
-                {claims.map((c) => {
-                  return (
-                    <div
-                      key={c.id}
-                      className="rounded-md border border-border/40 bg-muted/20 p-3"
-                    >
-                      <div className="flex items-center gap-1.5 mb-1.5">
-                        <span
-                          className="rounded px-1 py-px text-[9px] uppercase tracking-wider font-mono"
-                          style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.8)' }}
-                        >
-                          Claim {c.id}
-                        </span>
-                        <span className="text-xs font-medium text-foreground/80 truncate">
-                          {c.label}
-                        </span>
-                      </div>
-                      <p className="text-xs leading-relaxed text-foreground/80">
-                        {c.claim}
-                      </p>
-                      {c.evidence && (
-                        <p className="mt-1.5 text-[11px] text-muted-foreground/60 italic">
-                          Evidence: {c.evidence}
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <FileText className="h-8 w-8 mx-auto text-muted-foreground/30" />
-                <p className="mt-2 text-xs text-muted-foreground/60">
-                  No material. You&apos;re defending from memory.
-                </p>
-              </div>
-            )}
-          </div>
-        </aside>
-
-        {/* Center: transcript + composer */}
-        <main className="flex flex-1 flex-col overflow-hidden">
-          {/* Mobile: persona strip */}
-          <div className="lg:hidden border-b border-border/40 bg-card/20 px-3 py-2.5">
-            <div className="flex gap-2 overflow-x-auto">
-              {personas.map((p) => (
-                <div key={p.id} className="flex-shrink-0 w-44">
-                  <PersonaCard
-                    archetype={p.archetype}
-                    name={p.name}
-                    behaviorStyle={p.behaviorStyle}
-                    state={personaStates[p.id] || "idle"}
-                    mood={personaMoods[p.id] || "neutral"}
-                    compact
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Transcript */}
-          <div className="flex-1 overflow-y-auto">
-            <Transcript
-              messages={messages.map((m) => ({
-                ...m,
-                content:
-                  m.streaming && typeof m.streamProgress === "number"
-                    ? m.content.slice(0, m.streamProgress)
-                    : m.content,
-              }))}
-              personaStates={personaStates}
-            />
-          </div>
-
-          {/* Composer + telemetry */}
-          <div className="border-t border-border/60 bg-background/80 backdrop-blur-md">
-            <div className="px-4 py-3 sm:px-6">
-              <div className="relative">
-                <Textarea
-                  value={composerValue}
-                  onChange={(e) => setComposerValue(e.target.value)}
-                  onKeyDown={onKeyDown}
-                  placeholder={
-                    waitingForPersonas
-                      ? "The panel is speaking..."
-                      : isUserTurn
-                      ? "Make your case. The panel is listening."
-                      : "Waiting for the panel..."
-                  }
-                  disabled={!isUserTurn || waitingForPersonas || ending}
-                  rows={2}
-                  className="resize-none pr-24 text-sm"
-                />
-                <div className="absolute bottom-2 right-2 flex items-center gap-2">
-                  <span className="hidden sm:inline text-[10px] text-muted-foreground/50">
-                    ⌘↵ to send
-                  </span>
-                  <Button
-                    size="sm"
-                    onClick={handleSend}
-                    disabled={!isUserTurn || waitingForPersonas || !composerValue.trim() || ending}
-                  >
-                    <Send className="h-3.5 w-3.5 mr-1" />
-                    Speak
-                  </Button>
-                </div>
-              </div>
-            </div>
-            <TelemetryBar
-              words={liveWords}
-              hedges={liveHedges}
-              latencyMs={lastPersonaAt ? Date.now() - lastPersonaAt : 0}
-              hasEvidence={liveHasEvidence}
-              muted={waitingForPersonas || !isUserTurn}
-            />
-          </div>
-        </main>
-
-        {/* Right: persona panel (desktop only) */}
-        <aside className="hidden lg:flex w-80 flex-col border-l border-border/60 bg-card/20">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
-            <span className="text-[11px] uppercase tracking-wider text-muted-foreground/70">
-              The panel
-            </span>
-            <span className="text-[11px] text-muted-foreground/50">
-              {personas.length} {personas.length === 1 ? "seat" : "seats"}
-            </span>
-          </div>
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      {/* Main area — panel-centric for voice */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* The Panel — horizontal on all screen sizes */}
+        <div className="flex-shrink-0 border-b border-white/[0.06] px-4 py-4 sm:px-6 sm:py-5">
+          <div className="mx-auto flex max-w-3xl items-start justify-center gap-3 sm:gap-4">
             {personas.map((p) => (
-              <PersonaCard
-                key={p.id}
-                archetype={p.archetype}
-                name={p.name}
-                behaviorStyle={p.behaviorStyle}
-                state={personaStates[p.id] || "idle"}
-                mood={personaMoods[p.id] || "neutral"}
-              />
+              <div key={p.id} className="flex-1 max-w-[200px]">
+                <PersonaCard
+                  archetype={p.archetype}
+                  name={p.name}
+                  behaviorStyle={p.behaviorStyle}
+                  state={personaStates[p.id] || "idle"}
+                  mood={personaMoods[p.id] || "neutral"}
+                  compact
+                />
+              </div>
             ))}
-            {error && (
-              <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
-                {error}
+          </div>
+        </div>
+
+        {/* Captions — the conversation transcript */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+          <div className="mx-auto max-w-2xl space-y-4">
+            {captions.map((c) => (
+              <CaptionRow key={c.id} entry={c} />
+            ))}
+            {/* Processing indicator */}
+            {isProcessing && (
+              <div className="flex items-center gap-2 text-xs text-neutral-500">
+                <span className="flex gap-0.5">
+                  <span className="spar-thinking-dot inline-block h-1.5 w-1.5 rounded-full bg-neutral-400" />
+                  <span className="spar-thinking-dot inline-block h-1.5 w-1.5 rounded-full bg-neutral-400" />
+                  <span className="spar-thinking-dot inline-block h-1.5 w-1.5 rounded-full bg-neutral-400" />
+                </span>
+                The panel is thinking...
               </div>
             )}
+            <div ref={captionsEndRef} />
           </div>
-        </aside>
+        </div>
+
+        {/* Claims toggle (mobile) */}
+        {claims.length > 0 && (
+          <button
+            onClick={() => setShowClaimsPanel(true)}
+            className="lg:hidden fixed bottom-24 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white ring-1 ring-white/20"
+            aria-label="View your material"
+          >
+            <FileText className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
-      {/* Mobile: toggle claims panel */}
-      {claims.length > 0 && (
-        <button
-          onClick={() => setShowClaimsPanel(true)}
-          className="lg:hidden fixed bottom-20 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white text-black shadow-lg"
-          aria-label="View your material"
-        >
-          <FileText className="h-4 w-4" />
-        </button>
+      {/* Bottom control bar — voice controls */}
+      <div className="flex-shrink-0 border-t border-white/[0.06] bg-background/90 backdrop-blur-xl">
+        {/* Subtle live telemetry */}
+        <TelemetryBar
+          words={liveWords}
+          hedges={liveHedges}
+          latencyMs={0}
+          hasEvidence={liveHasEvidence}
+          muted={!voice.isListening}
+        />
+        {/* Main controls */}
+        <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          {/* Left — I need a moment */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleNeedMoment}
+            disabled={!isUserTurn || isProcessing || audioPlaying}
+            className="text-neutral-400 hover:text-white"
+          >
+            <Hand className="h-4 w-4 mr-1.5" />
+            <span className="hidden sm:inline">I need a moment</span>
+            <span className="sm:hidden">Moment</span>
+          </Button>
+
+          {/* Center — Speak / Done button */}
+          <div className="flex flex-col items-center gap-1">
+            {!voice.isSupported ? (
+              <div className="text-center">
+                <p className="text-xs text-neutral-500 mb-2">
+                  Voice needs Chrome or Edge
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onExit}
+                >
+                  Back to Home
+                </Button>
+              </div>
+            ) : isUserTurn && !isProcessing ? (
+              voice.isListening ? (
+                <button
+                  onClick={handleStopSpeaking}
+                  className="flex h-16 w-16 items-center justify-center rounded-full bg-white text-black shadow-lg transition-transform active:scale-95"
+                  aria-label="Stop speaking"
+                >
+                  <Square className="h-5 w-5 fill-current" />
+                </button>
+              ) : (
+                <button
+                  onClick={handleStartSpeaking}
+                  className="group flex h-16 w-16 items-center justify-center rounded-full bg-white text-black shadow-lg transition-transform active:scale-95 spar-ready-glow"
+                  aria-label="Start speaking"
+                >
+                  <Mic className="h-6 w-6" />
+                </button>
+              )
+            ) : (
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/10 text-neutral-500">
+                <Pause className="h-5 w-5" />
+              </div>
+            )}
+            <span className="text-[10px] uppercase tracking-wider text-neutral-500">
+              {voice.isListening
+                ? "Listening... click to stop"
+                : isUserTurn && !isProcessing
+                ? "Click to speak"
+                : isProcessing
+                ? "Panel is responding"
+                : audioPlaying
+                ? "Panel is speaking"
+                : "Wait for your turn"}
+            </span>
+          </div>
+
+          {/* Right — End session */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowEndDialog(true)}
+            disabled={ending}
+            className="text-neutral-400 hover:text-red-400"
+          >
+            End
+          </Button>
+        </div>
+      </div>
+
+      {/* Browser support warning */}
+      {!voice.isSupported && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 px-6">
+          <div className="max-w-sm text-center">
+            <AlertCircle className="h-10 w-10 mx-auto mb-4 text-neutral-500" />
+            <h2 className="text-lg font-semibold text-white mb-2">
+              Voice sparring needs Chrome or Edge
+            </h2>
+            <p className="text-sm text-neutral-400 mb-4">
+              The Web Speech API (which powers live transcription) isn&apos;t available in this browser. Please switch to Chrome or Edge to use the Sparring Room.
+            </p>
+            <Button variant="outline" onClick={onExit}>
+              Back to Home
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Mic permission error */}
+      {voice.error && (
+        <div className="fixed bottom-24 left-4 right-4 z-40 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          {voice.error}
+        </div>
+      )}
+
+      {/* Error toast */}
+      {error && captions.length > 0 && (
+        <div className="fixed bottom-24 left-4 right-4 z-40 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          {error}
+        </div>
       )}
 
       {/* End session dialog */}
@@ -608,10 +673,89 @@ export function SparringRoom({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Keep sparring</AlertDialogCancel>
-            <AlertDialogAction onClick={handleEnd}>End & get coached</AlertDialogAction>
+            <AlertDialogAction onClick={handleEnd}>End &amp; get coached</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+/** A single caption row — user or persona. */
+function CaptionRow({ entry }: { entry: CaptionEntry }) {
+  const isUser = entry.role === "user";
+  const isCoach = entry.type === "coach_whisper";
+  const isInterruption = entry.type === "interruption";
+  const isOpening = entry.type === "opening";
+
+  if (isCoach) {
+    return (
+      <div className="spar-fade-up rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3">
+        <p className="text-[10px] uppercase tracking-wider text-neutral-500 mb-1">
+          Coach whisper
+        </p>
+        <p className="text-sm text-white/80 italic">{entry.content}</p>
+      </div>
+    );
+  }
+
+  if (isUser) {
+    return (
+      <div className="flex justify-end spar-fade-up">
+        <div className="max-w-[85%]">
+          <div className="mb-1 text-right text-[10px] uppercase tracking-wider text-neutral-500">
+            {entry.isLive ? "Speaking..." : "You"}
+          </div>
+          <div
+            className={cn(
+              "rounded-2xl rounded-br-sm border px-4 py-2.5 text-sm text-white/90",
+              entry.isLive
+                ? "border-white/10 bg-white/[0.03]"
+                : "border-white/10 bg-white/5"
+            )}
+          >
+            {entry.content}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Persona
+  return (
+    <div className="flex gap-3 spar-fade-up">
+      <div className="min-w-0 flex-1">
+        <div className="mb-1 flex items-center gap-2">
+          <span className="text-xs font-medium text-white/90">
+            {entry.personaName}
+          </span>
+          {isOpening && (
+            <span className="rounded border border-white/20 bg-white/5 px-1 py-px text-[9px] uppercase tracking-wider text-white/80">
+              Opening
+            </span>
+          )}
+          {isInterruption && (
+            <span className="text-[10px] uppercase tracking-wider text-white/60">
+              Interrupting
+            </span>
+          )}
+          {typeof entry.claimRef === "number" && entry.claimRef > 0 && (
+            <span className="rounded border border-white/10 bg-white/5 px-1 py-px text-[9px] uppercase tracking-wider text-neutral-400">
+              → Claim {entry.claimRef}
+            </span>
+          )}
+        </div>
+        <div
+          className={cn(
+            "rounded-2xl rounded-bl-sm border px-4 py-2.5 text-sm text-white/90",
+            isInterruption
+              ? "border-white/20 bg-white/[0.03] ml-2"
+              : "border-white/[0.06] bg-card/70 border-l-white/20"
+          )}
+        >
+          {entry.content}
+        </div>
+      </div>
     </div>
   );
 }

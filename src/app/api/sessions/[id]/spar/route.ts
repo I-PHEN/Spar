@@ -16,6 +16,7 @@ import {
   generatePersonaResponse,
   buildPatternMemoryContext,
 } from "@/lib/llm";
+import { generatePersonaAudio } from "@/lib/voice";
 import { SCENARIOS } from "@/lib/scenarios";
 import type { ArchetypeKey, ExtractedClaim } from "@/lib/types";
 
@@ -199,6 +200,13 @@ export async function POST(
     },
   });
 
+  // Generate TTS audio for the persona response.
+  const audio = await generatePersonaAudio(
+    response.content,
+    nextPersona.archetype as ArchetypeKey,
+    nextPersona.behaviorStyle as "gentle" | "moderate" | "aggressive"
+  );
+
   // Determine if this was the last response for this turn.
   const newResponsesThisTurn = responsesThisTurn + 1;
   const isUserTurn =
@@ -218,6 +226,7 @@ export async function POST(
       type: response.type,
       claimRef: response.claimRef ?? null,
       mood: response.mood,
+      audio,
       createdAt: message.createdAt,
     },
   });
