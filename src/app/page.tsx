@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Nav, type NavView } from "@/components/spar/nav";
 import { HeroView } from "@/components/spar/hero-view";
+import { AuthView } from "@/components/spar/auth-view";
 import { OnboardingView } from "@/components/spar/onboarding-view";
 import { HomeView } from "@/components/spar/home-view";
 import { PracticeView } from "@/components/spar/practice-view";
@@ -12,7 +13,7 @@ import { SCENARIOS } from "@/lib/scenarios";
 import type { ExperienceKey, DrillTarget } from "@/lib/experiences";
 import { GraduationCap, TrendingUp, Hammer } from "lucide-react";
 
-type View = NavView | "hero" | "onboarding" | "sparring" | "debrief";
+type View = NavView | "hero" | "auth" | "onboarding" | "sparring" | "debrief";
 
 export default function Page() {
   // Always start at the hero — it's the landing page.
@@ -68,8 +69,12 @@ export default function Page() {
   }
 
   function handleHeroEnter() {
-    // If the user has already onboarded, go straight to practice
-    // Otherwise, start the onboarding flow
+    // "Get Started" and "Sign In" both go to the auth screen
+    setView("auth");
+  }
+
+  function handleAuthContinue() {
+    // After auth: if first time → onboarding, if returning → practice
     if (hasCompletedOnboarding) {
       setView("practice");
     } else {
@@ -176,12 +181,22 @@ export default function Page() {
     return <HeroView onEnter={handleHeroEnter} />;
   }
 
-  // Onboarding — full screen, no nav at all
+  // Auth — Sign In / Sign Up screen (fake for now)
+  if (view === "auth") {
+    return (
+      <AuthView
+        onContinue={handleAuthContinue}
+        onBack={() => setView("hero")}
+      />
+    );
+  }
+
+  // Onboarding — full screen, no nav
   if (view === "onboarding") {
     return (
       <OnboardingView
         onComplete={handleOnboardingComplete}
-        onBack={() => setView("hero")}
+        onBack={() => setView("auth")}
       />
     );
   }

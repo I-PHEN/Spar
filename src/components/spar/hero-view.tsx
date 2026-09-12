@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowRight, Swords } from "lucide-react";
+import { ArrowRight, Swords, Sparkles, Brain, Zap } from "lucide-react";
 
 interface HeroViewProps {
   onEnter: () => void;
@@ -14,17 +14,17 @@ interface HeroViewProps {
  *   - Logo (left)
  *   - "Sign In" button (right) — fake for now, triggers onEnter
  *
- * Below the fold: headline, subtitle, CTA, social proof.
+ * Below the fold: headline, subtitle, CTA, feature highlights, social proof.
  */
 export function HeroView({ onEnter }: HeroViewProps) {
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
       {/* Subtle ambient glow at the top */}
       <div
-        className="pointer-events-none absolute top-0 left-1/2 h-[400px] w-[600px] -translate-x-1/2 opacity-30"
+        className="pointer-events-none absolute top-0 left-1/2 h-[500px] w-[800px] -translate-x-1/2 opacity-40"
         style={{
           background:
-            "radial-gradient(ellipse at center, rgba(255,255,255,0.04) 0%, transparent 70%)",
+            "radial-gradient(ellipse at center, rgba(255,255,255,0.05) 0%, transparent 60%)",
         }}
       />
 
@@ -51,7 +51,7 @@ export function HeroView({ onEnter }: HeroViewProps) {
           <HeroWaveform />
 
           {/* Headline */}
-          <h1 className="mt-8 text-4xl font-bold tracking-tight text-white sm:text-5xl sm:leading-[1.1]">
+          <h1 className="mt-8 text-4xl font-bold tracking-tight text-white sm:text-5xl sm:leading-[1.05]">
             The sparring room for
             <br />
             your next big moment.
@@ -73,23 +73,68 @@ export function HeroView({ onEnter }: HeroViewProps) {
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
           </button>
 
-          {/* Social proof */}
-          <div className="mt-12 border-t border-[#1a1a1a] pt-6">
-            <p className="text-[11px] uppercase tracking-[0.15em] text-neutral-600">
-              For founders, researchers, and leaders preparing for
-            </p>
-            <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-neutral-500">
-              <span>Thesis defenses</span>
-              <span className="text-neutral-700">·</span>
-              <span>Investor pitches</span>
-              <span className="text-neutral-700">·</span>
-              <span>Board presentations</span>
-              <span className="text-neutral-700">·</span>
-              <span>Interviews</span>
-            </div>
+          <p className="mt-3 text-[11px] text-neutral-600">
+            Free to start. No credit card required.
+          </p>
+        </div>
+
+        {/* Feature highlights — three columns, not cards */}
+        <div className="mx-auto mt-20 grid max-w-3xl grid-cols-1 gap-px overflow-hidden rounded-md border border-[#1a1a1a] bg-[#1a1a1a] sm:grid-cols-3">
+          <FeatureColumn
+            icon={<Zap className="h-4 w-4" />}
+            title="Live Pressure"
+            desc="AI personas interrupt mid-speech. They reference your actual claims and call out contradictions."
+          />
+          <FeatureColumn
+            icon={<Brain className="h-4 w-4" />}
+            title="Real Coaching"
+            desc="Not scores. Not grades. A coach that remembers your patterns across sessions and tells you what to fix."
+          />
+          <FeatureColumn
+            icon={<Sparkles className="h-4 w-4" />}
+            title="Targeted Drills"
+            desc="Hammer one weakness until it's gone. Every hedge gets interrupted. Every ramble gets cut off."
+          />
+        </div>
+
+        {/* Social proof */}
+        <div className="mx-auto mt-16 max-w-2xl border-t border-[#1a1a1a] pt-6 text-center">
+          <p className="text-[11px] uppercase tracking-[0.15em] text-neutral-600">
+            Built for people who can't afford to freeze in the real room
+          </p>
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-neutral-500">
+            <span>Thesis defenses</span>
+            <span className="text-neutral-700">·</span>
+            <span>Investor pitches</span>
+            <span className="text-neutral-700">·</span>
+            <span>Board presentations</span>
+            <span className="text-neutral-700">·</span>
+            <span>Grant reviews</span>
+            <span className="text-neutral-700">·</span>
+            <span>Job interviews</span>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function FeatureColumn({
+  icon,
+  title,
+  desc,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <div className="bg-[#0d0d0d] p-5 text-left">
+      <div className="flex items-center gap-2 text-neutral-300">
+        {icon}
+        <span className="text-xs font-medium uppercase tracking-wider">{title}</span>
+      </div>
+      <p className="mt-2 text-xs leading-relaxed text-neutral-500">{desc}</p>
     </div>
   );
 }
