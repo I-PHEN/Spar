@@ -30,7 +30,10 @@ interface SparBody {
   forcedPersonaId?: string;
 }
 
-const PERSONAS_PER_USER_TURN = 2;
+// One persona asks → user answers → next persona asks.
+// This is the correct sparring flow. The user must get to respond
+// after EACH question, not after two personas have spoken.
+const PERSONAS_PER_USER_TURN = 1;
 
 export async function POST(
   req: NextRequest,

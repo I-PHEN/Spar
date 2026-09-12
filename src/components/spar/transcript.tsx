@@ -93,7 +93,7 @@ function UserMessage({
         </div>
         <div
           className={cn(
-            "rounded-2xl rounded-br-sm bg-white/5 border border-white/10 px-4 py-2.5 text-sm text-foreground/90",
+            "rounded-md rounded-br-sm bg-[#171717] border border-[#2a2a2a] px-4 py-2.5 text-sm text-foreground/90",
             streaming && "spar-caret"
           )}
         >
@@ -148,10 +148,10 @@ function PersonaMessage({
         </div>
         <div
           className={cn(
-            "rounded-2xl rounded-bl-sm border px-4 py-2.5 text-sm text-foreground/90",
+            "rounded-md rounded-bl-sm border px-4 py-2.5 text-sm text-foreground/90",
             isInterruption
-              ? "border-white/20 bg-white/[0.03] ml-2"
-              : "border-border/60 bg-card/70 border-l-white/20"
+              ? "border-[#2a2a2a] bg-[#141414] ml-2"
+              : "border-[#1a1a1a] bg-[#0f0f0f]"
           )}
         >
           <span className={message.streaming ? "spar-caret" : ""}>{message.content}</span>

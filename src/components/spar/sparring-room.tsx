@@ -129,6 +129,7 @@ export function SparringRoom({
 }: SparringRoomProps) {
   const [personas, setPersonas] = useState<SessionPersona[]>([]);
   const [claims, setClaims] = useState<ExtractedClaim[]>([]);
+  const [rawMaterial, setRawMaterial] = useState<string>("");
   const [scenarioLabel, setScenarioLabel] = useState<string>("");
   const [roomContext, setRoomContext] = useState<string>("");
   const [captions, setCaptions] = useState<CaptionEntry[]>([]);
@@ -225,6 +226,7 @@ export function SparringRoom({
 
         setPersonas(session.personas);
         setClaims(parsedClaims);
+        setRawMaterial(session.rawMaterial || "");
         setScenarioLabel(scenarioLabel);
         setRoomContext(roomContext);
 
@@ -610,24 +612,23 @@ export function SparringRoom({
 
         {/* Main area — content + conversation */}
         <div className="flex flex-1 flex-col overflow-hidden min-w-0">
-          {/* Content strip — claims or topic */}
-          {claims.length > 0 && (
-            <div className="flex-shrink-0 border-b border-white/[0.04] px-4 py-2 lg:px-6">
-              <div className="flex items-center gap-2 overflow-x-auto">
+          {/* Content strip — show what the user is defending */}
+          {rawMaterial && (
+            <div className="flex-shrink-0 border-b border-[#1a1a1a] px-4 py-2.5 lg:px-6">
+              <div className="flex items-center gap-3">
                 <span className="text-[10px] uppercase tracking-wider text-neutral-600 flex-shrink-0">
-                  Defending:
+                  Defending
                 </span>
-                {claims.slice(0, 3).map((c) => (
-                  <div
-                    key={c.id}
-                    className="flex items-center gap-1.5 rounded-md border border-white/[0.06] bg-white/[0.02] px-2 py-1 flex-shrink-0"
-                  >
-                    <span className="text-[9px] font-mono text-neutral-500">C{c.id}</span>
-                    <span className="text-[11px] text-neutral-400 truncate max-w-[160px]">
-                      {c.label}
-                    </span>
-                  </div>
-                ))}
+                <p className="text-xs text-neutral-300 truncate flex-1">
+                  {rawMaterial.length > 120
+                    ? rawMaterial.slice(0, 120) + "…"
+                    : rawMaterial}
+                </p>
+                {claims.length > 0 && (
+                  <span className="text-[10px] text-neutral-600 flex-shrink-0">
+                    {claims.length} {claims.length === 1 ? "claim" : "claims"} extracted
+                  </span>
+                )}
               </div>
             </div>
           )}
@@ -818,11 +819,11 @@ function CaptionRow({ entry }: { entry: CaptionEntry }) {
 
   if (isCoach) {
     return (
-      <div className="spar-fade-up rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3">
-        <p className="text-[10px] uppercase tracking-wider text-neutral-500 mb-1">
+      <div className="spar-fade-up rounded-md border border-[#1a1a1a] bg-[#0f0f0f] px-4 py-3">
+        <p className="text-[10px] uppercase tracking-wider text-neutral-600 mb-1">
           Coach whisper
         </p>
-        <p className="text-sm text-white/80 italic">{entry.content}</p>
+        <p className="text-sm text-neutral-300 italic">{entry.content}</p>
       </div>
     );
   }
@@ -836,10 +837,10 @@ function CaptionRow({ entry }: { entry: CaptionEntry }) {
           </div>
           <div
             className={cn(
-              "rounded-2xl rounded-br-sm border px-4 py-2.5 text-sm text-white/90",
+              "rounded-md rounded-br-sm border px-4 py-2.5 text-sm text-neutral-200",
               entry.isLive
-                ? "border-white/10 bg-white/[0.03]"
-                : "border-white/10 bg-white/5"
+                ? "border-[#1a1a1a] bg-[#0a0a0a]"
+                : "border-[#2a2a2a] bg-[#171717]"
             )}
           >
             {entry.content}
@@ -858,27 +859,27 @@ function CaptionRow({ entry }: { entry: CaptionEntry }) {
             {entry.personaName}
           </span>
           {isOpening && (
-            <span className="rounded border border-white/20 bg-white/5 px-1 py-px text-[9px] uppercase tracking-wider text-white/80">
+            <span className="rounded border border-[#2a2a2a] bg-[#171717] px-1 py-px text-[9px] uppercase tracking-wider text-neutral-300">
               Opening
             </span>
           )}
           {isInterruption && (
-            <span className="text-[10px] uppercase tracking-wider text-white/60">
+            <span className="text-[10px] uppercase tracking-wider text-neutral-500">
               Interrupting
             </span>
           )}
           {typeof entry.claimRef === "number" && entry.claimRef > 0 && (
-            <span className="rounded border border-white/10 bg-white/5 px-1 py-px text-[9px] uppercase tracking-wider text-neutral-400">
+            <span className="rounded border border-[#1a1a1a] bg-[#0f0f0f] px-1 py-px text-[9px] uppercase tracking-wider text-neutral-500">
               → Claim {entry.claimRef}
             </span>
           )}
         </div>
         <div
           className={cn(
-            "rounded-2xl rounded-bl-sm border px-4 py-2.5 text-sm text-white/90",
+            "rounded-md rounded-bl-sm border px-4 py-2.5 text-sm text-neutral-200",
             isInterruption
-              ? "border-white/20 bg-white/[0.03] ml-2"
-              : "border-white/[0.06] bg-card/70 border-l-white/20"
+              ? "border-[#2a2a2a] bg-[#141414] ml-2"
+              : "border-[#1a1a1a] bg-[#0f0f0f]"
           )}
         >
           {entry.content}

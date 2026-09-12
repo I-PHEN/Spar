@@ -64,23 +64,16 @@ export function PersonaCard({
 
   const isCompact = variant === "compact";
 
-  // Accent border class (only when active)
-  const accentBorder = isActive ? def.accentBorder : "";
-
   return (
     <div
       className={cn(
-        "relative rounded-xl border bg-[#111]/80 transition-all duration-300",
+        "relative rounded-md border bg-[#101010] transition-all duration-200",
         isCompact ? "p-2.5 min-w-[160px]" : "p-4 mb-3",
         isActive
-          ? cn(
-              "border-white/20 bg-[#1a1a1a] scale-[1.02] shadow-[0_0_30px_rgba(255,255,255,0.03)]",
-              accentBorder,
-              "border-l-2"
-            )
+          ? "border-[#343434] bg-[#171717]"
           : thinking
-          ? "border-white/15"
-          : "border-white/[0.06]"
+          ? "border-[#252525]"
+          : "border-[#202020]"
       )}
     >
       {/* Header row */}
