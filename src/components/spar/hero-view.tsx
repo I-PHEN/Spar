@@ -75,17 +75,41 @@ export function HeroView({ onEnter }: HeroViewProps) {
 /**
  * Animated waveform — a row of thin bars that pulse with varying heights.
  * Represents the "room being alive." Subtle, not flashy.
+ *
+ * Uses a mounted flag to avoid hydration mismatch (the random-ish heights
+ * differ between server and client renders due to float precision).
  */
 function HeroWaveform() {
+  const [mounted, setMounted] = useState(false);
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
+    // Defer to avoid setState-in-effect lint
     const interval = setInterval(() => setTick((t) => t + 1), 80);
-    return () => clearInterval(interval);
+    // Set mounted on next tick
+    const mountedTimer = setTimeout(() => setMounted(true), 0);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(mountedTimer);
+    };
   }, []);
 
+  if (!mounted) {
+    // Static placeholder during SSR — avoids hydration mismatch
+    return (
+      <div className="flex items-center justify-center gap-[2px] h-8">
+        {Array.from({ length: 32 }, (_, i) => (
+          <div
+            key={i}
+            className="w-[2px] rounded-full bg-neutral-500"
+            style={{ height: "6px", opacity: 0.3 }}
+          />
+        ))}
+      </div>
+    );
+  }
+
   const bars = Array.from({ length: 32 }, (_, i) => {
-    // Each bar has a different phase + frequency for organic movement
     const phase = i * 0.3;
     const frequency = 0.15;
     const baseHeight = 4;
@@ -101,8 +125,8 @@ function HeroWaveform() {
           key={i}
           className="w-[2px] rounded-full bg-neutral-500"
           style={{
-            height: `${h}px`,
-            opacity: 0.3 + (h / 24) * 0.4,
+            height: `${Math.round(h)}px`,
+            opacity: Math.round((0.3 + (h / 24) * 0.4) * 100) / 100,
             transition: "height 80ms ease-out, opacity 80ms ease-out",
           }}
         />
