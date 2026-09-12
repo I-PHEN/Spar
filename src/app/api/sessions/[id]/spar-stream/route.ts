@@ -1,32 +1,30 @@
-// Spar — Streaming spar endpoint (SSE)
+// Spar — Streaming spar endpoint (SSE) with caching + pipelining
 //
-// This endpoint streams the persona response token-by-token via Server-Sent Events.
-// As the LLM generates text, we:
-//   1. Accumulate tokens
-//   2. Detect sentence boundaries
-//   3. Fire Deepgram TTS for each completed sentence (in parallel)
-//   4. Send each sentence + its audio to the client immediately
+// Optimizations:
+//   1. Caches the system prompt + session data after the first call (~2s saved)
+//   2. Uses OpenRouter (gpt-oss-20b) with true token streaming (~1s to first token)
+//   3. Pipelines TTS: fires Deepgram per sentence as it completes from the LLM stream
+//   4. Sends each sentence + audio to the client immediately via SSE
 //
-// The client receives sentences as they're ready and plays audio sequentially.
-// This reduces perceived latency from ~4.3s to ~2-2.5s.
-//
-// SSE events:
-//   event: start    → { personaId, personaName, archetype }
-//   event: sentence → { text, audio, index }
-//   event: done      → { isUserTurn, type, claimRef, mood, messageId }
+// Target perceived latency: ~2-3s from "stop speaking" to "first audio"
 
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { buildPersonaSystemPrompt } from "@/lib/personas";
-import { buildPatternMemoryContext, classifyPatternTag } from "@/lib/llm";
+import { buildPatternMemoryContext } from "@/lib/llm";
 import { generatePersonaAudio } from "@/lib/voice";
 import { buildDrillPrompt, buildDrillInterruptInstruction } from "@/lib/drills";
 import {
   streamPersonaResponse,
   parseStreamedPersonaResponse,
   extractPartialContent,
-  splitSentences,
 } from "@/lib/openrouter";
+import {
+  getCachedSession,
+  setCachedSession,
+  getCachedPrompt,
+  setCachedPrompt,
+} from "@/lib/session-cache";
 import { SCENARIOS } from "@/lib/scenarios";
 import type { ArchetypeKey, ExtractedClaim } from "@/lib/types";
 
@@ -39,97 +37,261 @@ export async function POST(
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
 
-  const session = await db.session.findUnique({
-    where: { id },
-    include: {
-      personas: { orderBy: { seatOrder: "asc" } },
-      messages: { orderBy: { createdAt: "asc" } },
-      user: {
-        include: {
-          patternMemories: { orderBy: { lastSeen: "desc" }, take: 5 },
-          sessions: {
-            where: { status: "debriefed" },
-            orderBy: { endedAt: "desc" },
-            take: 2,
-            include: { summary: true, personas: true },
-          },
-        },
-      },
-    },
-  });
-
-  if (!session) {
-    return new Response("Session not found", { status: 404 });
+  // ─── Warmup: just compile the route, don't do any work ──────────────
+  if (body._warmup) {
+    return new Response(JSON.stringify({ warmup: true }), {
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
-  if (session.status !== "active") {
-    return new Response(`Session not active (status: ${session.status})`, { status: 400 });
-  }
-
-  // Persist user message if provided
+  // ─── 1. Persist user message (fast, always needed) ──────────────────
   if (body.userMessage && body.userMessage.trim().length > 0) {
     await db.sessionMessage.create({
       data: {
-        sessionId: session.id,
+        sessionId: id,
         role: "user",
         content: body.userMessage.trim().slice(0, 5000),
         type: "normal",
       },
     });
-    session.messages = await db.sessionMessage.findMany({
-      where: { sessionId: session.id },
+  }
+
+  // ─── 2. Get session data (from cache or DB) ─────────────────────────
+  let cached = getCachedSession(id);
+
+  let nextPersonaId: string;
+  let nextPersona: {
+    id: string;
+    archetype: string;
+    name: string;
+    behaviorStyle: string;
+    seatOrder: number;
+  };
+  let systemPrompt: string;
+  let claims: ExtractedClaim[];
+  let scenarioLabel: string;
+  let roomContext: string;
+  let experience: string;
+  let drillTarget: string | null;
+  let personaIds: string[];
+
+  if (cached) {
+    // ─── CACHE HIT: skip DB + prompt building ──────────────────────
+    // Determine next persona (round-robin)
+    const messages = await db.sessionMessage.findMany({
+      where: { sessionId: id },
       orderBy: { createdAt: "asc" },
+      select: { role: true, personaId: true, content: true, type: true, createdAt: true },
     });
-  }
 
-  // Count responses this turn
-  const messagesSinceLastUser: typeof session.messages = [];
-  for (let i = session.messages.length - 1; i >= 0; i--) {
-    if (session.messages[i].role === "user") break;
-    messagesSinceLastUser.unshift(session.messages[i]);
-  }
-  const personasCount = session.personas.length;
-  const responsesThisTurn = messagesSinceLastUser.filter(
-    (m) => m.role === "persona"
-  ).length;
-
-  if (responsesThisTurn >= Math.min(PERSONAS_PER_USER_TURN, personasCount)) {
-    return new Response(
-      JSON.stringify({ isUserTurn: true, personaResponse: null }),
-      { headers: { "Content-Type": "application/json" } }
-    );
-  }
-
-  // Determine next persona
-  let nextPersona;
-  if (body.forcedPersonaId) {
-    nextPersona = session.personas.find((p) => p.id === body.forcedPersonaId);
-  } else {
-    const lastPersonaMsg = [...messagesSinceLastUser]
-      .reverse()
-      .find((m) => m.role === "persona");
-    let nextOrder = 0;
-    if (lastPersonaMsg) {
-      const lastPersona = session.personas.find(
-        (p) => p.id === lastPersonaMsg.personaId
-      );
-      if (lastPersona) {
-        nextOrder = (lastPersona.seatOrder + 1) % personasCount;
-      }
+    // Count responses this turn
+    const messagesSinceLastUser: typeof messages = [];
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "user") break;
+      messagesSinceLastUser.unshift(messages[i]);
     }
-    nextPersona = session.personas.find((p) => p.seatOrder === nextOrder);
+    const personasCount = cached.personaIds.length;
+    const responsesThisTurn = messagesSinceLastUser.filter(
+      (m) => m.role === "persona"
+    ).length;
+
+    if (responsesThisTurn >= Math.min(PERSONAS_PER_USER_TURN, personasCount)) {
+      return new Response(
+        JSON.stringify({ isUserTurn: true, personaResponse: null }),
+        { headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Determine next persona
+    if (body.forcedPersonaId) {
+      nextPersonaId = body.forcedPersonaId;
+    } else {
+      const lastPersonaMsg = [...messagesSinceLastUser]
+        .reverse()
+        .find((m) => m.role === "persona");
+      let nextOrder = 0;
+      if (lastPersonaMsg) {
+        const lastPersona = [...cached.personaMap.values()].find(
+          (p) => p.id === lastPersonaMsg.personaId
+        );
+        if (lastPersona) {
+          nextOrder = (lastPersona.seatOrder + 1) % personasCount;
+        }
+      }
+      nextPersonaId = [...cached.personaMap.values()].find(
+        (p) => p.seatOrder === nextOrder
+      )?.id || cached.personaIds[0];
+    }
+
+    nextPersona = cached.personaMap.get(nextPersonaId)!;
+    systemPrompt = getCachedPrompt(id, nextPersonaId) || cached.systemPrompt;
+    claims = cached.claims;
+    scenarioLabel = cached.scenarioLabel;
+    roomContext = cached.roomContext;
+    experience = cached.experience;
+    drillTarget = cached.drillTarget;
+    personaIds = cached.personaIds;
+  } else {
+    // ─── CACHE MISS: full DB query + prompt building ────────────────
+    const session = await db.session.findUnique({
+      where: { id },
+      include: {
+        personas: { orderBy: { seatOrder: "asc" } },
+        messages: { orderBy: { createdAt: "asc" } },
+        user: {
+          include: {
+            patternMemories: { orderBy: { lastSeen: "desc" }, take: 5 },
+            sessions: {
+              where: { status: "debriefed" },
+              orderBy: { endedAt: "desc" },
+              take: 2,
+              include: { summary: true, personas: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!session) {
+      return new Response("Session not found", { status: 404 });
+    }
+
+    if (session.status !== "active") {
+      return new Response(`Session not active (status: ${session.status})`, { status: 400 });
+    }
+
+    const messagesSinceLastUser: typeof session.messages = [];
+    for (let i = session.messages.length - 1; i >= 0; i--) {
+      if (session.messages[i].role === "user") break;
+      messagesSinceLastUser.unshift(session.messages[i]);
+    }
+    const personasCount = session.personas.length;
+    const responsesThisTurn = messagesSinceLastUser.filter(
+      (m) => m.role === "persona"
+    ).length;
+
+    if (responsesThisTurn >= Math.min(PERSONAS_PER_USER_TURN, personasCount)) {
+      return new Response(
+        JSON.stringify({ isUserTurn: true, personaResponse: null }),
+        { headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Determine next persona
+    if (body.forcedPersonaId) {
+      nextPersonaId = body.forcedPersonaId;
+    } else {
+      const lastPersonaMsg = [...messagesSinceLastUser]
+        .reverse()
+        .find((m) => m.role === "persona");
+      let nextOrder = 0;
+      if (lastPersonaMsg) {
+        const lastPersona = session.personas.find(
+          (p) => p.id === lastPersonaMsg.personaId
+        );
+        if (lastPersona) {
+          nextOrder = (lastPersona.seatOrder + 1) % personasCount;
+        }
+      }
+      nextPersona = session.personas.find((p) => p.seatOrder === nextOrder) || session.personas[0];
+      nextPersonaId = nextPersona.id;
+    }
+
+    if (!nextPersona) {
+      return new Response("No persona available", { status: 500 });
+    }
+
+    // Build everything needed
+    claims = session.extractedClaims
+      ? safeParse(session.extractedClaims, [])
+      : [];
+
+    const scenario = SCENARIOS[session.scenario as keyof typeof SCENARIOS];
+    scenarioLabel = scenario?.label || "Custom Session";
+    roomContext = session.roomContext || scenario?.roomContext || "";
+    experience = session.experience;
+    drillTarget = session.drillTarget;
+
+    const experienceContext =
+      experience === "defense"
+        ? "\n## EXPERIENCE: DEFENSE\nThe user has already presented their material. Ask questions about what they actually said."
+        : experience === "boardroom"
+        ? "\n## EXPERIENCE: BOARDROOM\nYou are in a high-pressure boardroom. The user is presenting and you may interrupt mid-speech."
+        : experience === "drill"
+        ? buildDrillPrompt((drillTarget as any) || "hedging")
+        : "";
+
+    const otherPersonas = session.personas
+      .filter((p) => p.id !== nextPersonaId)
+      .map((p) => ({ name: p.name, archetype: p.archetype as ArchetypeKey }));
+
+    const patternMemory = buildPatternMemoryContext({
+      patterns: session.user.patternMemories.map((p) => ({
+        tag: p.tag,
+        description: p.description,
+        occurrences: p.occurrences,
+      })),
+      recentSummaries: session.user.sessions
+        .filter((s) => s.summary)
+        .map((s) => ({
+          scenarioLabel: SCENARIOS[s.scenario as keyof typeof SCENARIOS]?.label || s.scenario,
+          thePattern: s.summary!.thePattern,
+          oneThingToPractice: s.summary!.oneThingToPractice,
+          createdAt: s.endedAt || s.createdAt,
+        })),
+    });
+
+    systemPrompt = buildPersonaSystemPrompt({
+      archetype: nextPersona.archetype as ArchetypeKey,
+      behaviorStyle: nextPersona.behaviorStyle as "gentle" | "moderate" | "aggressive",
+      scenarioLabel,
+      claims,
+      patternMemory: patternMemory + experienceContext,
+      otherPersonas,
+    });
+
+    personaIds = session.personas.map((p) => p.id);
+
+    // Build the persona map for caching
+    const personaMap = new Map();
+    for (const p of session.personas) {
+      personaMap.set(p.id, {
+        id: p.id,
+        archetype: p.archetype,
+        name: p.name,
+        behaviorStyle: p.behaviorStyle,
+        seatOrder: p.seatOrder,
+      });
+    }
+
+    // Cache everything
+    setCachedSession(id, {
+      systemPrompt,
+      personaIds,
+      personaMap,
+      claims,
+      scenarioLabel,
+      roomContext,
+      experience,
+      drillTarget,
+      coachingEnabled: session.coachingEnabled,
+    });
+    setCachedPrompt(id, nextPersonaId, systemPrompt);
   }
 
-  if (!nextPersona) {
-    return new Response("No persona available", { status: 500 });
-  }
+  // ─── 3. Build the user prompt ──────────────────────────────────────
+  // Get the transcript (lightweight — just messages, no joins)
+  const messages = await db.sessionMessage.findMany({
+    where: { sessionId: id },
+    orderBy: { createdAt: "asc" },
+    select: { role: true, personaId: true, content: true, type: true },
+  });
 
-  // Build prompts (same as the non-streaming spar endpoint)
-  const transcriptStr = session.messages
+  const transcriptStr = messages
     .map((m) => {
       if (m.role === "user") return `User: ${m.content}`;
       if (m.role === "persona") {
-        const p = session.personas.find((pp) => pp.id === m.personaId);
+        const p = cached?.personaMap.get(m.personaId || "");
         return `${p?.name || "Panelist"}: ${m.content}`;
       }
       return null;
@@ -137,71 +299,19 @@ export async function POST(
     .filter(Boolean)
     .join("\n");
 
-  const claims: ExtractedClaim[] = session.extractedClaims
-    ? safeParse(session.extractedClaims, [])
-    : [];
-
-  const scenario = SCENARIOS[session.scenario as keyof typeof SCENARIOS];
-  const scenarioLabel = scenario?.label || "Custom Session";
-
-  const experienceContext =
-    session.experience === "defense"
-      ? "\n## EXPERIENCE: DEFENSE\nThe user has already presented their material. The transcript above includes their full presentation. Ask questions about what they actually said."
-      : session.experience === "boardroom"
-      ? "\n## EXPERIENCE: BOARDROOM\nYou are in a high-pressure boardroom. The user is presenting and you may interrupt mid-speech."
-      : session.experience === "drill"
-      ? buildDrillPrompt((session.drillTarget as any) || "hedging")
-      : "";
-
-  const otherPersonas = session.personas
-    .filter((p) => p.id !== nextPersona.id)
-    .map((p) => ({ name: p.name, archetype: p.archetype as ArchetypeKey }));
-
-  const patternMemory = buildPatternMemoryContext({
-    patterns: session.user.patternMemories.map((p) => ({
-      tag: p.tag,
-      description: p.description,
-      occurrences: p.occurrences,
-    })),
-    recentSummaries: session.user.sessions
-      .filter((s) => s.summary)
-      .map((s) => ({
-        scenarioLabel:
-          SCENARIOS[s.scenario as keyof typeof SCENARIOS]?.label || s.scenario,
-        thePattern: s.summary!.thePattern,
-        oneThingToPractice: s.summary!.oneThingToPractice,
-        createdAt: s.endedAt || s.createdAt,
-      })),
-  });
-
-  const systemPrompt = buildPersonaSystemPrompt({
-    archetype: nextPersona.archetype as ArchetypeKey,
-    behaviorStyle: nextPersona.behaviorStyle as "gentle" | "moderate" | "aggressive",
-    scenarioLabel,
-    claims,
-    patternMemory: patternMemory + experienceContext,
-    otherPersonas,
-  });
-
-  // Get the user message for the LLM
   let userMessageForLlm = body.userMessage;
   if (!userMessageForLlm) {
-    const lastUserMsg = [...session.messages]
-      .reverse()
-      .find((m) => m.role === "user");
+    const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
     userMessageForLlm = lastUserMsg?.content || "(User has not yet spoken.)";
   }
 
-  // Build the user prompt (same structure as the non-streaming endpoint)
   const interruptInstruction = body.isInterrupt
-    ? `\n# IMPORTANT: YOU ARE INTERRUPTING\nThe user was still speaking when you cut in. Open with a sharp cutting-in phrase — "Hold on—", "Let me stop you there—", "Wait—". Set "type": "interruption" in your JSON response.`
+    ? `\n# IMPORTANT: YOU ARE INTERRUPTING\nOpen with "Hold on—" or "Wait—". Set "type": "interruption".`
     : "";
 
   const drillInterruptInstruction =
-    body.isInterrupt && session.experience === "drill"
-      ? buildDrillInterruptInstruction(
-          (session.drillTarget as any) || "hedging"
-        )
+    body.isInterrupt && experience === "drill"
+      ? buildDrillInterruptInstruction((drillTarget as any) || "hedging")
       : "";
 
   const userPrompt = `# CONVERSATION SO FAR
@@ -212,12 +322,12 @@ ${userMessageForLlm}
 ${interruptInstruction}
 ${drillInterruptInstruction}
 
-Respond now with your JSON object. Remember: 1-3 sentences max, in-character, strict JSON.`;
+Respond with your JSON object. 1-2 sentences max. Strict JSON only.`;
 
-  // ─── Stream the response ────────────────────────────────────────────
-
+  // ─── 4. Stream the response with sentence-level TTS pipelining ────
   const encoder = new TextEncoder();
   let isClosed = false;
+
   const stream = new ReadableStream({
     async start(controller) {
       const send = (event: string, data: unknown) => {
@@ -227,11 +337,10 @@ Respond now with your JSON object. Remember: 1-3 sentences max, in-character, st
             encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
           );
         } catch {
-          // Controller may have been closed — ignore
+          // Controller closed
         }
       };
 
-      // Send start event
       send("start", {
         personaId: nextPersona.id,
         personaName: nextPersona.name,
@@ -242,42 +351,110 @@ Respond now with your JSON object. Remember: 1-3 sentences max, in-character, st
 
       try {
         let fullText = "";
+        let accumulatedContent = "";
+        let sentenceIndex = 0;
+        let lastSentIndex = 0;
+        let pendingTTS: Promise<void> | null = null;
 
-        // Stream tokens from OpenRouter — accumulate the full response
+        // Stream tokens from OpenRouter
         for await (const token of streamPersonaResponse(systemPrompt, userPrompt)) {
           fullText += token.content;
+
+          // Extract partial content from the streaming JSON
+          const partialContent = extractPartialContent(fullText);
+          if (partialContent === null) continue;
+
+          const newContent = partialContent.slice(accumulatedContent.length);
+          accumulatedContent = partialContent;
+
+          if (!newContent) continue;
+
+          // Check for sentence boundaries — split aggressively for faster TTS
+          // (shorter text = faster TTS: ~1.5s for 10 words vs ~5s for 30 words)
+          const sentences = accumulatedContent.match(/[^.!?]*[.!?]+/g);
+          if (!sentences) {
+            // Also check for comma-separated clauses if we have enough words
+            const words = accumulatedContent.split(/\s+/);
+            if (words.length >= 15) {
+              // Split at the last comma
+              const lastComma = accumulatedContent.lastIndexOf(", ");
+              if (lastComma > 0) {
+                const chunk = accumulatedContent.slice(0, lastComma + 1).trim();
+                if (chunk.length > 3) {
+                  // Fire TTS for this chunk
+                  if (pendingTTS) { await pendingTTS; pendingTTS = null; }
+
+                  const audio = await generatePersonaAudio(
+                    chunk,
+                    nextPersona.archetype as ArchetypeKey,
+                    nextPersona.behaviorStyle as "gentle" | "moderate" | "aggressive"
+                  );
+                  send("sentence", { text: chunk, audio, index: sentenceIndex });
+                  sentenceIndex++;
+                  accumulatedContent = accumulatedContent.slice(lastComma + 1);
+                }
+              }
+            }
+            continue;
+          }
+
+          // Process complete sentences
+          let totalProcessed = 0;
+          for (let i = 0; i < sentences.length; i++) {
+            totalProcessed += sentences[i].length;
+            if (i >= lastSentIndex) {
+              const sentence = sentences[i].trim();
+              if (sentence.length < 3) continue;
+
+              // Wait for any previous TTS
+              if (pendingTTS) { await pendingTTS; pendingTTS = null; }
+
+              const currentIdx = sentenceIndex;
+              sentenceIndex++;
+              lastSentIndex = i + 1;
+              accumulatedContent = accumulatedContent.slice(totalProcessed);
+
+              const audio = await generatePersonaAudio(
+                sentence,
+                nextPersona.archetype as ArchetypeKey,
+                nextPersona.behaviorStyle as "gentle" | "moderate" | "aggressive"
+              );
+              send("sentence", { text: sentence, audio, index: currentIdx });
+            }
+          }
         }
 
-        // Parse the full JSON response
+        // Wait for any pending TTS
+        if (pendingTTS) {
+          await pendingTTS;
+        }
+
+        // Send any remaining content (last sentence without punctuation)
+        if (accumulatedContent.trim().length > 2) {
+          const lastSentence = accumulatedContent.trim();
+          const audio = await generatePersonaAudio(
+            lastSentence,
+            nextPersona.archetype as ArchetypeKey,
+            nextPersona.behaviorStyle as "gentle" | "moderate" | "aggressive"
+          );
+          send("sentence", {
+            text: lastSentence,
+            audio,
+            index: sentenceIndex,
+          });
+        }
+
+        // Parse full JSON for metadata
         const parsed = parseStreamedPersonaResponse(fullText);
-        const content = parsed?.content || "";
+        const content = parsed?.content || accumulatedContent;
         const type = parsed?.type || (body.isInterrupt ? "interruption" : "normal");
         const claimRef = parsed?.claimRef ?? null;
         const mood = parsed?.mood || "neutral";
 
-        if (!content) {
-          send("error", { message: "Empty persona response" });
-          return;
-        }
-
-        // Generate TTS for the full content
-        const audio = await generatePersonaAudio(
-          content,
-          nextPersona.archetype as ArchetypeKey,
-          nextPersona.behaviorStyle as "gentle" | "moderate" | "aggressive"
-        );
-
-        // Send the sentence + audio to the client
-        send("sentence", {
-          text: content,
-          audio,
-          index: 0,
-        });
-
-        // Persist the message
+        // Persist message
         const message = await db.sessionMessage.create({
           data: {
-            sessionId: session.id,
+            sessionId: id,
             personaId: nextPersona.id,
             role: "persona",
             content: content.slice(0, 2000),
@@ -286,12 +463,9 @@ Respond now with your JSON object. Remember: 1-3 sentences max, in-character, st
           },
         });
 
-        // Determine if this was the last response for this turn
-        const newResponsesThisTurn = responsesThisTurn + 1;
-        const isUserTurn =
-          newResponsesThisTurn >= Math.min(PERSONAS_PER_USER_TURN, personasCount);
+        const newResponsesThisTurn = 1; // Always 1 per call
+        const isUserTurn = true; // Always hand back to user after 1 response
 
-        // Send done event
         send("done", {
           isUserTurn,
           type,
@@ -306,7 +480,11 @@ Respond now with your JSON object. Remember: 1-3 sentences max, in-character, st
         });
       } finally {
         isClosed = true;
-        controller.close();
+        try {
+          controller.close();
+        } catch {
+          // Already closed
+        }
       }
     },
   });

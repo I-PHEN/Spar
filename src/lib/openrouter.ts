@@ -9,24 +9,16 @@
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_BASE = "https://openrouter.ai/api/v1";
-const MODEL = "minimax/minimax-m3:free";
+const MODEL = "openai/gpt-oss-20b"; // Faster + cheaper than minimax-m3
 
 export interface StreamedToken {
-  /** The text content of this token */
   content: string;
-  /** Whether this is the last token */
   done: boolean;
 }
 
 /**
  * Stream a persona response from OpenRouter.
- *
- * Yields individual text tokens as they arrive. The caller is responsible
- * for accumulating them and detecting sentence boundaries.
- *
- * @param systemPrompt The persona system prompt
- * @param userPrompt The user message + context
- * @returns An async generator that yields text tokens
+ * Yields individual text tokens as they arrive.
  */
 export async function* streamPersonaResponse(
   systemPrompt: string,
@@ -49,8 +41,8 @@ export async function* streamPersonaResponse(
         { role: "user", content: userPrompt },
       ],
       stream: true,
-      max_tokens: 150, // Hard cap — persona responses are 1-3 sentences max
-      temperature: 0.5, // Lower temperature = more focused, less rambling
+      max_tokens: 150,
+      temperature: 0.5,
     }),
     signal: AbortSignal.timeout(30000),
   });
@@ -74,9 +66,8 @@ export async function* streamPersonaResponse(
 
     buffer += decoder.decode(value, { stream: true });
 
-    // Process complete SSE events (separated by \n\n)
     const events = buffer.split("\n\n");
-    buffer = events.pop() || ""; // Keep the incomplete event in the buffer
+    buffer = events.pop() || "";
 
     for (const event of events) {
       const lines = event.split("\n");
@@ -93,7 +84,7 @@ export async function* streamPersonaResponse(
               yield { content, done: false };
             }
           } catch {
-            // Skip malformed JSON (can happen with partial chunks)
+            // Skip malformed JSON
           }
         }
       }
@@ -105,12 +96,6 @@ export async function* streamPersonaResponse(
 
 /**
  * Parse the streamed JSON response to extract metadata fields.
- *
- * The LLM streams JSON like: { "content": "...", "type": "...", "claimRef": ..., "mood": "..." }
- * After all tokens are accumulated, this extracts the full JSON.
- *
- * @param fullText The complete text streamed from the LLM
- * @returns Parsed persona response, or null if JSON is malformed
  */
 export function parseStreamedPersonaResponse(fullText: string): {
   content: string;
@@ -120,13 +105,11 @@ export function parseStreamedPersonaResponse(fullText: string): {
 } | null {
   let text = fullText.trim();
 
-  // Strip markdown code fences if present
   const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fenceMatch) {
     text = fenceMatch[1].trim();
   }
 
-  // Find the JSON object
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
   if (start === -1 || end === -1 || end <= start) return null;
@@ -142,7 +125,6 @@ export function parseStreamedPersonaResponse(fullText: string): {
       mood: parsed.mood || "neutral",
     };
   } catch {
-    // Try fixing trailing commas
     try {
       const cleaned = jsonStr.replace(/,\s*([}\]])/g, "$1");
       const parsed = JSON.parse(cleaned);
@@ -164,60 +146,65 @@ export function parseStreamedPersonaResponse(fullText: string): {
  * As the LLM streams tokens, the JSON looks like:
  *   { "content": "Hold on. Drop the qualifier. Say it directly.", "type": ...
  *
- * This function watches for `"content": "` in the stream, then returns
- * everything after it until the closing quote. This lets us start TTS
- * before the full JSON is complete.
- *
- * @param accumulatedText The full text streamed so far
- * @returns The extracted content so far, or null if content hasn't started yet
+ * This function finds the "content" field and returns everything between
+ * the opening and closing quote (or end of string if still streaming).
+ * Handles escaped quotes properly.
  */
 export function extractPartialContent(accumulatedText: string): string | null {
-  // Look for the content field: "content": "..." or "content":"..."
-  const contentMatch = accumulatedText.match(/"content"\s*:\s*"(.*)$/s);
-  if (!contentMatch) return null;
+  // Find the "content" field
+  const contentStart = accumulatedText.indexOf('"content"');
+  if (contentStart === -1) return null;
 
-  // The content is everything after the opening quote
-  // until either the closing quote (escaped or not) or end of string
-  let content = contentMatch[1];
+  // Find the colon after "content"
+  const colonPos = accumulatedText.indexOf(":", contentStart);
+  if (colonPos === -1) return null;
 
-  // Check if the content field is complete (closing quote found)
-  // The closing quote is followed by ", or " at end
-  // We need to handle escaped quotes inside the content
-  const closingQuoteIdx = findClosingQuote(content);
-  if (closingQuoteIdx >= 0) {
-    content = content.slice(0, closingQuoteIdx);
+  // Skip whitespace after colon to find the opening quote
+  let pos = colonPos + 1;
+  while (
+    pos < accumulatedText.length &&
+    (accumulatedText[pos] === " " ||
+      accumulatedText[pos] === "\n" ||
+      accumulatedText[pos] === "\r")
+  ) {
+    pos++;
   }
 
-  // Unescape JSON string escapes
-  content = content
-    .replace(/\\n/g, "\n")
-    .replace(/\\"/g, '"')
-    .replace(/\\\\/g, "\\")
-    .replace(/\\t/g, "\t");
+  if (pos >= accumulatedText.length || accumulatedText[pos] !== '"') return null;
 
+  // Start of content is after the opening quote
+  pos++;
+
+  // Accumulate content until we find an unescaped closing quote
+  let content = "";
+  while (pos < accumulatedText.length) {
+    if (accumulatedText[pos] === "\\") {
+      // Escaped character
+      pos++;
+      if (pos < accumulatedText.length) {
+        const escaped = accumulatedText[pos];
+        if (escaped === "n") content += "\n";
+        else if (escaped === "t") content += "\t";
+        else if (escaped === '"') content += '"';
+        else if (escaped === "\\") content += "\\";
+        else content += escaped;
+      }
+      pos++;
+    } else if (accumulatedText[pos] === '"') {
+      // Found closing quote — content is complete
+      return content;
+    } else {
+      content += accumulatedText[pos];
+      pos++;
+    }
+  }
+
+  // No closing quote yet — return partial content (still streaming)
   return content;
 }
 
 /**
- * Find the position of the closing quote in a JSON string value.
- * Handles escaped quotes (\\").
- */
-function findClosingQuote(text: string): number {
-  for (let i = 0; i < text.length; i++) {
-    if (text[i] === "\\") {
-      i++; // Skip the escaped character
-      continue;
-    }
-    if (text[i] === '"') {
-      return i;
-    }
-  }
-  return -1; // No closing quote found yet (still streaming)
-}
-
-/**
  * Split text into sentences at natural boundaries.
- * Returns complete sentences + any remaining partial text.
  */
 export function splitSentences(text: string): {
   sentences: string[];
@@ -226,8 +213,6 @@ export function splitSentences(text: string): {
   const sentences: string[] = [];
   let remaining = text;
 
-  // Match sentences ending with ., ?, or !
-  // Also handle the case where the sentence ends with a quote
   const sentenceRegex = /[^.!?]*[.!?]+\s*/g;
   let match;
   let lastIndex = 0;

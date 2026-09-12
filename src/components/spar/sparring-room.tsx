@@ -326,6 +326,16 @@ export function SparringRoom({
       } finally {
         // Safety: ensure loading is false even if the audio path failed
         if (mounted) setLoading(false);
+
+        // Pre-warm: fire a lightweight request to compile the spar-stream route
+        // so the first real spar call doesn't pay the Turbopack compilation cost (~0.8s)
+        if (mounted) {
+          fetch(`/api/sessions/${sessionId}/spar-stream`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ _warmup: true }),
+          }).catch(() => {}).then(() => {});
+        }
       }
     })();
     return () => {

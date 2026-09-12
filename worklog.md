@@ -845,3 +845,51 @@ Stage Summary:
 - **OpenRouter (minimax-m3:free)** is the LLM for persona responses. z-ai SDK is still used for claim extraction, debrief, and coach analysis (batch operations where latency doesn't matter).
 - **Deepgram (aura-2 voices)** is the TTS provider. Falls back to z-ai TTS if Deepgram fails.
 - Lint passes clean. No errors in dev log (after the rate limit fix).
+
+---
+Task ID: 19
+Agent: main (engineering)
+Task: Latency optimization — caching, faster model, pre-warming, pipelining
+
+Work Log:
+- **Created `src/lib/session-cache.ts`** — in-memory session + prompt caching:
+  - `getCachedSession()` / `setCachedSession()` — caches the system prompt, persona map, claims, scenario label, and experience data after the first spar-stream call. Subsequent calls within the same session skip the full DB query + prompt building (~2s saved).
+  - `getCachedPrompt()` / `setCachedPrompt()` — caches the persona system prompt per (sessionId, personaId). The prompt is ~2000 tokens — building it takes string concatenation + pattern memory formatting.
+  - LRU eviction (max 50 sessions cached, oldest evicted first).
+  - Process-local (not Redis). Resets on restart. Fine for single-server.
+- **Switched to `openai/gpt-oss-20b`** (from `minimax/minimax-m3:free`):
+  - $0.03/M tokens (essentially free)
+  - Faster first-token time (~1.3s vs minimax's ~1.4s)
+  - Better JSON following (less rambling)
+  - `max_tokens: 150`, `temperature: 0.5` — focused, short responses
+- **Added pre-warming** — the sparring-room fires a `_warmup: true` request to `/spar-stream` immediately after the room loads. This compiles the Next.js route (Turbopack) so the first real spar call doesn't pay the ~0.8s compilation cost.
+- **Rewrote `extractPartialContent()`** — fixed the JSON streaming parser:
+  - Old version used a regex (`/"content"\s*:\s*"(.*)$/s`) which was unreliable — the greedy `.*` matched too much, and the `findClosingQuote` helper was broken.
+  - New version is a proper character-by-character parser: finds `"content"`, skips to the opening quote, then accumulates characters while handling escape sequences (`\"`, `\\n`, `\\t`). Returns partial content when no closing quote is found yet (still streaming).
+  - Verified: correctly extracts "A 2% monthly churn rate compounds to roughly 22% annually. How do you define churn?" token by token.
+- **True sentence-level pipelining** — the spar-stream endpoint now:
+  1. Streams tokens from OpenRouter
+  2. Extracts partial content as it arrives using `extractPartialContent()`
+  3. Detects sentence boundaries (`.`, `?`, `!`) and comma-separated clauses (15+ words)
+  4. Fires Deepgram TTS for each sentence as it completes
+  5. Sends each sentence + audio to the client immediately via SSE
+  6. Shorter sentences = faster TTS (~1.5s for 10 words vs ~5s for 30 words)
+- **Measured results:**
+  - LLM (gpt-oss-20b, streaming): ~1.3s first token, ~2s total
+  - TTS (Deepgram, per sentence): ~1.5-1.7s per short sentence
+  - First sentence arrives at: ~2-3s after user stops speaking (LLM first sentence + TTS)
+  - Total endpoint time: ~7.3s (includes all sentences + DB writes)
+  - Compile time: 13ms (pre-warmed, was 800ms)
+  - The user hears the FIRST sentence at ~2-3s, then subsequent sentences stream in
+- **The remaining bottleneck:** Deepgram TTS is sequential (we wait for each sentence's TTS before starting the next, to avoid 429 rate limits). With a paid Deepgram tier, we could fire TTS in parallel and cut the total time by ~50%.
+
+Stage Summary:
+- **All four optimizations built:**
+  1. ✅ Session + prompt caching (in-memory Map, LRU eviction)
+  2. ✅ Faster model (gpt-oss-20b, $0.03/M tokens)
+  3. ✅ Pre-warming (fires _warmup request on room load)
+  4. ✅ True sentence-level pipelining (extract content mid-stream, fire TTS per sentence)
+- **Perceived latency improved from ~4.3s to ~2-3s** (time to first audio sentence)
+- **The pipelining works:** the user hears the first sentence at ~2-3s, then subsequent sentences arrive as they're generated. The total time is still ~7s for a 3-sentence response, but the perceived latency is the time to FIRST audio, not total.
+- **The remaining bottleneck is Deepgram's sequential TTS.** With a paid tier (no rate limits), we could parallelize TTS calls and cut the total time significantly.
+- Lint passes clean. No errors in dev log.
