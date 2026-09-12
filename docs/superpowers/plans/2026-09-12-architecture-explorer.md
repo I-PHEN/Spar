@@ -50,11 +50,12 @@
 - Produces: `isArchitectureEnabled(nodeEnv: string | undefined): boolean`
 - Produces: `/architecture` route that calls `notFound()` outside development.
 
-- [ ] **Step 1: Add test and typecheck scripts**
+- [ ] **Step 1: Add test/typecheck scripts and make standalone packaging cross-platform**
 
-Add these scripts to `package.json` without changing dependency versions:
+Add these scripts to `package.json` without changing dependency versions. Preserve the existing standalone asset-copy behavior, but replace the Unix-only `cp -r` commands with Node's cross-platform `cpSync`:
 
 ```json
+"build": "next build && node -e \"const fs=require('node:fs');fs.cpSync('.next/static','.next/standalone/.next/static',{recursive:true});fs.cpSync('public','.next/standalone/public',{recursive:true})\"",
 "test": "bun test",
 "test:watch": "bun test --watch",
 "typecheck": "tsc --noEmit"
@@ -104,9 +105,9 @@ export default function ArchitecturePage() {
 
 - [ ] **Step 5: Verify test and typecheck**
 
-Run: `bun test src/architecture/access.test.ts && bun run typecheck`
+Run: `bun test src/architecture/access.test.ts && bun run typecheck && bun run build`
 
-Expected: 1 test passes; TypeScript exits 0.
+Expected: 1 test passes; TypeScript and the complete Windows-compatible standalone build exit 0.
 
 - [ ] **Step 6: Commit**
 
