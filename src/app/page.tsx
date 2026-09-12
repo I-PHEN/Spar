@@ -13,10 +13,10 @@ import type { ExperienceKey, DrillTarget } from "@/lib/experiences";
 import { GraduationCap, TrendingUp, Hammer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-type View = NavView | "hero" | "onboarding" | "sparring" | "debrief";
+type View = NavView | "hero" | "onboarding" | "loading" | "sparring" | "debrief";
 
 export default function Page() {
-  const [view, setView] = useState<View>("hero");
+  const [view, setView] = useState<View>("loading");
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [scenarioLabel, setScenarioLabel] = useState<string | undefined>();
   const [userName, setUserName] = useState<string>("there");
@@ -156,6 +156,15 @@ export default function Page() {
         coachingEnabled={coachingEnabled}
         coachingFocus={coachingFocus}
       />
+    );
+  }
+
+  // Loading state — blank page while checking if user has onboarded
+  if (view === "loading") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-neutral-700 border-t-neutral-300" />
+      </div>
     );
   }
 
