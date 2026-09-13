@@ -191,18 +191,63 @@ export const BEHAVIOR_STYLE_PROMPTS: Record<BehaviorStyle, string> = {
     "Tone: sharp and pressing. Cut to the chase. Use short, declarative challenges. Don't accept deflection. Push twice if the user dodges the first time, then move on.",
 };
 
-/** Build the system prompt for a specific persona in a specific session. */
-export function buildPersonaSystemPrompt(params: {
+interface PersonaPromptParams {
   archetype: ArchetypeKey;
   behaviorStyle: BehaviorStyle;
+}
+
+interface PersonaSessionRulesParams {
   scenarioLabel: string;
   claims: Array<{ id: number; label: string; claim: string; evidence?: string }>;
   patternMemory: string; // accumulated insights from previous sessions
   otherPersonas: Array<{ name: string; archetype: ArchetypeKey }>;
-}): string {
+}
+
+const RESPONSE_FORMAT_PROMPT = `# RESPONSE FORMAT: STRICT JSON
+Return one JSON object with no markdown or preamble:
+{
+  "content": "<in-character dialogue, 1-3 sentences>",
+  "type": "normal" | "interruption",
+  "claimRef": <challenged claim ID or null>,
+  "mood": "neutral" | "pressing" | "skeptical" | "curious" | "satisfied" | "frustrated"
+}`;
+
+const CORE_RESPONSE_RULES = `# RESPONSE RULES
+- Speak only as the panelist; never mention being an AI or apologize.
+- Ask one challenge per turn. Prefer 1-2 sentences; the Timekeeper uses one.
+- Use "interruption" only for a sharp cut-in, at most once every three responses.
+- Set claimRef to the challenged claim ID when relevant and choose the matching UI mood.
+- After a tight direct answer, briefly acknowledge it, then probe deeper or yield.`;
+
+/** Stable, cacheable instructions for one archetype and behavior style. */
+export function buildPersonaStablePrefix(params: PersonaPromptParams): string {
   const a = ARCHETYPES[params.archetype];
   const behavior = BEHAVIOR_STYLE_PROMPTS[params.behaviorStyle];
 
+  return `You are ${a.defaultName}, a Spar panelist.
+
+# PERSONA
+Lens: ${a.lens}
+Listen for:
+${a.triggers.map((trigger) => `- ${trigger}`).join("\n")}
+
+Question patterns:
+${a.questionTemplates.map((question) => `- "${question}"`).join("\n")}
+
+Non-negotiable boundaries:
+${a.forbidden.map((rule) => `- ${rule}`).join("\n")}
+
+${behavior}
+
+${RESPONSE_FORMAT_PROMPT}
+
+${CORE_RESPONSE_RULES}`;
+}
+
+/** Dynamic session material kept outside the cacheable persona prefix. */
+export function buildPersonaSessionRules(
+  params: PersonaSessionRulesParams,
+): string {
   const claimsBlock =
     params.claims.length > 0
       ? params.claims
@@ -222,53 +267,26 @@ export function buildPersonaSystemPrompt(params: {
 
   const patternBlock =
     params.patternMemory.trim().length > 0
-      ? `\n## USER'S PATTERNS FROM PREVIOUS SESSIONS\n${params.patternMemory}\n\nUse these patterns to calibrate your challenges. If a known weakness is relevant, probe it. Do NOT mention that you know these patterns — just act on them.`
+      ? `\n# PRIOR PATTERNS\n${params.patternMemory}\nUse relevant weaknesses to calibrate challenges without revealing this memory.`
       : "";
 
-  return `You are ${a.defaultName}, a panelist in a ${params.scenarioLabel} sparring session on Spar.
+  return `Experience room: ${params.scenarioLabel}
 
-# WHO YOU ARE
-- Archetype: ${a.defaultName}
-- Your lens: ${a.lens}
-- What you listen for: ${a.triggers.map((t) => `- ${t}`).join("\n  ")}
-
-# YOUR QUESTION STYLE
-Your questions sound like:
-${a.questionTemplates.map((q) => `- "${q}"`).join("\n")}
-
-# FORBIDDEN BEHAVIORS (NON-NEGOTIABLE)
-${a.forbidden.map((f) => `- ${f}`).join("\n")}
-
-# THE USER'S MATERIAL — WHAT THEY ARE DEFENDING
+# MATERIAL TO DEFEND
 ${claimsBlock}
 
-# THE OTHER PANELISTS
+# OTHER PANELISTS
 ${othersBlock}
-${patternBlock}
-
-# HOW YOU BEHAVE IN THIS ROOM
-${behavior}
-
-# RESPONSE FORMAT — STRICT JSON
-You MUST respond with a single JSON object, no markdown fences, no preamble:
-{
-  "content": "<your line of dialogue, 1-3 sentences max>",
-  "type": "normal" | "interruption",
-  "claimRef": <number or null — the claim ID you're challenging, if any>,
-  "mood": "neutral" | "pressing" | "skeptical" | "curious" | "satisfied" | "frustrated"
+${patternBlock}`;
 }
 
-# RULES FOR THE RESPONSE
-- "content" must be IN-CHARACTER dialogue — what you'd actually say out loud in the room.
-- Maximum 3 sentences. Prefer 1-2. The Timekeeper archetype specifically should be 1 sentence.
-- Use "type": "interruption" when you are cutting in with a sharp challenge that the user must address immediately. Use sparingly — at most 1 in 3 of your responses should be interruptions.
-- Reference specific claims by their number when relevant. E.g., if challenging Claim 2, set "claimRef": 2.
-- "mood" drives the user's UI — pick the one that best reflects your current stance.
-- Never break character. Never mention you are an AI. Never apologize.
-- Never ask two questions at once. One challenge per turn.
-- If the user gave a tight, direct answer to your last challenge, acknowledge briefly ("Fair." / "Good." / "Noted.") and either probe the next layer or yield the floor.
-
-Respond now with the JSON object.`;
+/** Backward-compatible complete prompt for non-streaming callers. */
+export function buildPersonaSystemPrompt(
+  params: PersonaPromptParams & PersonaSessionRulesParams,
+): string {
+  return `${buildPersonaStablePrefix(params)}\n\n${buildPersonaSessionRules(
+    params,
+  )}`;
 }
 
 // Helper to format the "other panelists" block.

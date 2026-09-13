@@ -10,8 +10,15 @@
 
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { buildPersonaSystemPrompt } from "@/lib/personas";
+import {
+  buildPersonaSessionRules,
+  buildPersonaStablePrefix,
+} from "@/lib/personas";
 import { buildPatternMemoryContext } from "@/lib/llm";
+import {
+  MAX_RECENT_MESSAGES,
+  buildPersonaContext,
+} from "@/lib/persona/context-builder";
 import { generatePersonaAudio } from "@/lib/voice";
 import {
   buildDrillPrompt,
@@ -36,6 +43,7 @@ import { SCENARIOS } from "@/lib/scenarios";
 import type { ArchetypeKey, DrillTarget, ExtractedClaim } from "@/lib/types";
 
 const PERSONAS_PER_USER_TURN = 1;
+const PATTERN_MEMORY_CACHE_KEY = "__pattern-memory__";
 
 export async function POST(
   req: NextRequest,
@@ -74,13 +82,24 @@ export async function POST(
     behaviorStyle: string;
     seatOrder: number;
   } | undefined;
-  let systemPrompt: string;
+  let stablePrefix: string;
+  let patternMemory: string;
   let claims: ExtractedClaim[];
   let scenarioLabel: string;
   let roomContext: string;
   let experience: string;
   let drillTarget: string | null;
   let personaIds: string[];
+  let personaMap: Map<
+    string,
+    {
+      id: string;
+      archetype: string;
+      name: string;
+      behaviorStyle: string;
+      seatOrder: number;
+    }
+  >;
 
   if (cached) {
     // ─── CACHE HIT: skip DB + prompt building ──────────────────────
@@ -130,14 +149,28 @@ export async function POST(
       )?.id || cached.personaIds[0];
     }
 
-    nextPersona = cached.personaMap.get(nextPersonaId)!;
-    systemPrompt = getCachedPrompt(id, nextPersonaId) || cached.systemPrompt;
+    nextPersona = cached.personaMap.get(nextPersonaId);
+    if (!nextPersona) {
+      return new Response("No persona available", { status: 500 });
+    }
+    stablePrefix =
+      getCachedPrompt(id, nextPersonaId) ||
+      buildPersonaStablePrefix({
+        archetype: nextPersona.archetype as ArchetypeKey,
+        behaviorStyle: nextPersona.behaviorStyle as
+          | "gentle"
+          | "moderate"
+          | "aggressive",
+      });
+    setCachedPrompt(id, nextPersonaId, stablePrefix);
+    patternMemory = getCachedPrompt(id, PATTERN_MEMORY_CACHE_KEY) || "";
     claims = cached.claims;
     scenarioLabel = cached.scenarioLabel;
     roomContext = cached.roomContext;
     experience = cached.experience;
     drillTarget = cached.drillTarget;
     personaIds = cached.personaIds;
+    personaMap = cached.personaMap;
   } else {
     // ─── CACHE MISS: full DB query + prompt building ────────────────
     const session = await db.session.findUnique({
@@ -190,6 +223,7 @@ export async function POST(
     // Determine next persona
     if (body.forcedPersonaId) {
       nextPersonaId = body.forcedPersonaId;
+      nextPersona = session.personas.find((p) => p.id === nextPersonaId);
     } else {
       const lastPersonaMsg = [...messagesSinceLastUser]
         .reverse()
@@ -222,20 +256,7 @@ export async function POST(
     experience = session.experience;
     drillTarget = session.drillTarget;
 
-    const experienceContext =
-      experience === "defense"
-        ? "\n## EXPERIENCE: DEFENSE\nThe user has ALREADY presented their material. The transcript above includes their FULL presentation (the first User: message).\n\nYour FIRST question MUST reference something specific they said in their presentation. Do NOT ask a generic question. Quote or paraphrase a specific claim, number, or statement from their presentation, then challenge it.\n\nBad: 'What evidence supports your central claim?'\nGood: 'You said the market is \"poised for 40% growth\" — what's your source for that number?'\n\nIf the presentation had a clear weakness (hedge, vague number, unsupported claim), attack that FIRST."
-        : experience === "boardroom"
-        ? "\n## EXPERIENCE: BOARDROOM\nYou are in a high-pressure boardroom. The user is presenting and you WILL interrupt mid-speech when they show weakness. Your interrupts should feel SHARP and AGGRESSIVE — 'Wait, where did that number come from?' not 'What evidence supports your claim?' Cut them off. Don't let them finish the sentence if the claim is weak. After your interrupt, the user will answer briefly, then RESUME presenting. Stay hostile."
-        : experience === "drill"
-        ? buildDrillPrompt((drillTarget as any) || "hedging")
-        : "";
-
-    const otherPersonas = session.personas
-      .filter((p) => p.id !== nextPersonaId)
-      .map((p) => ({ name: p.name, archetype: p.archetype as ArchetypeKey }));
-
-    const patternMemory = buildPatternMemoryContext({
+    patternMemory = buildPatternMemoryContext({
       patterns: session.user.patternMemories.map((p) => ({
         tag: p.tag,
         description: p.description,
@@ -251,19 +272,15 @@ export async function POST(
         })),
     });
 
-    systemPrompt = buildPersonaSystemPrompt({
+    stablePrefix = buildPersonaStablePrefix({
       archetype: nextPersona.archetype as ArchetypeKey,
       behaviorStyle: nextPersona.behaviorStyle as "gentle" | "moderate" | "aggressive",
-      scenarioLabel,
-      claims,
-      patternMemory: patternMemory + experienceContext,
-      otherPersonas,
     });
 
     personaIds = session.personas.map((p) => p.id);
 
     // Build the persona map for caching
-    const personaMap = new Map();
+    personaMap = new Map();
     for (const p of session.personas) {
       personaMap.set(p.id, {
         id: p.id,
@@ -276,7 +293,7 @@ export async function POST(
 
     // Cache everything
     setCachedSession(id, {
-      systemPrompt,
+      systemPrompt: stablePrefix,
       personaIds,
       personaMap,
       claims,
@@ -286,7 +303,8 @@ export async function POST(
       drillTarget,
       coachingEnabled: session.coachingEnabled,
     });
-    setCachedPrompt(id, nextPersonaId, systemPrompt);
+    setCachedPrompt(id, nextPersonaId, stablePrefix);
+    setCachedPrompt(id, PATTERN_MEMORY_CACHE_KEY, patternMemory);
   }
 
   // ─── DETERMINISTIC DRILL INTERRUPT (skip the LLM entirely) ────────────
@@ -387,19 +405,26 @@ export async function POST(
     select: { role: true, personaId: true, content: true, type: true },
   });
 
-  const transcriptStr = messages
-    .map((m) => {
-      if (m.role === "user") return `User: ${m.content}`;
-      if (m.role === "persona") {
-        const p = cached?.personaMap.get(m.personaId || "");
-        return `${p?.name || "Panelist"}: ${m.content}`;
-      }
-      return null;
-    })
-    .filter(Boolean)
-    .join("\n");
+  const conversationHistory: Array<{
+    role: "user" | "assistant";
+    content: string;
+  }> = [];
+  for (const message of messages) {
+    if (message.role === "user") {
+      conversationHistory.push({ role: "user", content: message.content });
+    } else if (message.role === "persona") {
+      const persona = personaMap.get(message.personaId || "");
+      conversationHistory.push({
+        role: "assistant",
+        content: `${persona?.name || "Panelist"}: ${message.content}`,
+      });
+    }
+  }
 
-  let userMessageForLlm = body.userMessage;
+  let userMessageForLlm =
+    typeof body.userMessage === "string"
+      ? body.userMessage.trim().slice(0, 5000)
+      : "";
   if (!userMessageForLlm) {
     const lastUserMsg = [...messages].reverse().find((m) => m.role === "user");
     userMessageForLlm = lastUserMsg?.content || "(User has not yet spoken.)";
@@ -426,16 +451,54 @@ export async function POST(
       ? buildDrillInterruptInstruction((drillTarget as DrillTarget) || "hedging")
       : "";
 
-  const userPrompt = `# CONVERSATION SO FAR
-${transcriptStr || "(Session just started.)"}
-
-# WHAT THE USER JUST SAID
-${userMessageForLlm}
-${interruptInstruction}
-${drillInterruptInstruction}
-${drillCleanInstruction}
-
-Respond with your JSON object. 1-2 sentences max. Strict JSON only.`;
+  const otherPersonas = [...personaMap.values()]
+    .filter((persona) => persona.id !== nextPersonaId)
+    .map((persona) => ({
+      name: persona.name,
+      archetype: persona.archetype as ArchetypeKey,
+    }));
+  const sessionRules = [
+    buildPersonaSessionRules({
+      scenarioLabel,
+      claims,
+      patternMemory,
+      otherPersonas,
+    }),
+    buildExperienceContext(experience, drillTarget),
+    interruptInstruction,
+    drillInterruptInstruction,
+    drillCleanInstruction,
+  ]
+    .filter((section) => section.trim().length > 0)
+    .join("\n\n");
+  const omittedHistory = conversationHistory.slice(
+    0,
+    Math.max(0, conversationHistory.length - MAX_RECENT_MESSAGES),
+  );
+  const rollingSummary = omittedHistory
+    .map(
+      (message) =>
+        `${message.role === "user" ? "User" : "Panelist"}: ${message.content}`,
+    )
+    .join("\n");
+  const context = buildPersonaContext({
+    stablePrefix,
+    sessionRules,
+    rollingSummary,
+    deterministicState: {
+      agitationAction: body.drillClean
+        ? "advance"
+        : body.isInterrupt
+          ? "interrupt"
+          : "continue",
+      drillClean: Boolean(body.drillClean),
+      drillTarget: experience === "drill" ? drillTarget || "hedging" : null,
+      experience,
+      isInterrupt: Boolean(body.isInterrupt),
+    },
+    history: conversationHistory,
+    newestUtterance: userMessageForLlm,
+  });
 
   // ─── 4. Stream the response with sentence-level TTS pipelining ────
   const encoder = new TextEncoder();
@@ -470,7 +533,10 @@ Respond with your JSON object. 1-2 sentences max. Strict JSON only.`;
         let pendingTTS: Promise<void> | null = null;
 
         // Stream tokens from OpenRouter
-        for await (const token of streamPersonaResponse(systemPrompt, userPrompt)) {
+        for await (const token of streamPersonaResponse(
+          context.systemPrompt,
+          context.userPrompt
+        )) {
           fullText += token.content;
 
           // Extract partial content from the streaming JSON
@@ -629,4 +695,26 @@ function safeParse<T>(s: string, fallback: T): T {
   } catch {
     return fallback;
   }
+}
+
+function buildExperienceContext(
+  experience: string,
+  drillTarget: string | null,
+): string {
+  if (experience === "defense") {
+    return `# EXPERIENCE: DEFENSE
+The user has already presented their material. Your first question must quote or paraphrase a specific claim, number, or statement from that presentation, then challenge it. Never open with a generic question. Attack a clear hedge, vague number, or unsupported claim first.`;
+  }
+
+  if (experience === "boardroom") {
+    return `# EXPERIENCE: BOARDROOM
+This is a high-pressure boardroom. Interrupt mid-speech when the user shows weakness. Interruptions must be sharp and aggressive: cut them off, challenge the specific weakness, let them answer briefly, then let them resume presenting.`;
+  }
+
+  if (experience === "drill") {
+    return buildDrillPrompt((drillTarget as DrillTarget) || "hedging");
+  }
+
+  return `# EXPERIENCE: OPEN SPAR
+Run direct conversational Q&A. Ask one focused challenge, listen to the answer, and probe the next weakness.`;
 }
