@@ -2,17 +2,14 @@ export const MAX_CONTEXT_TOKENS = 1_800;
 export const MAX_ROLLING_SUMMARY_TOKENS = 250;
 export const MAX_RECENT_MESSAGES = 6;
 
+const SUMMARY_OMISSION_MARKER = "[Earlier context omitted.]";
+
 export type PersonaContextRole = "system" | "user" | "assistant";
 
 export interface PersonaContextMessage {
   role: PersonaContextRole;
   content: string;
-  section?:
-    | "stable-prefix"
-    | "session-rules"
-    | "rolling-summary"
-    | "deterministic-state"
-    | "history";
+  section?: "stable-prefix" | "dynamic-context";
 }
 
 export interface PersonaConversationMessage {
@@ -73,7 +70,7 @@ export function estimateInputTokens(
 export function buildPersonaContext(
   input: BuildPersonaContextInput,
 ): PersonaContext {
-  let rollingSummary = truncateToEstimatedTokens(
+  let rollingSummary = truncateSummaryToEstimatedTokens(
     input.rollingSummary,
     MAX_ROLLING_SUMMARY_TOKENS,
   );
@@ -154,18 +151,10 @@ function selectRecentMessages(
     finalIndex >= 0 &&
     history[finalIndex].role === "user" &&
     history[finalIndex].content === newestUtterance;
-
-  const withoutDuplicateNewest = history.filter((message, index) => {
-    if (message.role !== "user" || message.content !== newestUtterance) {
-      return true;
-    }
-    return finalIsNewest && index === finalIndex;
-  });
-
   const withNewest = finalIsNewest
-    ? withoutDuplicateNewest
+    ? [...history]
     : [
-        ...withoutDuplicateNewest,
+        ...history,
         { role: "user" as const, content: newestUtterance },
       ];
 
@@ -178,39 +167,6 @@ function assembleContext(
   rollingSummary: string,
   recentMessages: PersonaConversationMessage[],
 ): PersonaContext {
-  const messages: PersonaContextMessage[] = [
-    {
-      role: "system",
-      content: input.stablePrefix,
-      section: "stable-prefix",
-    },
-    {
-      role: "system",
-      content: input.sessionRules,
-      section: "session-rules",
-    },
-  ];
-
-  if (rollingSummary.length > 0) {
-    messages.push({
-      role: "system",
-      content: rollingSummary,
-      section: "rolling-summary",
-    });
-  }
-
-  messages.push({
-    role: "system",
-    content: deterministicState,
-    section: "deterministic-state",
-  });
-  messages.push(
-    ...recentMessages.map((message) => ({
-      ...message,
-      section: "history" as const,
-    })),
-  );
-
   const systemPrompt = input.stablePrefix;
   const userPrompt = renderDynamicPrompt(
     input.sessionRules,
@@ -218,13 +174,22 @@ function assembleContext(
     deterministicState,
     recentMessages,
   );
+  const messages: PersonaContextMessage[] = [
+    {
+      role: "system",
+      content: systemPrompt,
+      section: "stable-prefix",
+    },
+    {
+      role: "user",
+      content: userPrompt,
+      section: "dynamic-context",
+    },
+  ];
   const cacheablePrefixEstimatedTokens = estimateInputTokens([
     { content: systemPrompt },
   ]);
-  const totalEstimatedTokens = estimateInputTokens([
-    { content: systemPrompt },
-    { content: userPrompt },
-  ]);
+  const totalEstimatedTokens = estimateInputTokens(messages);
 
   return {
     stablePrefix: input.stablePrefix,
@@ -270,11 +235,49 @@ function renderDynamicPrompt(
   return sections.join("\n\n");
 }
 
-function truncateToEstimatedTokens(value: string, maxTokens: number): string {
+function truncateSummaryToEstimatedTokens(
+  value: string,
+  maxTokens: number,
+): string {
   const maxCharacters = Math.floor(maxTokens * 3.5);
-  if (value.length <= maxCharacters) return value;
-  if (maxCharacters <= 0) return "";
-  return `${value.slice(0, maxCharacters - 1).trimEnd()}\u2026`;
+  return truncateSummaryToCharacters(value, maxCharacters);
+}
+
+function truncateSummaryToCharacters(
+  value: string,
+  maxCharacters: number,
+): string {
+  const normalized = value.trim();
+  if (normalized.length <= maxCharacters) return normalized;
+  if (maxCharacters < SUMMARY_OMISSION_MARKER.length) return "";
+
+  const source = normalized.endsWith(SUMMARY_OMISSION_MARKER)
+    ? normalized
+        .slice(0, -SUMMARY_OMISSION_MARKER.length)
+        .trimEnd()
+    : normalized;
+  const contentLimit =
+    maxCharacters - SUMMARY_OMISSION_MARKER.length - 1;
+  let boundary = 0;
+
+  for (let index = Math.min(contentLimit, source.length); index > 0; index--) {
+    const previous = source[index - 1];
+    const next = source[index];
+    if (previous === "\n") {
+      boundary = index - 1;
+      break;
+    }
+    if (
+      (previous === "." || previous === "!" || previous === "?") &&
+      (next === undefined || /\s/.test(next))
+    ) {
+      boundary = index;
+      break;
+    }
+  }
+
+  if (boundary === 0) return SUMMARY_OMISSION_MARKER;
+  return `${source.slice(0, boundary).trimEnd()} ${SUMMARY_OMISSION_MARKER}`;
 }
 
 function longestSummaryWithinBudget(
@@ -288,7 +291,7 @@ function longestSummaryWithinBudget(
 
   while (low < high) {
     const midpoint = Math.ceil((low + high) / 2);
-    const candidate = summary.slice(0, midpoint);
+    const candidate = truncateSummaryToCharacters(summary, midpoint);
     const context = assembleContext(
       input,
       deterministicState,
@@ -302,7 +305,7 @@ function longestSummaryWithinBudget(
     }
   }
 
-  return summary.slice(0, low).trimEnd();
+  return truncateSummaryToCharacters(summary, low);
 }
 
 function serializeDeterministicState(

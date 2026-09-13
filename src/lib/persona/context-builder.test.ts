@@ -44,10 +44,10 @@ describe("buildPersonaContext", () => {
       ],
     });
 
-    expect(new TextEncoder().encode(first.stablePrefix)).toEqual(
-      new TextEncoder().encode(second.stablePrefix),
+    expect(new TextEncoder().encode(first.systemPrompt)).toEqual(
+      new TextEncoder().encode(second.systemPrompt),
     );
-    expect(first.stablePrefix).toBe(baseInput.stablePrefix);
+    expect(first.systemPrompt).toBe(baseInput.stablePrefix);
   });
 
   test("caps the rolling summary and retains only the newest six messages", () => {
@@ -75,6 +75,32 @@ describe("buildPersonaContext", () => {
     ]);
   });
 
+  test("drops an overlong factual fragment instead of emitting a partial value", () => {
+    const context = buildPersonaContext({
+      ...baseInput,
+      rollingSummary: `Earlier decision is final. ${"x".repeat(
+        850,
+      )} Approved budget: $1000000.`,
+      history: [],
+    });
+
+    expect(context.rollingSummary).toBe(
+      "Earlier decision is final. [Earlier context omitted.]",
+    );
+    expect(context.rollingSummary).not.toContain("$1");
+  });
+
+  test("never leaves a lone surrogate when truncating a rolling summary", () => {
+    const context = buildPersonaContext({
+      ...baseInput,
+      rollingSummary: `${"x".repeat(873)}😀 Corrected forecast is 12%.`,
+      history: [],
+    });
+
+    expect(context.rollingSummary).toBe("[Earlier context omitted.]");
+    expect(context.rollingSummary.isWellFormed()).toBe(true);
+  });
+
   test("includes the newest utterance exactly once when history already ends with it", () => {
     const context = buildPersonaContext({
       ...baseInput,
@@ -84,7 +110,7 @@ describe("buildPersonaContext", () => {
       ],
     });
 
-    const occurrences = context.messages.filter(
+    const occurrences = context.recentMessages.filter(
       (message) => message.content === baseInput.newestUtterance,
     );
 
@@ -95,6 +121,24 @@ describe("buildPersonaContext", () => {
     });
   });
 
+  test("preserves an earlier legitimate reply that matches the newest text", () => {
+    const context = buildPersonaContext({
+      ...baseInput,
+      newestUtterance: "yes",
+      history: [
+        { role: "user", content: "yes" },
+        { role: "assistant", content: "Can you cite the source?" },
+        { role: "user", content: "yes" },
+      ],
+    });
+
+    expect(context.recentMessages).toEqual([
+      { role: "user", content: "yes" },
+      { role: "assistant", content: "Can you cite the source?" },
+      { role: "user", content: "yes" },
+    ]);
+  });
+
   test("appends the newest utterance once when it is not the final history item", () => {
     const context = buildPersonaContext({
       ...baseInput,
@@ -102,7 +146,7 @@ describe("buildPersonaContext", () => {
     });
 
     expect(
-      context.messages.filter(
+      context.recentMessages.filter(
         (message) => message.content === baseInput.newestUtterance,
       ),
     ).toHaveLength(1);
@@ -137,7 +181,7 @@ describe("buildPersonaContext", () => {
     ]);
   });
 
-  test("keeps deterministic Drill state in a system section before prose history", () => {
+  test("keeps deterministic Drill state in dynamic context before prose history", () => {
     const context = buildPersonaContext({
       ...baseInput,
       deterministicState: {
@@ -147,18 +191,10 @@ describe("buildPersonaContext", () => {
       },
       history: [{ role: "assistant", content: "Defend the forecast." }],
     });
-    const stateIndex = context.messages.findIndex(
-      (message) => message.section === "deterministic-state",
-    );
-    const historyIndex = context.messages.findIndex(
-      (message) => message.section === "history",
-    );
+    const stateIndex = context.userPrompt.indexOf("# DETERMINISTIC STATE");
+    const historyIndex = context.userPrompt.indexOf("# RECENT CONVERSATION");
 
-    expect(context.messages[stateIndex]).toMatchObject({
-      role: "system",
-      section: "deterministic-state",
-    });
-    expect(context.messages[stateIndex].content).toContain(
+    expect(context.userPrompt).toContain(
       '"agitationAction":"advance"',
     );
     expect(stateIndex).toBeLessThan(historyIndex);
@@ -167,6 +203,26 @@ describe("buildPersonaContext", () => {
         message.content.includes("agitationAction"),
       ),
     ).toBe(false);
+  });
+
+  test("reports the exact two-message payload sent to the provider", () => {
+    const context = buildPersonaContext({
+      ...baseInput,
+      history: [{ role: "assistant", content: "Why October?" }],
+    });
+
+    expect(context.messages).toEqual([
+      {
+        role: "system",
+        content: context.systemPrompt,
+        section: "stable-prefix",
+      },
+      {
+        role: "user",
+        content: context.userPrompt,
+        section: "dynamic-context",
+      },
+    ]);
   });
 
   test("returns cacheable-prefix and total estimates for the actual prompts", () => {
@@ -181,10 +237,7 @@ describe("buildPersonaContext", () => {
       ]),
     );
     expect(context.totalEstimatedTokens).toBe(
-      estimateInputTokens([
-        { role: "system", content: context.systemPrompt },
-        { role: "user", content: context.userPrompt },
-      ]),
+      estimateInputTokens(context.messages),
     );
   });
 

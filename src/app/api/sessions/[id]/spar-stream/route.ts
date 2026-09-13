@@ -17,6 +17,7 @@ import {
 import { buildPatternMemoryContext } from "@/lib/llm";
 import {
   MAX_RECENT_MESSAGES,
+  MAX_ROLLING_SUMMARY_TOKENS,
   buildPersonaContext,
 } from "@/lib/persona/context-builder";
 import { generatePersonaAudio } from "@/lib/voice";
@@ -475,13 +476,8 @@ export async function POST(
     0,
     Math.max(0, conversationHistory.length - MAX_RECENT_MESSAGES),
   );
-  const rollingSummary = omittedHistory
-    .map(
-      (message) =>
-        `${message.role === "user" ? "User" : "Panelist"}: ${message.content}`,
-    )
-    .join("\n");
-  const context = buildPersonaContext({
+  const rollingSummary = buildRollingSummary(omittedHistory);
+  const contextInput = {
     stablePrefix,
     sessionRules,
     rollingSummary,
@@ -498,7 +494,7 @@ export async function POST(
     },
     history: conversationHistory,
     newestUtterance: userMessageForLlm,
-  });
+  } as const;
 
   // ─── 4. Stream the response with sentence-level TTS pipelining ────
   const encoder = new TextEncoder();
@@ -526,6 +522,7 @@ export async function POST(
       });
 
       try {
+        const context = buildPersonaContext(contextInput);
         let fullText = "";
         let accumulatedContent = "";
         let sentenceIndex = 0;
@@ -717,4 +714,37 @@ This is a high-pressure boardroom. Interrupt mid-speech when the user shows weak
 
   return `# EXPERIENCE: OPEN SPAR
 Run direct conversational Q&A. Ask one focused challenge, listen to the answer, and probe the next weakness.`;
+}
+
+function buildRollingSummary(
+  history: ReadonlyArray<{
+    role: "user" | "assistant";
+    content: string;
+  }>,
+): string {
+  const lines = history.map(
+    (message) =>
+      `${message.role === "user" ? "User" : "Panelist"}: ${message.content}`,
+  );
+  const completeSummary = lines.join("\n");
+  const maxCharacters = Math.floor(MAX_ROLLING_SUMMARY_TOKENS * 3.5);
+  if (completeSummary.length <= maxCharacters) return completeSummary;
+
+  const marker = "[Earlier conversation omitted.]";
+  const contentLimit = maxCharacters - marker.length - 1;
+  const retainedLines: string[] = [];
+  let retainedLength = 0;
+
+  for (let index = lines.length - 1; index >= 0; index--) {
+    const separatorLength = retainedLines.length > 0 ? 1 : 0;
+    const nextLength =
+      retainedLength + separatorLength + lines[index].length;
+    if (nextLength > contentLimit) break;
+    retainedLines.unshift(lines[index]);
+    retainedLength = nextLength;
+  }
+
+  return retainedLines.length > 0
+    ? `${marker}\n${retainedLines.join("\n")}`
+    : marker;
 }
