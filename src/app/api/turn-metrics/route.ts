@@ -26,6 +26,37 @@ interface TurnMetricDatabase {
 
 const metricDb = db as unknown as TurnMetricDatabase;
 
+function metricFields(record: TurnMetricRecord): TurnMetricRecord {
+  return {
+    turnId: record.turnId,
+    sessionId: record.sessionId,
+    traceId: record.traceId,
+    experience: record.experience,
+    persona: record.persona,
+    transcriptConfidence: record.transcriptConfidence,
+    selectedRegion: record.selectedRegion,
+    transcriptFinalizedOffsetMs: record.transcriptFinalizedOffsetMs,
+    serverGenerationStartedOffsetMs:
+      record.serverGenerationStartedOffsetMs,
+    firstTokenOffsetMs: record.firstTokenOffsetMs,
+    firstPhraseOffsetMs: record.firstPhraseOffsetMs,
+    firstTtsByteOffsetMs: record.firstTtsByteOffsetMs,
+    firstPlaybackOffsetMs: record.firstPlaybackOffsetMs,
+    cancellationOffsetMs: record.cancellationOffsetMs,
+    generationProvider: record.generationProvider,
+    generationModel: record.generationModel,
+    ttsProvider: record.ttsProvider,
+    ttsModel: record.ttsModel,
+    inputTokens: record.inputTokens,
+    outputTokens: record.outputTokens,
+    cachedTokens: record.cachedTokens,
+    estimatedCostUsd: record.estimatedCostUsd,
+    fallbackReason: record.fallbackReason,
+    cancelled: record.cancelled,
+    orderingFailureCount: record.orderingFailureCount,
+  };
+}
+
 function jsonResponse(body: unknown, status: number): Response {
   return Response.json(body, {
     status,
@@ -59,14 +90,16 @@ export async function POST(request: Request): Promise<Response> {
         return false;
       }
 
-      const next = applyMetricEvent(existing, parsed.data);
+      const current = existing === null ? null : metricFields(existing);
+      const next = applyMetricEvent(current, parsed.data);
+      const data = metricFields(next);
 
       if (existing === null) {
-        await transaction.turnMetric.create({ data: next });
+        await transaction.turnMetric.create({ data });
       } else {
         await transaction.turnMetric.update({
           where: { turnId: next.turnId },
-          data: next,
+          data,
         });
       }
 

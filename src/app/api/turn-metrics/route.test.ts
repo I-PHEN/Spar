@@ -131,6 +131,31 @@ describe("POST /api/turn-metrics", () => {
     });
   });
 
+  test("updates an existing turn without writing persistence metadata", async () => {
+    storedRecord = persistedRecord();
+
+    const response = await POST(
+      metricRequest({
+        type: "fallback",
+        turnId: "turn-1",
+        sessionId: "session-1",
+        reason: "groq-unavailable-before-speech",
+      }),
+    );
+    const update = turnMetric.update.mock.calls[0]?.[0] as {
+      data: Record<string, unknown>;
+    };
+
+    expect(response.status).toBe(202);
+    expect(await response.json()).toEqual({ accepted: true });
+    expect(update.data.fallbackReason).toBe(
+      "groq-unavailable-before-speech",
+    );
+    expect(update.data).not.toHaveProperty("id");
+    expect(update.data).not.toHaveProperty("createdAt");
+    expect(update.data).not.toHaveProperty("updatedAt");
+  });
+
   test("ignores an event when the persisted turn belongs to another session", async () => {
     storedRecord = persistedRecord({ sessionId: "session-existing" });
 
