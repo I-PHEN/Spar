@@ -2,6 +2,7 @@
 
 import { ArrowRight, CornerDownRight } from "lucide-react";
 import { useState } from "react";
+import { CURRENT_VOICE_FALLBACKS } from "@/architecture/voice-pipeline";
 import { cn } from "@/lib/utils";
 
 type PipelineMode = "current" | "target";
@@ -224,21 +225,20 @@ export function VoicePipeline() {
 
         <section className="rounded-xl border border-border bg-card/45 p-5">
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-            Fallback edges
+            Fallback edges · Current behavior
           </p>
           <ul className="mt-4 space-y-3 text-xs leading-5 text-muted-foreground">
-            <li className="flex gap-2">
-              <CornerDownRight className="mt-0.5 size-3.5 shrink-0 text-foreground/65" aria-hidden="true" />
-              <span><strong className="font-medium text-foreground/85">STT unavailable:</strong> continue with typed input.</span>
-            </li>
-            <li className="flex gap-2">
-              <CornerDownRight className="mt-0.5 size-3.5 shrink-0 text-foreground/65" aria-hidden="true" />
-              <span><strong className="font-medium text-foreground/85">Deepgram fails:</strong> current server code tries the legacy z-ai voice path.</span>
-            </li>
-            <li className="flex gap-2">
-              <CornerDownRight className="mt-0.5 size-3.5 shrink-0 text-foreground/65" aria-hidden="true" />
-              <span><strong className="font-medium text-foreground/85">Voice fallback fails:</strong> the text response remains the durable output.</span>
-            </li>
+            {CURRENT_VOICE_FALLBACKS.map((fallback) => (
+              <li key={fallback.trigger} className="flex gap-2">
+                <CornerDownRight className="mt-0.5 size-3.5 shrink-0 text-foreground/65" aria-hidden="true" />
+                <span>
+                  <strong className="font-medium text-foreground/85">
+                    {fallback.label}:
+                  </strong>{" "}
+                  {fallback.detail}
+                </span>
+              </li>
+            ))}
           </ul>
         </section>
       </div>
