@@ -77,10 +77,10 @@ export function ComponentDetail({ node }: ComponentDetailProps) {
           </section>
         </div>
 
-        <section className="px-5 py-5 sm:px-6">
-          <h3 className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+        <details className="px-5 py-5 sm:px-6">
+          <summary className="cursor-pointer text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground marker:text-foreground/55">
             Important files
-          </h3>
+          </summary>
           <ul className="mt-3 space-y-2">
             {node.files.map((file) => (
               <li key={file}>
@@ -90,7 +90,7 @@ export function ComponentDetail({ node }: ComponentDetailProps) {
               </li>
             ))}
           </ul>
-        </section>
+        </details>
 
         <section className="px-5 py-5 sm:px-6">
           <h3 className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">

@@ -1,6 +1,13 @@
 # Architecture Explorer maintenance
 
-`src/architecture/manifest.ts` is the source of truth for the Architecture Explorer at `/architecture`. Keep it synchronized whenever a change affects an experience, session route, voice provider, persistence model, turn state, or debrief flow.
+The Architecture Explorer at `/architecture` is curated from several static sources. Keep all affected sources synchronized whenever architecture changes:
+
+- `src/architecture/manifest.ts` defines system-map nodes, edges, tours, experience step summaries, and critical routes.
+- `src/architecture/experience-flows.ts` defines the detailed experience narratives, execution boundaries, stored results, and failure behavior.
+- `src/architecture/voice-pipeline.ts` defines current voice fallback facts, while `src/components/architecture/voice-pipeline.tsx` defines the current and target pipeline narratives and stages.
+- `src/components/architecture/data-memory.tsx` defines the persistence entities, cardinalities, ownership boundaries, and relationship descriptions.
+
+Changes to an experience, session route, voice provider or fallback, persistence model, turn state, or debrief flow must update every affected source above in the same change.
 
 ## Adding or changing a node
 

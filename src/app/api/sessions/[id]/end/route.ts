@@ -10,6 +10,7 @@
 //   7. Returns the debrief
 
 import { NextRequest, NextResponse } from "next/server";
+import type { SessionSummary } from "@prisma/client";
 import { db } from "@/lib/db";
 import {
   generateDebrief,
@@ -24,7 +25,19 @@ import {
   aggregateTelemetry,
   computeTurnTelemetry,
 } from "@/lib/telemetry";
-import type { ArchetypeKey, ExtractedClaim } from "@/lib/types";
+import type {
+  ArchetypeKey,
+  ExtractedClaim,
+  TelemetrySnapshot,
+} from "@/lib/types";
+
+interface SkillScoreValues {
+  clarity: number;
+  recovery: number;
+  concision: number;
+  presence: number;
+  evidence: number;
+}
 
 export async function POST(
   _req: NextRequest,
@@ -38,6 +51,7 @@ export async function POST(
       personas: { orderBy: { seatOrder: "asc" } },
       messages: { orderBy: { createdAt: "asc" } },
       summary: true,
+      skills: true,
       user: {
         include: {
           patternMemories: { orderBy: { lastSeen: "desc" }, take: 10 },
@@ -57,11 +71,23 @@ export async function POST(
   }
 
   if (session.status === "debriefed" && session.summary) {
-    // Already debriefed — return existing.
-    return NextResponse.json({
-      debrief: session.summary,
+    const presentationAnalysis = session.presentationAnalysis
+      ? safeParse<{ coachRead?: unknown }>(session.presentationAnalysis, {})
+      : {};
+
+    return NextResponse.json(buildEndResponse({
+      summary: session.summary,
+      presentationEvaluation: null,
+      coachRead:
+        typeof presentationAnalysis.coachRead === "string"
+          ? presentationAnalysis.coachRead
+          : null,
+      telemetry: session.telemetry
+        ? safeParse<TelemetrySnapshot | null>(session.telemetry, null)
+        : null,
+      skillSnapshot: session.skills,
       alreadyDebriefed: true,
-    });
+    }));
   }
 
   // Mark as ended.
@@ -432,11 +458,41 @@ export async function POST(
     },
   });
 
-  return NextResponse.json({
+  return NextResponse.json(buildEndResponse({
+    summary,
+    presentationEvaluation: debrief.presentationEvaluation || null,
+    coachRead: presentationSection?.analysis?.coachRead || null,
+    telemetry,
+    skillSnapshot: {
+      clarity: clarityScore,
+      recovery: recoveryScore,
+      concision: concisionScore,
+      presence: presenceScore,
+      evidence: evidenceScore,
+    },
+  }));
+}
+
+function buildEndResponse({
+  summary,
+  presentationEvaluation,
+  coachRead,
+  telemetry,
+  skillSnapshot,
+  alreadyDebriefed,
+}: {
+  summary: SessionSummary;
+  presentationEvaluation: string | null;
+  coachRead: string | null;
+  telemetry: TelemetrySnapshot | null;
+  skillSnapshot: SkillScoreValues | null;
+  alreadyDebriefed?: true;
+}) {
+  return {
     debrief: {
       momentDescription: summary.momentDescription,
-      presentationEvaluation: debrief.presentationEvaluation || null,
-      coachRead: presentationSection?.analysis?.coachRead || null,
+      presentationEvaluation,
+      coachRead,
       whatWentWell: safeParse<string[]>(summary.whatWentWell, []),
       thePattern: summary.thePattern,
       oneThingToPractice: summary.oneThingToPractice,
@@ -449,14 +505,17 @@ export async function POST(
       shareableSummary: summary.shareableSummary,
     },
     telemetry,
-    skillSnapshot: {
-      clarity: clarityScore,
-      recovery: recoveryScore,
-      concision: concisionScore,
-      presence: presenceScore,
-      evidence: evidenceScore,
-    },
-  });
+    skillSnapshot: skillSnapshot
+      ? {
+          clarity: skillSnapshot.clarity,
+          recovery: skillSnapshot.recovery,
+          concision: skillSnapshot.concision,
+          presence: skillSnapshot.presence,
+          evidence: skillSnapshot.evidence,
+        }
+      : null,
+    ...(alreadyDebriefed ? { alreadyDebriefed } : {}),
+  };
 }
 
 function clampScore(n: number): number {

@@ -8,9 +8,43 @@ const existingSummary = {
   whatWentWell: '["The stored strength"]',
   thePattern: "The stored pattern",
   oneThingToPractice: "The stored practice",
-  telemetryInsights: '{"pace":"stored"}',
+  telemetryInsights:
+    '{"pace":"Stored pace","fillers":"Stored fillers","recovery":"Stored recovery","evidence":"Stored evidence"}',
   shareableSummary: "The stored shareable summary",
   createdAt: new Date("2026-09-12T00:00:00.000Z"),
+};
+
+const existingTelemetry = {
+  userTurns: 1,
+  totalWords: 8,
+  avgWordsPerResponse: 8,
+  hedgeCount: 0,
+  hedgesPerResponse: 0,
+  avgResponseMs: 1200,
+  deflections: 0,
+  evidenceCitations: 1,
+  turns: [
+    {
+      turnIndex: 0,
+      wordCount: 8,
+      hedgeCount: 0,
+      responseMs: 1200,
+      answeredDirectly: true,
+      citedEvidence: true,
+    },
+  ],
+};
+
+const existingSkillSnapshot = {
+  id: "skills-existing",
+  userId: "user-1",
+  sessionId: "session-debriefed",
+  clarity: 91,
+  recovery: 82,
+  concision: 73,
+  presence: 64,
+  evidence: 55,
+  createdAt: new Date("2026-09-12T00:10:00.000Z"),
 };
 
 const sessionWithoutIncludedSummary = {
@@ -26,13 +60,14 @@ const sessionWithoutIncludedSummary = {
   materialTitle: null,
   roomContext: null,
   extractedClaims: null,
-  presentationAnalysis: null,
+  presentationAnalysis:
+    '{"strengths":[],"weakness":"","anticipatedAttack":"","coachRead":"The stored coach read"}',
   scenario: "custom",
   startedAt: new Date("2026-09-12T00:00:00.000Z"),
   endedAt: new Date("2026-09-12T00:10:00.000Z"),
   createdAt: new Date("2026-09-12T00:00:00.000Z"),
   updatedAt: new Date("2026-09-12T00:10:00.000Z"),
-  telemetry: null,
+  telemetry: JSON.stringify(existingTelemetry),
   messages: [],
   personas: [],
   user: {
@@ -49,9 +84,10 @@ const sessionWithoutIncludedSummary = {
 const db = {
   session: {
     findUnique: mock(
-      async (query: { include?: { summary?: boolean } }) => ({
+      async (query: { include?: { summary?: boolean; skills?: boolean } }) => ({
         ...sessionWithoutIncludedSummary,
         ...(query.include?.summary ? { summary: existingSummary } : {}),
+        ...(query.include?.skills ? { skills: existingSkillSnapshot } : {}),
       })
     ),
     update: mock(async () => ({})),
@@ -97,7 +133,7 @@ mock.module("@/lib/llm", () => ({
 
 const { POST } = await import("./route");
 
-test("a debriefed session returns its stored summary", async () => {
+test("a repeated end returns the normalized stored debrief contract", async () => {
   const response = await POST(
     new NextRequest("http://localhost/api/sessions/session-debriefed/end", {
       method: "POST",
@@ -108,8 +144,27 @@ test("a debriefed session returns its stored summary", async () => {
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual({
     debrief: {
-      ...existingSummary,
-      createdAt: existingSummary.createdAt.toISOString(),
+      momentDescription: "The stored moment",
+      presentationEvaluation: null,
+      coachRead: "The stored coach read",
+      whatWentWell: ["The stored strength"],
+      thePattern: "The stored pattern",
+      oneThingToPractice: "The stored practice",
+      telemetryInsights: {
+        pace: "Stored pace",
+        fillers: "Stored fillers",
+        recovery: "Stored recovery",
+        evidence: "Stored evidence",
+      },
+      shareableSummary: "The stored shareable summary",
+    },
+    telemetry: existingTelemetry,
+    skillSnapshot: {
+      clarity: 91,
+      recovery: 82,
+      concision: 73,
+      presence: 64,
+      evidence: 55,
     },
     alreadyDebriefed: true,
   });

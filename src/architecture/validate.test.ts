@@ -151,4 +151,58 @@ describe("architecture manifest", () => {
       },
     ]);
   });
+
+  test("keeps target generation behind the server API and its durable keys", () => {
+    const nodeById = Object.fromEntries(
+      architectureManifest.nodes.map((node) => [node.id, node]),
+    );
+
+    expect(nodeById["groq-target-generation"]).toMatchObject({
+      label: "Groq target generation",
+      layer: "provider",
+      inputs: [
+        "Persona prompt",
+        "Conversation messages",
+        "Server-side Groq API key",
+      ],
+    });
+    expect(nodeById["openrouter-live-generation"]).toMatchObject({
+      inputs: [
+        "Persona prompt",
+        "Conversation messages",
+        "Server-side OpenRouter API key",
+      ],
+    });
+    expect(
+      architectureManifest.edges.filter((edge) =>
+        edge.label.startsWith("target voice"),
+      ),
+    ).toEqual([
+      {
+        from: "sparring-room",
+        to: "session-api",
+        label: "target voice path: sends turn through server API",
+      },
+      {
+        from: "session-api",
+        to: "groq-target-generation",
+        label: "target voice path: uses server-side Groq primary",
+      },
+      {
+        from: "session-api",
+        to: "openrouter-live-generation",
+        label: "target voice fallback: uses OpenRouter before speech starts",
+      },
+    ]);
+  });
+
+  test("describes unsupported Web Speech as blocking room entry", () => {
+    const webSpeech = architectureManifest.nodes.find(
+      (node) => node.id === "web-speech-recognition",
+    );
+
+    expect(webSpeech?.failure).toBe(
+      "Unsupported browsers are blocked from entering the Sparring Room and directed to switch to Chrome or Edge or return home.",
+    );
+  });
 });
