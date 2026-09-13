@@ -280,6 +280,42 @@ function truncateSummaryToCharacters(
   return `${source.slice(0, boundary).trimEnd()} ${SUMMARY_OMISSION_MARKER}`;
 }
 
+function truncateSummaryTailToCharacters(
+  value: string,
+  maxCharacters: number,
+): string {
+  const normalized = value.trim();
+  if (normalized.length <= maxCharacters) return normalized;
+  if (maxCharacters < SUMMARY_OMISSION_MARKER.length) return "";
+
+  const contentLimit =
+    maxCharacters - SUMMARY_OMISSION_MARKER.length - 1;
+  const earliestBoundary = Math.max(0, normalized.length - contentLimit);
+  let boundary = -1;
+
+  for (let index = earliestBoundary; index < normalized.length; index++) {
+    const previous = normalized[index - 1];
+    const current = normalized[index];
+    if (index === 0 || previous === "\n") {
+      boundary = index;
+      break;
+    }
+    if (
+      (previous === "." || previous === "!" || previous === "?") &&
+      /\s/.test(current)
+    ) {
+      boundary = index;
+      break;
+    }
+  }
+
+  if (boundary < 0) return SUMMARY_OMISSION_MARKER;
+  const tail = normalized.slice(boundary).trimStart();
+  return tail.length > 0
+    ? `${SUMMARY_OMISSION_MARKER}\n${tail}`
+    : SUMMARY_OMISSION_MARKER;
+}
+
 function longestSummaryWithinBudget(
   input: BuildPersonaContextInput,
   deterministicState: string,
@@ -291,7 +327,7 @@ function longestSummaryWithinBudget(
 
   while (low < high) {
     const midpoint = Math.ceil((low + high) / 2);
-    const candidate = truncateSummaryToCharacters(summary, midpoint);
+    const candidate = truncateSummaryTailToCharacters(summary, midpoint);
     const context = assembleContext(
       input,
       deterministicState,
@@ -305,7 +341,7 @@ function longestSummaryWithinBudget(
     }
   }
 
-  return truncateSummaryToCharacters(summary, low);
+  return truncateSummaryTailToCharacters(summary, low);
 }
 
 function serializeDeterministicState(

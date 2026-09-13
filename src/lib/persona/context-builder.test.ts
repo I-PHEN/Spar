@@ -181,6 +181,30 @@ describe("buildPersonaContext", () => {
     ]);
   });
 
+  test("secondary budget trimming retains the newest complete correction", () => {
+    const newestCorrection = "Newest correction: approved budget is $900000.";
+    const context = buildPersonaContext({
+      ...baseInput,
+      stablePrefix: "i".repeat(5_600),
+      sessionRules: "Ask one direct question.",
+      rollingSummary: [
+        "[Earlier conversation omitted.]",
+        `Old omitted detail: ${"x".repeat(500)}.`,
+        newestCorrection,
+      ].join("\n"),
+      history: [],
+      newestUtterance: "Latest answer.",
+    });
+
+    expect(context.rollingSummary).toContain(newestCorrection);
+    expect(
+      context.rollingSummary.startsWith("[Earlier context omitted.]"),
+    ).toBe(true);
+    expect(context.rollingSummary.isWellFormed()).toBe(true);
+    expect(context.rollingSummaryEstimatedTokens).toBeLessThanOrEqual(250);
+    expect(context.totalEstimatedTokens).toBeLessThanOrEqual(1_800);
+  });
+
   test("keeps deterministic Drill state in dynamic context before prose history", () => {
     const context = buildPersonaContext({
       ...baseInput,
