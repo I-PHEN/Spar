@@ -77,7 +77,7 @@ export async function POST(
   });
 
   // Analyze the presentation (only if coaching is enabled)
-  let coachRead = null;
+  let coachRead: Awaited<ReturnType<typeof analyzePresentation>> | null = null;
   if (session.coachingEnabled) {
     const claims: ExtractedClaim[] = session.extractedClaims
       ? safeParse(session.extractedClaims, [])

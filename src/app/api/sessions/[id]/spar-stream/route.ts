@@ -73,7 +73,7 @@ export async function POST(
     name: string;
     behaviorStyle: string;
     seatOrder: number;
-  };
+  } | undefined;
   let systemPrompt: string;
   let claims: ExtractedClaim[];
   let scenarioLabel: string;

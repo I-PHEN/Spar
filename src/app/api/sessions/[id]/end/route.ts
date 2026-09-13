@@ -37,6 +37,7 @@ export async function POST(
     include: {
       personas: { orderBy: { seatOrder: "asc" } },
       messages: { orderBy: { createdAt: "asc" } },
+      summary: true,
       user: {
         include: {
           patternMemories: { orderBy: { lastSeen: "desc" }, take: 10 },
@@ -83,7 +84,7 @@ export async function POST(
     const userMsg = userMessages[i];
     // Find the persona message that preceded this user message.
     const userMsgIdx = messages.indexOf(userMsg);
-    let precedingPersonaMsg = null;
+    let precedingPersonaMsg: (typeof messages)[number] | null = null;
     for (let j = userMsgIdx - 1; j >= 0; j--) {
       if (messages[j].role === "persona") {
         precedingPersonaMsg = messages[j];
@@ -186,7 +187,9 @@ export async function POST(
         .join("\n");
 
       // Load the stored presentation analysis
-      let presentationAnalysis = null;
+      let presentationAnalysis: NonNullable<
+        GenerateDebriefParams["presentationSection"]
+      >["analysis"] = null;
       if (session.presentationAnalysis) {
         try {
           presentationAnalysis = JSON.parse(session.presentationAnalysis);

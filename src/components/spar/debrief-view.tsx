@@ -88,7 +88,6 @@ export function DebriefView({
 
   useEffect(() => {
     let mounted = true;
-    let audioEl: HTMLAudioElement | null = null;
     (async () => {
       try {
         const res = await fetch(`/api/sessions/${sessionId}/debrief`);
@@ -126,9 +125,6 @@ export function DebriefView({
     })();
     return () => {
       mounted = false;
-      if (audioEl) {
-        audioEl.pause();
-      }
       // Revoke object URLs to free memory
       clips.forEach((c) => URL.revokeObjectURL(c.url));
     };

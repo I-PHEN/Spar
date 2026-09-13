@@ -343,6 +343,7 @@ interface GenerateDebriefParams {
     label: string;
     totalChallenges: number;
     resolvedChallenges: number;
+    unresolvedChallenges: number;
     attempt1Clean: number;
     attempt2Clean: number;
     attempt3Plus: number;
