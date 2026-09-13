@@ -62,11 +62,12 @@ model Session {
   // Live telemetry computed during the session (JSON): hedgeCount, responseTimes, wordCounts, etc.
   telemetry       String?
 
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  personas  SessionPersona[]
-  messages  SessionMessage[]
-  summary   SessionSummary?
-  skills    SkillSnapshot?
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  personas    SessionPersona[]
+  messages    SessionMessage[]
+  summary     SessionSummary?
+  skills      SkillSnapshot?
+  turnMetrics TurnMetric[]
 }
 
 /// A configured persona in a specific session.
@@ -157,4 +158,48 @@ model SkillSnapshot {
 
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+/// Per-turn performance telemetry for the live voice pipeline.
+/// Millisecond values are monotonic offsets captured within one browser turn;
+/// wall-clock timestamps are reserved for persistence metadata.
+model TurnMetric {
+  id        String   @id @default(cuid())
+  turnId    String   @unique
+  sessionId String
+
+  traceId              String?
+  experience           String?
+  persona              String?
+  transcriptConfidence Float?
+  selectedRegion       String?
+
+  transcriptFinalizedOffsetMs     Float?
+  serverGenerationStartedOffsetMs Float?
+  firstTokenOffsetMs               Float?
+  firstPhraseOffsetMs              Float?
+  firstTtsByteOffsetMs             Float?
+  firstPlaybackOffsetMs            Float?
+  cancellationOffsetMs             Float?
+
+  generationProvider String?
+  generationModel    String?
+  ttsProvider        String?
+  ttsModel           String?
+
+  inputTokens          Int?
+  outputTokens         Int?
+  cachedTokens         Int?
+  estimatedCostUsd     Float?
+  fallbackReason       String?
+  cancelled            Boolean @default(false)
+  orderingFailureCount Int  @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([updatedAt])
 }

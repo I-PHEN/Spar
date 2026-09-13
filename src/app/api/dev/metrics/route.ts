@@ -1,12 +1,22 @@
 import { isArchitectureEnabled } from "@/architecture/access";
+import { db } from "@/lib/db";
 import {
-  summarizeMetrics,
-  type TurnMetricView,
-} from "@/architecture/metrics";
+  summarizeTurnMetrics,
+  type TurnMetricRecord,
+} from "@/lib/observability/turn-metrics";
 
 export const dynamic = "force-dynamic";
 
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
+
+const metricDb = db as unknown as {
+  turnMetric: {
+    findMany(args: {
+      orderBy: { updatedAt: "desc" };
+      take: number;
+    }): Promise<TurnMetricRecord[]>;
+  };
+};
 
 export async function GET() {
   if (!isArchitectureEnabled(process.env.NODE_ENV)) {
@@ -16,10 +26,21 @@ export async function GET() {
     });
   }
 
-  const turns: TurnMetricView[] = [];
+  try {
+    const turns = await metricDb.turnMetric.findMany({
+      orderBy: { updatedAt: "desc" },
+      take: 100,
+    });
+    const summary = summarizeTurnMetrics(turns);
 
-  return Response.json(
-    { turns, summary: summarizeMetrics(turns) },
-    { headers: NO_STORE_HEADERS },
-  );
+    return Response.json(
+      { turns, summary: { turnCount: turns.length, ...summary } },
+      { headers: NO_STORE_HEADERS },
+    );
+  } catch {
+    return Response.json(
+      { error: "Unable to read metrics." },
+      { status: 500, headers: NO_STORE_HEADERS },
+    );
+  }
 }
