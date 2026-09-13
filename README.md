@@ -76,6 +76,12 @@ bun run dev
 
 Open [http://localhost:3000](http://localhost:3000) in Chrome or Edge (Web Speech API requires Chromium-based browsers).
 
+## Development
+
+The Architecture Explorer is available during development at [http://localhost:3000/architecture](http://localhost:3000/architecture). It is the maintained map of Spar's implementation and its session flows.
+
+Changes to `ExperienceKey`, session routes, voice providers, persistence models, turn state, or debrief flow must update `src/architecture/manifest.ts`. See [`docs/architecture-maintenance.md`](docs/architecture-maintenance.md) for the content rules.
+
 ## How It Works
 
 ### The Agitation Engine
