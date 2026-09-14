@@ -11,9 +11,14 @@ export interface PhraseChunkerOptions {
   subsequentPhraseMaxWords?: number;
 }
 
+export interface PhraseChunkerFlushResult {
+  chunks: PhraseChunk[];
+  didFinalize: boolean;
+}
+
 export interface PhraseChunker {
   push(delta: string): PhraseChunk[];
-  flush(): PhraseChunk[];
+  flush(): PhraseChunkerFlushResult;
   cancel(): void;
 }
 
@@ -22,20 +27,17 @@ interface PhraseLimits {
   maxWords: number;
 }
 
-const ABBREVIATIONS = new Set([
-  "dr.",
-  "jr.",
-  "mr.",
-  "mrs.",
-  "ms.",
-  "prof.",
-  "sr.",
-  "st.",
-  "vs.",
-]);
+const TITLES_AND_PERSONAL_SUFFIXES = /^(?:dr|jr|mr|mrs|ms|prof|sr|st)\.$/iu;
+const BUSINESS_SUFFIXES = /^(?:co|corp|inc|ltd)\.$/iu;
+const REFERENCE_ABBREVIATIONS =
+  /^(?:approx|dept|est|etc|fig|misc|no|vs)\.$/iu;
+const MONTH_ABBREVIATIONS =
+  /^(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\.$/iu;
 
-const CLOSING_PUNCTUATION = /["'\u2019\u201d)\]}]+$/u;
-const OPENING_PUNCTUATION = /^["'\u2018\u201c([{]+/u;
+const CLOSING_PUNCTUATION =
+  /["'\u00bb\u2019\u201d\u203a)\]}\uff09\u3011\u3009\u300b\u300f]+$/u;
+const OPENING_PUNCTUATION =
+  /^["'\u00ab\u2018\u201c\u2039([{\uff08\u3010\u3008\u300a\u300e]+/u;
 
 function stripClosingPunctuation(token: string): string {
   return token.replace(CLOSING_PUNCTUATION, "");
@@ -44,7 +46,7 @@ function stripClosingPunctuation(token: string): string {
 function isTerminalBoundary(token: string): boolean {
   const core = stripClosingPunctuation(token);
 
-  if (/[!?]$/u.test(core)) {
+  if (/[!?\u3002\uff01\uff1f]$/u.test(core)) {
     return true;
   }
 
@@ -53,12 +55,20 @@ function isTerminalBoundary(token: string): boolean {
   }
 
   const unwrapped = core.replace(OPENING_PUNCTUATION, "");
-  const lower = unwrapped.toLowerCase();
-  return !ABBREVIATIONS.has(lower) && !/^(?:[a-z]\.){2,}$/iu.test(unwrapped);
+  const isAbbreviation =
+    /^(?:[a-z]\.){2,}$/iu.test(unwrapped) ||
+    TITLES_AND_PERSONAL_SUFFIXES.test(unwrapped) ||
+    BUSINESS_SUFFIXES.test(unwrapped) ||
+    REFERENCE_ABBREVIATIONS.test(unwrapped) ||
+    MONTH_ABBREVIATIONS.test(unwrapped);
+
+  return !isAbbreviation;
 }
 
 function isSoftBoundary(token: string): boolean {
-  return /[,;:]$/u.test(stripClosingPunctuation(token));
+  return /[,;:\u3001\uff0c\uff1b\uff1a]$/u.test(
+    stripClosingPunctuation(token),
+  );
 }
 
 function resolveLimit(value: number | undefined, fallback: number): number {
@@ -78,8 +88,11 @@ function resolveLimit(value: number | undefined, fallback: number): number {
  * only after trailing whitespace arrives (or flush is called), so fragmented
  * words, decimals, abbreviations, and URLs remain intact. Boundary whitespace
  * belongs to the phrase before it; consequently joining every emitted `text`
- * field reproduces the accepted input byte-for-byte. `flush` and `cancel` close
- * the chunker and are idempotent; text pushed after either operation is ignored.
+ * field reproduces the accepted input byte-for-byte. The first `flush` returns
+ * `didFinalize: true` even when no text remains, giving downstream consumers an
+ * explicit end-of-stream control signal. Later flushes return `didFinalize:
+ * false`. `flush` and `cancel` close the chunker; text pushed afterward is
+ * ignored.
  */
 export function createPhraseChunker(
   options: PhraseChunkerOptions = {},
@@ -102,10 +115,10 @@ export function createPhraseChunker(
 
   let pending = "";
   let nextSequence = 0;
-  let closed = false;
+  let state: "open" | "flushed" | "cancelled" = "open";
 
   function push(delta: string): PhraseChunk[] {
-    if (closed || delta.length === 0) {
+    if (state !== "open" || delta.length === 0) {
       return [];
     }
 
@@ -145,14 +158,14 @@ export function createPhraseChunker(
     return chunks;
   }
 
-  function flush(): PhraseChunk[] {
-    if (closed) {
-      return [];
+  function flush(): PhraseChunkerFlushResult {
+    if (state !== "open") {
+      return { chunks: [], didFinalize: false };
     }
 
-    closed = true;
+    state = "flushed";
     if (pending.length === 0) {
-      return [];
+      return { chunks: [], didFinalize: true };
     }
 
     const chunk: PhraseChunk = {
@@ -162,12 +175,14 @@ export function createPhraseChunker(
     };
     pending = "";
     nextSequence += 1;
-    return [chunk];
+    return { chunks: [chunk], didFinalize: true };
   }
 
   function cancel(): void {
     pending = "";
-    closed = true;
+    if (state === "open") {
+      state = "cancelled";
+    }
   }
 
   return {

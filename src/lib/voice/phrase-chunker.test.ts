@@ -72,6 +72,46 @@ describe("phrase chunker", () => {
     ]);
   });
 
+  test("keeps bounded categories of common multi-letter abbreviations intact", () => {
+    const cases = [
+      "Keep etc. examples here. ",
+      "Acme Inc. records remain current. ",
+      "See No. 7 now. ",
+      "Wait approx. 3 minutes. ",
+      "Meet Jan. 5 there. ",
+      "Meet Sept. 12 there. ",
+    ];
+
+    for (const input of cases) {
+      expect(createPhraseChunker().push(input)).toEqual([
+        { text: input, sequence: 0, isFinal: false },
+      ]);
+    }
+  });
+
+  test("recognizes Unicode sentence and list punctuation inside guillemets", () => {
+    const chunker = createPhraseChunker();
+    const input =
+      "\u00abUn deux trois quatre\uff0c\u00bb " +
+      "cinq six sept huit neuf dix onze douze\uff1b " +
+      "\u2039Arr\u00eatez\uff01\u203a Puis attendez\u3002 ";
+
+    expect(chunker.push(input)).toEqual([
+      {
+        text: "\u00abUn deux trois quatre\uff0c\u00bb ",
+        sequence: 0,
+        isFinal: false,
+      },
+      {
+        text: "cinq six sept huit neuf dix onze douze\uff1b ",
+        sequence: 1,
+        isFinal: false,
+      },
+      { text: "\u2039Arr\u00eatez\uff01\u203a ", sequence: 2, isFinal: false },
+      { text: "Puis attendez\u3002 ", sequence: 3, isFinal: false },
+    ]);
+  });
+
   test("emits a long punctuation-free stream at the hard word ceilings", () => {
     const chunker = createPhraseChunker();
     const input =
@@ -95,9 +135,10 @@ describe("phrase chunker", () => {
         isFinal: false,
       },
     ]);
-    expect(chunker.flush()).toEqual([
-      { text: "twenty-seven", sequence: 2, isFinal: true },
-    ]);
+    expect(chunker.flush()).toEqual({
+      chunks: [{ text: "twenty-seven", sequence: 2, isFinal: true }],
+      didFinalize: true,
+    });
   });
 
   test("allows terminal punctuation to close the first phrase before four words", () => {
@@ -112,7 +153,9 @@ describe("phrase chunker", () => {
     const chunker = createPhraseChunker();
     const input =
       "  one\ttwo three four, \r\nfive six seven eight nine ten eleven twelve; \nlast";
-    const chunks = [...chunker.push(input), ...chunker.flush()];
+    const pushed = chunker.push(input);
+    const flushed = chunker.flush();
+    const chunks = [...pushed, ...flushed.chunks];
 
     expect(chunks).toEqual([
       {
@@ -128,17 +171,31 @@ describe("phrase chunker", () => {
       { text: "last", sequence: 2, isFinal: true },
     ]);
     expect(chunks.map((chunk) => chunk.text).join("")).toBe(input);
+    expect(flushed.didFinalize).toBe(true);
   });
 
   test("flush emits the remaining exact text once and closes the chunker", () => {
     const chunker = createPhraseChunker();
 
     expect(chunker.push("final unfinished thought")).toEqual([]);
-    expect(chunker.flush()).toEqual([
-      { text: "final unfinished thought", sequence: 0, isFinal: true },
-    ]);
-    expect(chunker.flush()).toEqual([]);
+    expect(chunker.flush()).toEqual({
+      chunks: [
+        { text: "final unfinished thought", sequence: 0, isFinal: true },
+      ],
+      didFinalize: true,
+    });
+    expect(chunker.flush()).toEqual({ chunks: [], didFinalize: false });
     expect(chunker.push(" ignored")).toEqual([]);
+  });
+
+  test("flush explicitly finalizes once when push already emitted all text", () => {
+    const chunker = createPhraseChunker();
+
+    expect(chunker.push("Done. ")).toEqual([
+      { text: "Done. ", sequence: 0, isFinal: false },
+    ]);
+    expect(chunker.flush()).toEqual({ chunks: [], didFinalize: true });
+    expect(chunker.flush()).toEqual({ chunks: [], didFinalize: false });
   });
 
   test("cancel discards only un-emitted text and is idempotent", () => {
@@ -158,7 +215,7 @@ describe("phrase chunker", () => {
     chunker.cancel();
     chunker.cancel();
 
-    expect(chunker.flush()).toEqual([]);
+    expect(chunker.flush()).toEqual({ chunks: [], didFinalize: false });
     expect(chunker.push(" ignored")).toEqual([]);
   });
 
@@ -176,7 +233,8 @@ describe("phrase chunker", () => {
     for (const delta of deltas) {
       chunks.push(...chunker.push(delta));
     }
-    chunks.push(...chunker.flush());
+    const flushed = chunker.flush();
+    chunks.push(...flushed.chunks);
 
     expect(chunks.map((chunk) => chunk.text).join("")).toBe(deltas.join(""));
     expect(chunks.map((chunk) => chunk.sequence)).toEqual([0, 1, 2, 3]);
@@ -186,5 +244,6 @@ describe("phrase chunker", () => {
       false,
       true,
     ]);
+    expect(flushed.didFinalize).toBe(true);
   });
 });
