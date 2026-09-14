@@ -1,15 +1,5 @@
-// Spar — OpenRouter streaming LLM (SERVER-SIDE ONLY)
-//
-// Uses OpenRouter's OpenAI-compatible API with true token streaming.
-// First token arrives in ~1-1.5s (vs z-ai's "all at once" 2.6s).
-//
-// The persona response is generated as JSON ({ content, type, claimRef, mood }).
-// We stream the tokens, extract the "content" field as it arrives, detect
-// sentence boundaries, and fire TTS for each sentence as it completes.
-
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const OPENROUTER_BASE = "https://openrouter.ai/api/v1";
-const MODEL = "openai/gpt-oss-20b"; // Faster + cheaper than minimax-m3
+import "server-only";
+import { createOpenRouterGenerator } from "./providers/openrouter";
 
 export interface StreamedToken {
   content: string;
@@ -22,76 +12,20 @@ export interface StreamedToken {
  */
 export async function* streamPersonaResponse(
   systemPrompt: string,
-  userPrompt: string
+  userPrompt: string,
+  signal: AbortSignal = AbortSignal.timeout(30_000),
 ): AsyncGenerator<StreamedToken, void, unknown> {
-  if (!OPENROUTER_API_KEY) {
-    throw new Error("OPENROUTER_API_KEY is not set");
+  const generator = createOpenRouterGenerator(process.env.OPENROUTER_API_KEY ?? "");
+  for await (const event of generator.stream({
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+    speechStarted: () => false,
+  }, signal)) {
+    if (event.type === "text-delta") yield { content: event.text, done: false };
+    if (event.type === "complete") yield { content: "", done: true };
   }
-
-  const response = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      stream: true,
-      max_tokens: 150,
-      temperature: 0.5,
-    }),
-    signal: AbortSignal.timeout(30000),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`OpenRouter API error ${response.status}: ${errorText}`);
-  }
-
-  if (!response.body) {
-    throw new Error("No response body from OpenRouter");
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-
-    const events = buffer.split("\n\n");
-    buffer = events.pop() || "";
-
-    for (const event of events) {
-      const lines = event.split("\n");
-      for (const line of lines) {
-        if (line.startsWith("data: ")) {
-          const data = line.slice(6).trim();
-          if (data === "[DONE]") {
-            return;
-          }
-          try {
-            const parsed = JSON.parse(data);
-            const content = parsed.choices?.[0]?.delta?.content;
-            if (content) {
-              yield { content, done: false };
-            }
-          } catch {
-            // Skip malformed JSON
-          }
-        }
-      }
-    }
-  }
-
-  yield { content: "", done: true };
 }
 
 /**
