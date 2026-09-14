@@ -52,7 +52,11 @@ export function createChatStream(
           signal,
         });
         checkAborted(signal);
-        if (!response.ok) throw new GenerationError(provider, "http-error", response.status);
+        if (!response.ok) {
+          try { await response.body?.cancel(); } catch {}
+          checkAborted(signal);
+          throw new GenerationError(provider, "http-error", response.status);
+        }
         if (!response.body) throw new GenerationError(provider, "missing-body");
 
         for await (const data of readSseData(response.body, signal)) {

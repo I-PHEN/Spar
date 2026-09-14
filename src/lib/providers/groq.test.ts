@@ -4,6 +4,7 @@ import type { GenerationEvent, GenerationRequest, ProviderFetcher } from "./type
 mock.module("server-only", () => ({}));
 const { createGroqGenerator } = await import("./groq");
 const { createOpenRouterGenerator } = await import("./openrouter");
+const { createPersonaGenerator } = await import("./persona-generator");
 
 const request: GenerationRequest = {
   messages: [{ role: "system", content: "Stable persona" }, { role: "user", content: "Newest turn" }],
@@ -124,11 +125,15 @@ describe.each([
     expect(error).not.toHaveProperty("cause");
   });
 
-  test.each([401, 429, 503])("redacts HTTP %s without reading the error body", async (status) => {
-    const response = new Response("private-provider-body", { status });
+  test.each([401, 429, 503])("cancels rejected HTTP %s bodies without exposing their payload", async (status) => {
+    let cancelled = 0;
+    const response = new Response(new ReadableStream<Uint8Array>({
+      start(controller) { controller.enqueue(encoder.encode("private-provider-body")); },
+      cancel() { cancelled++; },
+    }), { status });
     const result = collect(create("private-provider-key", async () => response).stream(request, new AbortController().signal));
     await expect(result).rejects.toMatchObject({ code: "http-error", status });
-    expect(response.bodyUsed).toBe(false);
+    expect(cancelled).toBe(1);
     expect(String(await result.catch((error: unknown) => error))).not.toContain("private-provider");
   });
 
@@ -173,6 +178,51 @@ describe.each([
     second.abort();
     await expect(buffered.next()).rejects.toMatchObject({ name: "AbortError" });
   });
+});
+
+test("waits for rejected Groq body cancellation before starting fallback", async () => {
+  let signalCancellationStarted!: () => void;
+  const cancellationStarted = new Promise<void>((resolve) => { signalCancellationStarted = resolve; });
+  let releaseCancellation!: () => void;
+  let cancellationComplete = false;
+  const cancellationGate = new Promise<void>((resolve) => {
+    releaseCancellation = () => {
+      cancellationComplete = true;
+      resolve();
+    };
+  });
+  let signalFallbackStarted!: () => void;
+  const fallbackStarted = new Promise<void>((resolve) => { signalFallbackStarted = resolve; });
+  let fallbackStartedWhilePrimaryOpen = false;
+  const primaryBody = new ReadableStream<Uint8Array>({
+    start(controller) { controller.enqueue(encoder.encode("private-provider-body")); },
+    cancel() {
+      signalCancellationStarted();
+      return cancellationGate;
+    },
+  });
+  const fetcher: ProviderFetcher = async (input) => {
+    if (input.includes("api.groq.com")) return new Response(primaryBody, { status: 503 });
+    fallbackStartedWhilePrimaryOpen = !cancellationComplete;
+    signalFallbackStarted();
+    return responseFor([event(chunk("Replacement")), "data: [DONE]\n\n"]);
+  };
+
+  const generation = collect(createPersonaGenerator({
+    groqApiKey: "groq-fixture-key",
+    openRouterApiKey: "router-fixture-key",
+  }, fetcher).stream(request, new AbortController().signal));
+  const firstBoundary = await Promise.race([
+    cancellationStarted.then(() => "primary-cancellation" as const),
+    fallbackStarted.then(() => "fallback-fetch" as const),
+  ]);
+  releaseCancellation();
+  const events = await generation;
+
+  expect(firstBoundary).toBe("primary-cancellation");
+  expect(fallbackStartedWhilePrimaryOpen).toBe(false);
+  expect(events.at(-1)).toMatchObject({ type: "complete", provider: "openrouter", status: "success" });
+  expect(JSON.stringify(events)).not.toContain("private-provider");
 });
 
 test("legacy OpenRouter caller receives ordered tokens, one completion and caller cancellation", async () => {
