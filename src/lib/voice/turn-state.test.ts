@@ -364,22 +364,37 @@ describe("interruption and stale work", () => {
 
 describe("phrase and audio ordering", () => {
   for (const stream of ["phrase", "audio"] as const) {
-    function event(sequence: number): TurnEvent {
+    function event(sequence: number, conflicting = false): TurnEvent {
       return stream === "phrase"
-        ? { type: "PhraseReady", turnId: "session:1", phrase: { ...phrase, sequence } }
-        : { type: "AudioFrame", turnId: "session:1", sequence, audio };
+        ? {
+            type: "PhraseReady",
+            turnId: "session:1",
+            phrase: {
+              ...phrase,
+              sequence,
+              text: conflicting ? "Conflicting response. " : phrase.text,
+            },
+          }
+        : {
+            type: "AudioFrame",
+            turnId: "session:1",
+            sequence,
+            audio: conflicting ? new Uint8Array([9, 8, 7]) : new Uint8Array(audio),
+          };
     }
 
-    test(`${stream} accepts zero-based contiguous events and ignores duplicate tail sequences`, () => {
+    test(`${stream} accepts zero-based contiguous events and ignores any exact duplicate`, () => {
       const first = reduceTurn(generating(), event(0));
       expect(first.effects).toHaveLength(1);
-      const duplicate = reduceTurn(first.state, event(0));
-      expect(duplicate.state).toBe(first.state);
-      expect(duplicate.effects).toEqual([]);
       const second = reduceTurn(first.state, event(1));
       expect(second.effects).toHaveLength(1);
       expect(second.state.orderingFailureCount).toBe(0);
       expect(second.state[stream === "phrase" ? "lastPhraseSequence" : "lastAudioSequence"]).toBe(1);
+      for (const sequence of [0, 1]) {
+        const duplicate = reduceTurn(second.state, event(sequence));
+        expect(duplicate.state).toBe(second.state);
+        expect(duplicate.effects).toEqual([]);
+      }
     });
 
     for (const sequence of [-1, 1, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
@@ -404,12 +419,27 @@ describe("phrase and audio ordering", () => {
       expect(result.effects.map((effect) => effect.type)).toEqual(["abort-generation", "clear-queued-text", "stop-playback", "reset-tts", "record-metric"]);
     });
 
-    test(`${stream} fails backwards replay after the sequence has advanced`, () => {
-      const first = reduceTurn(generating(), event(0)).state;
-      const second = reduceTurn(first, event(1)).state;
-      const result = reduceTurn(second, event(0));
+    for (const sequence of [0, 1]) {
+      test(`${stream} fails conflicting replay ${sequence} after the sequence has advanced`, () => {
+        const first = reduceTurn(generating(), event(0)).state;
+        const second = reduceTurn(first, event(1)).state;
+        const result = reduceTurn(second, event(sequence, true));
+        expect(result.state.status).toBe("failed");
+        expect(result.state.orderingFailureCount).toBe(1);
+        expect(result.effects.map((effect) => effect.type)).toEqual(["abort-generation", "clear-queued-text", "stop-playback", "reset-tts", "record-metric"]);
+      });
+    }
+
+    test(`${stream} fails closed at the bounded per-turn replay-history limit`, () => {
+      let state = generating();
+      for (let sequence = 0; sequence < 4096; sequence += 1) {
+        state = reduceTurn(state, event(sequence)).state;
+      }
+
+      const result = reduceTurn(state, event(4096));
       expect(result.state.status).toBe("failed");
       expect(result.state.orderingFailureCount).toBe(1);
+      expect(result.state.failure).toBe(`${stream}-ordering`);
       expect(result.effects.map((effect) => effect.type)).toEqual(["abort-generation", "clear-queued-text", "stop-playback", "reset-tts", "record-metric"]);
     });
   }

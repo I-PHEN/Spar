@@ -17,6 +17,8 @@ export interface TurnState {
   readonly lastPhraseSequence: number;
   readonly lastAudioSequence: number;
   readonly lastPlayedAudioSequence: number;
+  readonly phraseReplayIdentities: readonly string[];
+  readonly audioReplayIdentities: readonly string[];
   readonly generationComplete: boolean;
   readonly phrasesFinalized: boolean;
   readonly audioComplete: boolean;
@@ -62,6 +64,8 @@ export interface TurnReduction {
   effects: TurnEffect[];
 }
 
+const MAX_ORDERED_EVENTS_PER_STREAM = 4096;
+
 /** Use a unique sessionId for each controller lifetime. No clocks or UUIDs run here. */
 export function initialTurnState(sessionId: string): TurnState {
   return {
@@ -73,6 +77,8 @@ export function initialTurnState(sessionId: string): TurnState {
     lastPhraseSequence: -1,
     lastAudioSequence: -1,
     lastPlayedAudioSequence: -1,
+    phraseReplayIdentities: [],
+    audioReplayIdentities: [],
     generationComplete: false,
     phrasesFinalized: false,
     audioComplete: false,
@@ -102,9 +108,18 @@ function checkSequence(
   stream: "phrase" | "audio",
   sequence: number,
   previous: number,
+  identity: string,
+  acceptedIdentities: readonly string[],
 ): TurnReduction | null {
-  if (Number.isSafeInteger(sequence) && sequence >= 0) {
-    if (sequence === previous) return { state, effects: [] };
+  if (
+    Number.isSafeInteger(sequence) &&
+    sequence >= 0 &&
+    sequence < MAX_ORDERED_EVENTS_PER_STREAM
+  ) {
+    if (
+      sequence <= previous &&
+      acceptedIdentities[sequence] === identity
+    ) return { state, effects: [] };
     if (sequence === previous + 1) return null;
   }
 
@@ -126,6 +141,28 @@ function checkSequence(
   return result;
 }
 
+function rememberIdentity(
+  acceptedIdentities: readonly string[],
+  sequence: number,
+  identity: string,
+): readonly string[] {
+  const next = [...acceptedIdentities];
+  next[sequence] = identity;
+  return next;
+}
+
+function phraseIdentity(phrase: PhraseChunk): string {
+  return `${phrase.isFinal ? "1" : "0"}:${phrase.text}`;
+}
+
+function audioIdentity(audio: Uint8Array): string {
+  let identity = "";
+  for (const byte of audio) {
+    identity += byte.toString(16).padStart(2, "0");
+  }
+  return identity;
+}
+
 function finishIfDrained(state: TurnState): TurnState {
   if (
     state.generationComplete &&
@@ -144,9 +181,10 @@ function finishIfDrained(state: TurnState): TurnState {
  *   StartOfTurn allocates the next ID and returns old-turn cleanup effects first.
  * - Invalid transitions and stale events preserve the same state reference and
  *   emit nothing. Idle/cancelled/failed accept only StartOfTurn.
- * - Accepted phrase/audio sequences independently start at zero. Repeating the
- *   latest sequence is idempotent; replay before the latest, gaps, and malformed
- *   numbers fail the turn. A sequence identifies its immutable payload.
+ * - Accepted phrase/audio sequences independently start at zero. Repeating any
+ *   accepted sequence with the exact same payload is idempotent; conflicting
+ *   replays, gaps, and malformed numbers fail the turn. Exact replay identities
+ *   are retained for at most 4096 events per stream and reset with each turn.
  * - GenerationComplete requests chunker.flush(); dispatch its residual chunks
  *   as PhraseReady before PhrasesFinalized when didFinalize is true. isFinal
  *   alone is not a stream-completion signal (the flush may contain no chunks).
@@ -235,12 +273,26 @@ export function reduceTurn(state: TurnState, event: TurnEvent): TurnReduction {
       };
     case "PhraseReady": {
       if (state.phrasesFinalized) return unchanged;
+      const identity = phraseIdentity(event.phrase);
       const rejected = checkSequence(
-        state, "phrase", event.phrase.sequence, state.lastPhraseSequence,
+        state,
+        "phrase",
+        event.phrase.sequence,
+        state.lastPhraseSequence,
+        identity,
+        state.phraseReplayIdentities,
       );
       if (rejected) return rejected;
       return {
-        state: { ...state, lastPhraseSequence: event.phrase.sequence },
+        state: {
+          ...state,
+          lastPhraseSequence: event.phrase.sequence,
+          phraseReplayIdentities: rememberIdentity(
+            state.phraseReplayIdentities,
+            event.phrase.sequence,
+            identity,
+          ),
+        },
         effects: [{ type: "synthesize-phrase", turnId, phrase: event.phrase }],
       };
     }
@@ -252,12 +304,26 @@ export function reduceTurn(state: TurnState, event: TurnEvent): TurnReduction {
       };
     case "AudioFrame": {
       if (state.audioComplete) return unchanged;
+      const identity = audioIdentity(event.audio);
       const rejected = checkSequence(
-        state, "audio", event.sequence, state.lastAudioSequence,
+        state,
+        "audio",
+        event.sequence,
+        state.lastAudioSequence,
+        identity,
+        state.audioReplayIdentities,
       );
       if (rejected) return rejected;
       return {
-        state: { ...state, lastAudioSequence: event.sequence },
+        state: {
+          ...state,
+          lastAudioSequence: event.sequence,
+          audioReplayIdentities: rememberIdentity(
+            state.audioReplayIdentities,
+            event.sequence,
+            identity,
+          ),
+        },
         effects: [{ type: "queue-audio", turnId, sequence: event.sequence, audio: event.audio }],
       };
     }
