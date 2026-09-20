@@ -29,6 +29,7 @@ import { PersonaCard } from "./persona-card";
 import { TelemetryBar } from "./telemetry-bar";
 import { WaveformBar } from "./waveform-bar";
 import { useVoiceRecognition, playBase64Audio } from "@/hooks/use-voice";
+import { useTurnController } from "@/hooks/use-turn-controller";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { useAgitationEngine, type CoachingMode, type DrillTarget } from "@/hooks/use-agitation";
 import { playActivationClick, useWaveformAmplitude } from "@/hooks/use-sound";
@@ -184,7 +185,15 @@ export function SparringRoom({
   const [elapsedSec, setElapsedSec] = useState(0);
 
   // Voice state
-  const voice = useVoiceRecognition();
+  // Presentation capture retains the long-form recognizer. Every live Q&A
+  // turn is owned by the low-latency controller (Flux -> generator -> Aura).
+  const presentationVoice = useVoiceRecognition();
+  const turnController = useTurnController({
+    sessionId,
+    region: process.env.NEXT_PUBLIC_DEEPGRAM_REGION === "eu" ? "eu" : "us",
+    voiceModel: "aura-2-zeus-en",
+  });
+  const voice = isPresenting ? presentationVoice : turnController;
   const recorder = useAudioRecorder();
   // Counter for user messages — used to key audio clips in IndexedDB.
   // Each user turn (presentation + each Q&A answer) gets a unique index.
@@ -253,6 +262,56 @@ export function SparringRoom({
       setCaptions((prev) => prev.filter((c) => !c.isLive));
     }
   }, [voice.interimTranscript, voice.isListening]);
+
+  // Mirror controller-owned exact captions into the room without creating a
+  // second generation, speech, or interruption state machine.
+  useEffect(() => {
+    setCaptions((previous) => {
+      let next = previous.filter((caption) =>
+        !caption.isLive && !caption.id.startsWith("user:") && !caption.id.startsWith("assistant:"),
+      );
+      for (const message of turnController.messages) {
+        const persona = message.persona;
+        const entry: CaptionEntry = {
+          id: message.id,
+          role: message.role === "assistant" ? "persona" : "user",
+          personaId: message.role === "assistant" ? persona?.id : undefined,
+          personaName: message.role === "assistant" ? persona?.name : undefined,
+          archetype: message.role === "assistant" ? persona?.archetype as ArchetypeKey | undefined : undefined,
+          content: message.content,
+          type: "normal",
+          createdAt: Date.now(),
+        };
+        const index = next.findIndex((caption) => caption.id === message.id);
+        next = index < 0 ? [...next, entry] : next.map((caption, current) => current === index ? { ...caption, ...entry } : caption);
+      }
+      if (turnController.assistantCaption) {
+        const id = `assistant:${turnController.turn.turnId}`;
+        const persona = turnController.activePersona;
+        const liveAssistant: CaptionEntry = {
+          id, role: "persona", personaId: persona?.id, personaName: persona?.name,
+          archetype: persona?.archetype as ArchetypeKey | undefined,
+          content: turnController.assistantCaption, type: "normal", createdAt: Date.now(),
+        };
+        const index = next.findIndex((caption) => caption.id === id);
+        next = index < 0 ? [...next, liveAssistant] : next.map((caption, current) => current === index ? { ...caption, ...liveAssistant } : caption);
+      }
+      return next;
+    });
+  }, [turnController.messages, turnController.assistantCaption, turnController.turn.turnId, turnController.activePersona]);
+
+  useEffect(() => {
+    if (isPresenting) return;
+    const busy = turnController.turn.status === "finalizing" || turnController.turn.status === "generating" || turnController.turn.status === "speaking";
+    setIsProcessing(busy);
+    setAudioPlaying(turnController.turn.status === "speaking");
+    if (turnController.error) {
+      setError(turnController.error);
+      setConnectionError(true);
+    }
+    const personaId = turnController.activePersona?.id;
+    if (personaId) setPersonaStates((previous) => ({ ...previous, [personaId]: turnController.turn.status === "speaking" ? "speaking" : busy ? "thinking" : "listening" }));
+  }, [isPresenting, turnController.turn.status, turnController.error, turnController.activePersona]);
 
   // Initial load: fetch session + open
   useEffect(() => {
@@ -451,18 +510,6 @@ export function SparringRoom({
         playInterruptCue();
       }
 
-      // Add the finalized user message to captions
-      setCaptions((prev) => [
-        ...prev.filter((c) => !c.isLive),
-        {
-          id: `u-${Date.now()}`,
-          role: "user",
-          content: transcript,
-          type: "normal",
-          createdAt: Date.now(),
-        },
-      ]);
-
       // Mark all personas as listening
       setPersonaStates((prev) => {
         const next: Record<string, PersonaState> = {};
@@ -471,168 +518,13 @@ export function SparringRoom({
       });
 
       try {
-        // Use the streaming endpoint for faster perceived latency
-        const response = await fetch(`/api/sessions/${sessionId}/spar-stream`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userMessage: transcript,
-            isInterrupt: isInterrupt,
-            forcedPersonaId: interruptingPersonaId,
-            // Drill flags: drillInterrupt → deterministic correction (no LLM).
-            // drillClean → LLM generates next question, deterministic ack prepended.
-            drillInterrupt: drillFlags?.drillInterrupt ?? false,
-            drillClean: drillFlags?.drillClean ?? false,
-          }),
+        await turnController.submitTranscript(transcript, 1, {
+          isInterrupt,
+          forcedPersonaId: interruptingPersonaId,
+          drillInterrupt: drillFlags?.drillInterrupt ?? false,
+          drillClean: drillFlags?.drillClean ?? false,
         });
-
-        if (!response.ok) throw new Error("Spar stream failed");
-        if (!response.body) throw new Error("No response body");
-
-        // Read the SSE stream
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-        let currentPersonaId = "";
-        let currentPersonaName = "";
-        let currentArchetype: ArchetypeKey | undefined;
-        let currentCaptionId = "";
-        let currentCaptionText = "";
-        let captionStarted = false;
-        let audioQueue: Promise<void>[] = [];
-        let isUserTurn = false;
-
-        const processEvent = async (eventType: string, data: string) => {
-          let parsed: any;
-          try {
-            parsed = JSON.parse(data);
-          } catch {
-            return;
-          }
-
-          if (eventType === "start") {
-            currentPersonaId = parsed.personaId;
-            currentPersonaName = parsed.personaName;
-            currentArchetype = parsed.archetype;
-            currentCaptionId = `p-${Date.now()}`;
-            currentCaptionText = "";
-            captionStarted = false;
-
-            // Persona starts thinking
-            setPersonaStates((prev) => ({
-              ...prev,
-              [currentPersonaId]: "thinking",
-            }));
-          } else if (eventType === "sentence") {
-            if (!captionStarted) {
-              captionStarted = true;
-              // Switch from thinking to speaking
-              setPersonaStates((prev) => ({
-                ...prev,
-                [currentPersonaId]: "speaking",
-              }));
-              // Create the caption with the first sentence
-              setCaptions((prev) => [
-                ...prev,
-                {
-                  id: currentCaptionId,
-                  role: "persona",
-                  personaId: currentPersonaId,
-                  personaName: currentPersonaName,
-                  archetype: currentArchetype,
-                  content: parsed.text,
-                  type: isInterrupt ? "interruption" : "normal",
-                  createdAt: Date.now(),
-                },
-              ]);
-              currentCaptionText = parsed.text;
-            } else {
-              // Append to existing caption
-              currentCaptionText += " " + parsed.text;
-              setCaptions((prev) =>
-                prev.map((c) =>
-                  c.id === currentCaptionId
-                    ? { ...c, content: currentCaptionText }
-                    : c
-                )
-              );
-            }
-
-            // Play audio for this sentence
-            if (parsed.audio) {
-              setAudioPlaying(true);
-              try {
-                await playBase64Audio(parsed.audio);
-              } catch (e) {
-                console.error("Audio playback failed:", e);
-              }
-              setAudioPlaying(false);
-            }
-          } else if (eventType === "done") {
-            isUserTurn = parsed.isUserTurn;
-
-            // Update mood
-            if (parsed.mood && currentPersonaId) {
-              setPersonaMoods((prev) => ({
-                ...prev,
-                [currentPersonaId]: parsed.mood,
-              }));
-            }
-
-            // Persona done — back to listening
-            setPersonaStates((prev) => ({
-              ...prev,
-              [currentPersonaId]: "listening",
-            }));
-          } else if (eventType === "error") {
-            console.error("[spar-stream] Error:", parsed.message);
-            setError(parsed.message);
-          }
-        };
-
-        // Read the stream
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-
-          // Process complete SSE events
-          const events = buffer.split("\n\n");
-          buffer = events.pop() || "";
-
-          for (const event of events) {
-            const lines = event.split("\n");
-            let eventType = "message";
-            let data = "";
-
-            for (const line of lines) {
-              if (line.startsWith("event: ")) {
-                eventType = line.slice(7).trim();
-              } else if (line.startsWith("data: ")) {
-                data = line.slice(6);
-              }
-            }
-
-            if (data) {
-              await processEvent(eventType, data);
-            }
-          }
-        }
-
-        // Wait for any remaining audio
-        await Promise.all(audioQueue);
-
-        if (resumePresenting) {
-          setIsPresenting(true);
-        }
-        // Drill state management:
-        // - drillClean (user answered cleanly after correction): reset retry
-        //   state and attempts — the user is back to a fresh question.
-        // - drillInterrupt (another correction fired): keep retry state —
-        //   the user stays in "Try again" mode. Attempts were incremented
-        //   in handleInterrupt.
-        // - Normal turn (no drill flags): no change to drill state.
+        if (resumePresenting) setIsPresenting(true);
         if (drillFlags?.drillClean) {
           setDrillRetryBoth(false);
           setDrillAttempts(0);
@@ -647,8 +539,9 @@ export function SparringRoom({
       } finally {
         sparInFlight.current = false;
       }
+      return;
     },
-    [voice, sessionId, recorder]
+    [voice, sessionId, recorder, turnController, setDrillRetryBoth]
   );
 
   // Handle user pressing "Done" (stop speaking)

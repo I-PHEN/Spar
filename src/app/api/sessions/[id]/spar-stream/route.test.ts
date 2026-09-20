@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 
 const originalConsoleError = console.error;
 console.error = mock(() => {});
+mock.module("server-only", () => ({}));
 
 interface StoredMessage {
   id: string;
@@ -214,4 +215,23 @@ test("the bounded rolling context retains the newest omitted correction", async 
   expect(providerUserPrompt).toContain(
     "CORRECTION: approved budget is $900000.",
   );
+});
+
+test("the live protocol streams unbuffered turn-tagged SSE", async () => {
+  const response = await POST(
+    new NextRequest("http://localhost/api/sessions/session-context-budget/spar-stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ turnId: "browser:1", transcript: "Final Flux text.", confidence: 0.93 }),
+    }),
+    { params: Promise.resolve({ id: "session-context-budget" }) },
+  );
+  const body = await response.text();
+
+  expect(response.headers.get("Cache-Control")).toBe("no-cache, no-transform");
+  expect(response.headers.get("X-Accel-Buffering")).toBe("no");
+  expect(body).toContain("event: turn-start");
+  expect(body).toContain('"turnId":"browser:1"');
+  expect(storedMessages.filter(message => message.role === "user").map(message => message.content))
+    .toEqual(["Final Flux text."]);
 });

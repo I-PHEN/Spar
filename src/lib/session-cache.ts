@@ -85,3 +85,44 @@ export function clearPromptCache(sessionId: string) {
     }
   }
 }
+
+// ─── In-flight live turns ─────────────────────────────────────────────
+// Partial text is deliberately separate from the persisted transcript cache.
+// A cancelled/failed turn is abandoned; only the service's successful
+// persistence boundary removes a finalized buffer.
+interface LiveTurnBuffer {
+  sessionId: string;
+  turnId: string;
+  text: string;
+}
+
+const liveTurnBuffers = new Map<string, LiveTurnBuffer>();
+
+function liveTurnKey(sessionId: string, turnId: string): string {
+  return `${sessionId}:${turnId}`;
+}
+
+export function beginLiveTurnBuffer(sessionId: string, turnId: string): void {
+  liveTurnBuffers.set(liveTurnKey(sessionId, turnId), { sessionId, turnId, text: "" });
+}
+
+export function appendLiveTurnBuffer(sessionId: string, turnId: string, delta: string): void {
+  const buffer = liveTurnBuffers.get(liveTurnKey(sessionId, turnId));
+  if (buffer) buffer.text += delta;
+}
+
+export function resetLiveTurnBuffer(sessionId: string, turnId: string): void {
+  const buffer = liveTurnBuffers.get(liveTurnKey(sessionId, turnId));
+  if (buffer) buffer.text = "";
+}
+
+export function finalizeLiveTurnBuffer(sessionId: string, turnId: string): string | null {
+  const key = liveTurnKey(sessionId, turnId);
+  const buffer = liveTurnBuffers.get(key);
+  liveTurnBuffers.delete(key);
+  return buffer?.text ?? null;
+}
+
+export function abandonLiveTurnBuffer(sessionId: string, turnId: string): void {
+  liveTurnBuffers.delete(liveTurnKey(sessionId, turnId));
+}

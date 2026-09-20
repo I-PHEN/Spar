@@ -9,7 +9,9 @@
 // Target perceived latency: ~2-3s from "stop speaking" to "first audio"
 
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import { db } from "@/lib/db";
+import { liveTurnService, type LiveTurnRequest } from "@/lib/spar/live-turn-service";
 import {
   buildPersonaSessionRules,
   buildPersonaStablePrefix,
@@ -46,11 +48,50 @@ import type { ArchetypeKey, DrillTarget, ExtractedClaim } from "@/lib/types";
 const PERSONAS_PER_USER_TURN = 1;
 const PATTERN_MEMORY_CACHE_KEY = "__pattern-memory__";
 
+const liveTurnBodySchema = z.object({
+  turnId: z.string().min(1).max(128).optional(),
+  transcript: z.string().min(1).max(5_000),
+  confidence: z.number().finite().min(0).max(1),
+  forcedPersonaId: z.string().min(1).max(128).optional(),
+  isInterrupt: z.boolean().optional(),
+  drillInterrupt: z.boolean().optional(),
+  drillClean: z.boolean().optional(),
+}).strict();
+
+function liveTurnResponse(request: LiveTurnRequest, signal: AbortSignal): Response {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      try {
+        for await (const event of liveTurnService(request, signal)) {
+          if (signal.aborted) break;
+          controller.enqueue(encoder.encode(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`));
+        }
+      } finally {
+        try { controller.close(); } catch { /* request disconnected */ }
+      }
+    },
+    cancel() { /* request.signal is the single cancellation authority */ },
+  });
+  return new Response(stream, { headers: {
+    "Content-Type": "text/event-stream; charset=utf-8",
+    "Cache-Control": "no-cache, no-transform",
+    "X-Accel-Buffering": "no",
+    Connection: "keep-alive",
+  } });
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const livePayload = await req.clone().json().catch(() => null);
+  if (livePayload && typeof livePayload === "object" && "transcript" in livePayload && "confidence" in livePayload) {
+    const parsed = liveTurnBodySchema.safeParse(livePayload);
+    if (!parsed.success) return Response.json({ error: "Invalid live turn request." }, { status: 400 });
+    return liveTurnResponse({ sessionId: id, ...parsed.data, turnId: parsed.data.turnId ?? crypto.randomUUID() }, req.signal);
+  }
   const body = await req.json().catch(() => ({}));
 
   // ─── Warmup: just compile the route, don't do any work ──────────────
