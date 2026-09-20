@@ -99,6 +99,12 @@ const db = {
 mock.module("@/lib/db", () => ({ db }));
 mock.module("@/lib/llm", () => ({
   buildPatternMemoryContext: () => "",
+  generateOpening: async () => ({
+    content: "What evidence supports your central claim?",
+    type: "normal",
+    claimRef: null,
+    mood: "pressing",
+  }),
 }));
 mock.module("@/lib/voice", () => ({
   generatePersonaAudio: async () => {

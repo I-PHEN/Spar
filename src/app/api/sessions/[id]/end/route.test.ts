@@ -116,6 +116,12 @@ mock.module("@/lib/db", () => ({ db }));
 mock.module("@/lib/llm", () => ({
   buildPatternMemoryContext: () => "",
   classifyPatternTag: () => "other",
+  generateOpening: async () => ({
+    content: "What evidence supports your central claim?",
+    type: "normal",
+    claimRef: null,
+    mood: "pressing",
+  }),
   generateDebrief: async () => ({
     momentDescription: "A regenerated moment",
     whatWentWell: [],
