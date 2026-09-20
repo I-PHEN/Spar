@@ -344,25 +344,40 @@ export class StreamingSpeechSession {
     const turn: SpeechTurn = { turnId, model, chunker: createPhraseChunker(), phrases: [], mode: "connecting",
       started: false, firstByte: false, finalized: false, complete: false, sent: 0, pendingBrowser: 0, externalPhrases: false };
     this.active = turn;
-    let client = this.clients.get(model);
-    try {
-      if (!client) {
-        client = (this.dependencies.createTtsClient ?? (options => new DeepgramTtsClient(options)))({
-          region: this.options.region, model,
-          onEvent: event => this.acceptTts(turn.model, client!, event),
-          dependencies: { getToken: () => this.getToken(), createWebSocket: this.dependencies.createWebSocket,
-            setTimer: this.dependencies.setTimer, clearTimer: this.dependencies.clearTimer },
-        });
-        this.clients.set(model, client);
+    const createClient = () => {
+      let created!: ReturnType<NonNullable<StreamingSpeechDependencies["createTtsClient"]>>;
+      created = (this.dependencies.createTtsClient ?? (options => new DeepgramTtsClient(options)))({
+        region: this.options.region, model,
+        onEvent: event => this.acceptTts(turn.model, created, event),
+        dependencies: { getToken: () => this.getToken(), createWebSocket: this.dependencies.createWebSocket,
+          setTimer: this.dependencies.setTimer, clearTimer: this.dependencies.clearTimer },
+      });
+      this.clients.set(model, created);
+      return created;
+    };
+    let client = this.clients.get(model) ?? createClient();
+    const cancelled = new Promise<void>(resolve => { turn.releaseStartup = resolve; });
+    this.armAudioDeadline(turn);
+    let replaced = false;
+    while (true) {
+      let ttsFailed = false;
+      try {
+        const ttsReady = client.beginTurn(turnId).catch(error => { ttsFailed = true; throw error; });
+        await Promise.race([Promise.all([ttsReady, this.player.start(turnId)]), cancelled]);
+        turn.releaseStartup = undefined;
+        if (this.active !== turn || turn.mode !== "connecting") return;
+        turn.mode = "streaming"; this.sendPending(turn);
+        return;
+      } catch {
+        if (ttsFailed && !replaced && !turn.started && this.active === turn && turn.mode === "connecting") {
+          client.close();
+          if (this.clients.get(model) === client) this.clients.delete(model);
+          client = createClient(); replaced = true;
+          continue;
+        }
+        if (this.active === turn && turn.mode === "connecting") this.fallback(turn);
+        return;
       }
-      const cancelled = new Promise<void>(resolve => { turn.releaseStartup = resolve; });
-      this.armAudioDeadline(turn);
-      await Promise.race([Promise.all([client.beginTurn(turnId), this.player.start(turnId)]), cancelled]);
-      turn.releaseStartup = undefined;
-      if (this.active !== turn || turn.mode !== "connecting") return;
-      turn.mode = "streaming"; this.sendPending(turn);
-    } catch {
-      if (this.active === turn && turn.mode === "connecting") this.fallback(turn);
     }
   }
 
@@ -377,7 +392,12 @@ export class StreamingSpeechSession {
   speakPhrase(turnId: string, phrase: PhraseChunk): void {
     const turn = this.active;
     if (!turn || turn.turnId !== turnId || turn.finalized) return;
+    if (phrase.sequence !== turn.phrases.length) {
+      this.fail(turn, "phrase-ordering");
+      return;
+    }
     turn.externalPhrases = true;
+    this.options.onEvent?.({ type: "caption", turnId, text: phrase.text });
     this.queuePhrase(turn, phrase);
   }
 

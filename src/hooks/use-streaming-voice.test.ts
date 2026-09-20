@@ -122,6 +122,51 @@ describe("streaming speech lifecycle", () => {
     expect(h.clients[0].closes).toBe(1);
     expect(h.events.filter(event => event.type === "fallback")).toEqual([]);
   });
+  test("replaces an unusable cached client before its next turn begins", async () => {
+    const h = speechHarness();
+    h.dependencies.createTtsClient = options => {
+      const state = { options, phrases: [] as string[], turns: [] as string[], flushes: 0, clears: 0, closes: 0 };
+      h.clients.push(state);
+      return {
+        async beginTurn(turnId) {
+          state.turns.push(turnId);
+          if (turnId === "two" && h.clients.length === 1) throw new Error("closed socket");
+        },
+        speak: () => true, flush: () => true,
+        clear: () => { state.clears++; }, close: () => { state.closes++; },
+      };
+    };
+
+    await h.session.begin("one", "voice");
+    await h.session.begin("two", "voice");
+
+    expect(h.clients).toHaveLength(2);
+    expect(h.clients[0].closes).toBe(1);
+    expect(h.clients[1].turns).toEqual(["two"]);
+    expect(h.events.filter(event => event.type === "fallback")).toEqual([]);
+  });
+  test("does not replace a client after playback has begun", async () => {
+    const h = speechHarness();
+    h.dependencies.createTtsClient = options => {
+      const state = { options, phrases: [] as string[], turns: [] as string[], flushes: 0, clears: 0, closes: 0 };
+      h.clients.push(state);
+      return {
+        async beginTurn() { throw new Error("socket failed after audio"); },
+        speak: () => true, flush: () => true,
+        clear: () => { state.clears++; }, close: () => { state.closes++; },
+      };
+    };
+    h.dependencies.createPlayer = options => ({
+      async start() { options.onEvent({ type: "playback-start", turnId: "one", timestampMs: 1, audioTime: 2 }); },
+      enqueue: () => true, stop() {}, reset() {},
+    });
+    const session = new StreamingSpeechSession({ roomId: "room", region: "us", dependencies: h.dependencies, onEvent: event => h.events.push(event) });
+
+    await session.begin("one", "voice");
+
+    expect(h.clients).toHaveLength(1);
+    expect(h.events).toContainEqual({ type: "error", turnId: "one", reason: "playback-unavailable" });
+  });
   test("falls back with all exact text if streaming fails before the first scheduled sample", async () => {
     const h = speechHarness(); await h.session.begin("one", "voice");
     h.session.pushText("one", "First  sentence. ");
@@ -185,6 +230,18 @@ describe("streaming speech lifecycle", () => {
     h.browser[0].onStart(); h.session.cancel("one"); const count = h.events.length;
     h.browser[1].onEnd(); h.emit({ type: "error", turnId: "one", reason: "provider-error" });
     expect(h.events).toHaveLength(count); expect(h.counts().cancels).toBeGreaterThan(0);
+  });
+  test("emits each exact pre-chunked caption once through browser fallback", async () => {
+    const h = speechHarness(true); await h.session.begin("one", "voice");
+    const phrases: PhraseChunk[] = [
+      { text: "Exact  first phrase. ", sequence: 0, isFinal: false },
+      { text: "Final fragment", sequence: 1, isFinal: true },
+    ];
+    for (const phrase of phrases) h.session.speakPhrase("one", phrase);
+    h.session.finish("one");
+
+    expect(h.events.filter(event => event.type === "caption").map(event => event.text)).toEqual(phrases.map(phrase => phrase.text));
+    expect(h.browser.map(item => item.text)).toEqual(phrases.map(phrase => phrase.text));
   });
   test("never replays a partially spoken answer and reconnects only for the next turn", async () => {
     const h = speechHarness(); await h.session.begin("one", "voice");
