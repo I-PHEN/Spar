@@ -41,6 +41,7 @@ export interface LiveTurnRequest {
   isInterrupt?: boolean;
   drillInterrupt?: boolean;
   drillClean?: boolean;
+  presentationHandoff?: boolean;
 }
 
 export interface LivePersona {
@@ -113,7 +114,7 @@ export function createLiveTurnService(dependencies: LiveTurnDependencies): LiveT
     try {
       beginLiveTurnBuffer(request.sessionId, request.turnId);
       abortIfNeeded(signal);
-      await dependencies.persistUser(request.sessionId, transcript, signal);
+      if (!request.presentationHandoff) await dependencies.persistUser(request.sessionId, transcript, signal);
       abortIfNeeded(signal);
       const context = await dependencies.loadContext({ ...request, transcript }, signal);
       abortIfNeeded(signal);
@@ -143,6 +144,7 @@ export function createLiveTurnService(dependencies: LiveTurnDependencies): LiveT
       let firstPhrase = true;
       let selectedProvider: "groq" | "openrouter" = "groq";
       let selectedModel = "openai/gpt-oss-20b";
+      let generationStartedOffsetMs = 0;
       let usage: GenerationUsage | null = null;
       let usageEmitted = false;
 
@@ -176,11 +178,6 @@ export function createLiveTurnService(dependencies: LiveTurnDependencies): LiveT
           newestUtterance: transcript,
         });
 
-        yield await emitMetric({
-          type: "generation-started", turnId: request.turnId, sessionId: request.sessionId,
-          offsetMs: offset(), provider: "groq", model: selectedModel,
-        });
-
         if (request.drillClean && context.experience === "drill") {
           const acknowledgment = `${getDrillAcknowledgment((context.deterministicState.drillTarget as DrillTarget) ?? "hedging")} `;
           for await (const event of acceptText(acknowledgment)) yield event;
@@ -196,6 +193,7 @@ export function createLiveTurnService(dependencies: LiveTurnDependencies): LiveT
           if (event.type === "provider-selected") {
             selectedProvider = event.provider;
             selectedModel = event.model;
+            generationStartedOffsetMs = offset();
           } else if (event.type === "text-delta") {
             raw += event.text;
             const partial = extractPartialContent(raw);
@@ -232,6 +230,10 @@ export function createLiveTurnService(dependencies: LiveTurnDependencies): LiveT
           yield { type: "error", turnId: request.turnId, code: completionReason ?? "provider-error", message: "The panelist could not finish this turn." };
           return;
         }
+        yield await emitMetric({
+          type: "generation-started", turnId: request.turnId, sessionId: request.sessionId,
+          offsetMs: generationStartedOffsetMs, provider: selectedProvider, model: selectedModel,
+        });
         if (usage && !usageEmitted) {
           yield { type: "usage", turnId: request.turnId, usage };
           yield await emitMetric({ type: "usage", turnId: request.turnId, sessionId: request.sessionId,

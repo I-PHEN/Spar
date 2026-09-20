@@ -11,6 +11,7 @@ export interface TurnState {
     | "cancelled"
     | "failed";
   readonly sessionId: string;
+  readonly turnIdPrefix: string;
   readonly turnId: string;
   readonly turnNumber: number;
   readonly transcript: string | null;
@@ -67,11 +68,12 @@ export interface TurnReduction {
 const MAX_ORDERED_EVENTS_PER_STREAM = 4096;
 
 /** Use a unique sessionId for each controller lifetime. No clocks or UUIDs run here. */
-export function initialTurnState(sessionId: string): TurnState {
+export function initialTurnState(sessionId: string, turnIdPrefix = sessionId): TurnState {
   return {
     status: "idle",
     sessionId,
-    turnId: `${sessionId}:0`,
+    turnIdPrefix,
+    turnId: `${turnIdPrefix}:0`,
     turnNumber: 0,
     transcript: null,
     lastPhraseSequence: -1,
@@ -211,10 +213,10 @@ export function reduceTurn(state: TurnState, event: TurnEvent): TurnReduction {
 
   if (event.type === "StartOfTurn") {
     const turnNumber = state.turnNumber + 1;
-    const turnId = `${state.sessionId}:${turnNumber}`;
+    const turnId = `${state.turnIdPrefix}:${turnNumber}`;
     return {
       state: {
-        ...initialTurnState(state.sessionId),
+        ...initialTurnState(state.sessionId, state.turnIdPrefix),
         status: "listening",
         turnId,
         turnNumber,

@@ -235,3 +235,24 @@ test("the live protocol streams unbuffered turn-tagged SSE", async () => {
   expect(storedMessages.filter(message => message.role === "user").map(message => message.content))
     .toEqual(["Final Flux text."]);
 });
+
+test.each([
+  { turnId: "incomplete" },
+  { transcript: "missing confidence" },
+  { confidence: 0.9 },
+  { forcedPersonaId: "p" },
+  { isInterrupt: true },
+    { drillInterrupt: true },
+    { drillClean: true },
+    { presentationHandoff: true },
+    { transcript: "complete-looking", confidence: 1 },
+])("rejects incomplete live-protocol payload %# instead of using legacy", async (payload) => {
+  const response = await POST(
+    new NextRequest("http://localhost/api/sessions/session-context-budget/spar-stream", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+    }),
+    { params: Promise.resolve({ id: "session-context-budget" }) },
+  );
+  expect(response.status).toBe(400);
+  expect(storedMessages).toHaveLength(0);
+});

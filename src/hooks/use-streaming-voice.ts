@@ -309,6 +309,7 @@ interface SpeechTurn {
   sent: number;
   pendingBrowser: number;
   externalPhrases: boolean;
+  invalidated: boolean;
   releaseStartup?: () => void;
 }
 
@@ -342,7 +343,7 @@ export class StreamingSpeechSession {
     if (this.disposed) return;
     if (this.active) this.cancel(this.active.turnId);
     const turn: SpeechTurn = { turnId, model, chunker: createPhraseChunker(), phrases: [], mode: "connecting",
-      started: false, firstByte: false, finalized: false, complete: false, sent: 0, pendingBrowser: 0, externalPhrases: false };
+      started: false, firstByte: false, finalized: false, complete: false, sent: 0, pendingBrowser: 0, externalPhrases: false, invalidated: false };
     this.active = turn;
     const createClient = () => {
       let created!: ReturnType<NonNullable<StreamingSpeechDependencies["createTtsClient"]>>;
@@ -383,7 +384,7 @@ export class StreamingSpeechSession {
 
   pushText(turnId: string, delta: string): void {
     const turn = this.active;
-    if (!turn || turn.turnId !== turnId || turn.finalized || turn.externalPhrases) return;
+    if (!turn || turn.turnId !== turnId || turn.finalized || turn.externalPhrases || turn.invalidated) return;
     this.options.onEvent?.({ type: "caption", turnId, text: delta });
     for (const phrase of turn.chunker.push(delta)) this.queuePhrase(turn, phrase);
   }
@@ -391,7 +392,7 @@ export class StreamingSpeechSession {
   /** Alternative to pushText for the server's exact phrase-chunker output. */
   speakPhrase(turnId: string, phrase: PhraseChunk): void {
     const turn = this.active;
-    if (!turn || turn.turnId !== turnId || turn.finalized) return;
+    if (!turn || turn.turnId !== turnId || turn.finalized || turn.invalidated) return;
     if (phrase.sequence !== turn.phrases.length) {
       this.fail(turn, "phrase-ordering");
       return;
@@ -411,11 +412,30 @@ export class StreamingSpeechSession {
   }
 
   cancel(turnId: string): void {
+    this.invalidateText(turnId);
+    this.stopAudio(turnId);
+    this.clearTts(turnId);
+  }
+
+  invalidateText(turnId: string): void {
     const turn = this.active;
     if (!turn || turn.turnId !== turnId) return;
-    this.active = undefined; turn.chunker.cancel(); this.clearAudioDeadline();
-    turn.releaseStartup?.();
+    turn.invalidated = true;
+    turn.chunker.cancel();
+    turn.phrases.length = turn.sent;
+  }
+
+  stopAudio(turnId: string): void {
+    const turn = this.active;
+    if (!turn || turn.turnId !== turnId) return;
     this.player.stop(); this.browser?.cancel();
+  }
+
+  clearTts(turnId: string): void {
+    const turn = this.active;
+    if (!turn || turn.turnId !== turnId) return;
+    this.active = undefined; this.clearAudioDeadline();
+    turn.releaseStartup?.();
     if (turn.mode === "connecting") {
       this.clients.get(turn.model)?.close(); this.clients.delete(turn.model);
     } else if (!turn.complete) this.clients.get(turn.model)?.clear();
@@ -588,6 +608,9 @@ export interface UseStreamingVoiceResult {
   speakPhrase: (turnId: string, phrase: PhraseChunk) => void;
   finishSpeech: (turnId: string) => void;
   cancelSpeech: (turnId: string) => void;
+  invalidateSpeech: (turnId: string) => void;
+  stopSpeechAudio: (turnId: string) => void;
+  clearSpeechTts: (turnId: string) => void;
 }
 
 export interface StreamingVoiceCapabilities {
@@ -742,6 +765,9 @@ export function createStreamingVoiceHook(
       speakPhrase: (turnId, phrase) => speechRef.current?.speakPhrase(turnId, phrase),
       finishSpeech: turnId => speechRef.current?.finish(turnId),
       cancelSpeech: turnId => speechRef.current?.cancel(turnId),
+      invalidateSpeech: turnId => speechRef.current?.invalidateText(turnId),
+      stopSpeechAudio: turnId => speechRef.current?.stopAudio(turnId),
+      clearSpeechTts: turnId => speechRef.current?.clearTts(turnId),
     };
   };
 }

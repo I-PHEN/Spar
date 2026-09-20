@@ -57,6 +57,24 @@ function speechHarness(failStart = false) {
 }
 
 describe("streaming speech lifecycle", () => {
+  test("exposes distinct ordered phrase, playback, and TTS cancellation operations", async () => {
+    const h = speechHarness();
+    await h.session.begin("one", "voice");
+    h.session.pushText("one", "Queued sentence. ");
+
+    h.session.invalidateText("one");
+    h.session.pushText("one", "must not be queued");
+    expect(h.counts().stops).toBe(0);
+    expect(h.clients[0].clears).toBe(0);
+
+    h.session.stopAudio("one");
+    expect(h.counts().stops).toBe(1);
+    expect(h.clients[0].clears).toBe(0);
+
+    h.session.clearTts("one");
+    expect(h.clients[0].clears).toBe(1);
+    expect(h.clients[0].phrases).toEqual(["Queued sentence. "]);
+  });
   test("a suspended playback context cannot indefinitely block startup or fallback", async () => {
     const callbacks: Array<() => void> = [];
     const events: StreamingSpeechEvent[] = [];

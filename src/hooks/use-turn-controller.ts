@@ -16,6 +16,7 @@ export interface TurnControllerMessage {
   role: "user" | "assistant";
   content: string;
   persona?: LivePersona;
+  metadata?: Extract<LiveTurnEvent, { type: "complete" }>["metadata"];
 }
 
 export interface TurnControllerSnapshot {
@@ -27,6 +28,7 @@ export interface TurnControllerSnapshot {
   usingSttFallback: boolean;
   usingTtsFallback: boolean;
   activePersona: LivePersona | null;
+  assistantMetadata: TurnControllerMessage["metadata"] | null;
 }
 
 export interface TurnControllerDependencies {
@@ -41,6 +43,7 @@ export interface TurnControllerDependencies {
   beginListening(turnId: string): void;
   recordMetric(metric: TurnMetricEvent): Promise<void>;
   now(): number;
+  createLifecycleId?(): string;
 }
 
 type SttTurnEvent =
@@ -57,7 +60,7 @@ export class LiveTurnController {
   private turnStartedAt = 0;
   private activeVoiceModel: string;
   private submittedCurrentTurn = false;
-  private requestOptions: Partial<Pick<LiveTurnRequest, "forcedPersonaId" | "isInterrupt" | "drillInterrupt" | "drillClean">> = {};
+  private requestOptions: TurnRequestOptions = {};
   private lastSttTurnIndex = -1;
   private cancelledTurns = new Set<string>();
   private metricWrites = Promise.resolve();
@@ -68,7 +71,9 @@ export class LiveTurnController {
     private readonly dependencies: TurnControllerDependencies,
   ) {
     this.activeVoiceModel = voiceModel;
-    this.turn = initialTurnState(sessionId);
+    const lifecycleId = dependencies.createLifecycleId?.() || "";
+    const prefix = lifecycleId ? `${sessionId.slice(0, 80)}:${lifecycleId.slice(0, 36)}` : sessionId;
+    this.turn = initialTurnState(sessionId, prefix);
     this.snapshot = {
       turn: this.turn,
       transcriptPreview: "",
@@ -78,6 +83,7 @@ export class LiveTurnController {
       usingSttFallback: false,
       usingTtsFallback: false,
       activePersona: null,
+      assistantMetadata: null,
     };
   }
 
@@ -107,7 +113,7 @@ export class LiveTurnController {
       this.requestOptions = {};
       await this.dispatch({ type: "StartOfTurn", turnId: this.turn.turnId });
       this.turnStartedAt = this.dependencies.now();
-      this.publish({ transcriptPreview: event.transcript, assistantCaption: "", error: null, usingTtsFallback: false });
+      this.publish({ transcriptPreview: event.transcript, assistantCaption: "", assistantMetadata: null, error: null, usingTtsFallback: false });
       return;
     }
     this.turnStartedAt = this.dependencies.now();
@@ -115,11 +121,24 @@ export class LiveTurnController {
     await this.dispatch({ type: "EndOfTurn", turnId: this.turn.turnId }, { transcript: event.transcript, confidence: event.confidence });
   }
 
-  async submitTranscript(
+  queuePrimaryEndOfTurn(requestOptions: TurnRequestOptions = {}): void {
+    this.requestOptions = requestOptions;
+  }
+
+  async finalizeFallbackTranscript(
     transcript: string,
     confidence = 1,
-    requestOptions: Partial<Pick<LiveTurnRequest, "forcedPersonaId" | "isInterrupt" | "drillInterrupt" | "drillClean">> = {},
+    requestOptions: TurnRequestOptions = {},
   ): Promise<void> {
+    if (!this.snapshot.usingSttFallback) return;
+    await this.submitManualTranscript(transcript, confidence, requestOptions);
+  }
+
+  async submitPresentationTurn(transcript: string, alreadyPersisted: boolean, requestOptions: TurnRequestOptions = {}): Promise<void> {
+    await this.submitManualTranscript(transcript, 1, { ...requestOptions, presentationHandoff: alreadyPersisted });
+  }
+
+  private async submitManualTranscript(transcript: string, confidence: number, requestOptions: TurnRequestOptions): Promise<void> {
     if (this.submittedCurrentTurn) return;
     this.requestOptions = requestOptions;
     if (this.turn.status !== "listening") await this.acceptStt({ type: "StartOfTurn", transcript: "" });
@@ -149,9 +168,10 @@ export class LiveTurnController {
       if (!this.snapshot.messages.some(message => message.messageId === event.messageId)) {
         this.publish({ messages: [...this.snapshot.messages, {
           id: `assistant:${event.turnId}`, messageId: event.messageId, turnId: event.turnId,
-          role: "assistant", content: event.text, persona: this.snapshot.activePersona ?? undefined,
+          role: "assistant", content: event.text, persona: this.snapshot.activePersona ?? undefined, metadata: event.metadata,
         }] });
       }
+      this.publish({ assistantMetadata: event.metadata });
       void this.dispatch({ type: "GenerationComplete", turnId: event.turnId });
     } else if (event.type === "error") {
       this.publish({ error: event.message });
@@ -229,7 +249,7 @@ export class LiveTurnController {
         return;
       case "freeze-transcript": {
         const transcript = frozen?.transcript.trim() ?? this.snapshot.transcriptPreview.trim();
-        if (transcript) this.publish({ messages: [...this.snapshot.messages, {
+        if (transcript && !this.requestOptions.presentationHandoff) this.publish({ messages: [...this.snapshot.messages, {
           id: `user:${effect.turnId}`, turnId: effect.turnId, role: "user", content: transcript,
         }] });
         this.submittedCurrentTurn = true;
@@ -280,6 +300,9 @@ export class LiveTurnController {
   }
 
   private async startGeneration(turnId: string, transcript: string, confidence: number): Promise<void> {
+    this.publish({ assistantMetadata: this.requestOptions.isInterrupt || this.requestOptions.drillInterrupt
+      ? { type: "interruption", claimRef: null, mood: "pressing" }
+      : null });
     const abort = new AbortController();
     this.generation = { turnId, abort };
     try {
@@ -298,6 +321,8 @@ export class LiveTurnController {
     }
   }
 }
+
+type TurnRequestOptions = Partial<Pick<LiveTurnRequest, "forcedPersonaId" | "isInterrupt" | "drillInterrupt" | "drillClean" | "presentationHandoff">>;
 
 export function createTurnController(sessionId: string, voiceModel: string, dependencies: TurnControllerDependencies): LiveTurnController {
   return new LiveTurnController(sessionId, voiceModel, dependencies);
@@ -347,8 +372,8 @@ export interface UseTurnControllerResult extends TurnControllerSnapshot {
   start(): void;
   stop(): void;
   reset(): void;
-  submitTranscript(transcript: string, confidence?: number, requestOptions?: Partial<Pick<LiveTurnRequest, "forcedPersonaId" | "isInterrupt" | "drillInterrupt" | "drillClean">>): Promise<void>;
-  stopAndSubmit(requestOptions?: Partial<Pick<LiveTurnRequest, "forcedPersonaId" | "isInterrupt" | "drillInterrupt" | "drillClean">>): Promise<void>;
+  finishInput(requestOptions?: TurnRequestOptions): Promise<void>;
+  submitPresentationTurn(transcript: string, alreadyPersisted: boolean, requestOptions?: TurnRequestOptions): Promise<void>;
   cancel(): void;
 }
 
@@ -357,14 +382,18 @@ export function useTurnController(options: UseTurnControllerOptions): UseTurnCon
   const [snapshot, setSnapshot] = useState<TurnControllerSnapshot>(() => ({
     turn: initialTurnState(options.sessionId), transcriptPreview: "", assistantCaption: "", messages: [],
     error: null, usingSttFallback: false, usingTtsFallback: false,
-    activePersona: null,
+    activePersona: null, assistantMetadata: null,
   }));
   const voice = useStreamingVoice({
     roomId: options.sessionId, region: options.region, dependencies: options.voiceDependencies,
     speechDependencies: options.speechDependencies,
     onStartOfTurn: event => { void controllerRef.current?.acceptStt(event); },
     onInterimTranscript: event => { void controllerRef.current?.acceptStt(event); },
-    onEndOfTurn: event => { void controllerRef.current?.acceptStt({ type: "EndOfTurn", transcript: event.transcript, confidence: event.confidence }); },
+    onEndOfTurn: event => {
+      const accepted = controllerRef.current?.acceptStt({ type: "EndOfTurn", turnIndex: event.turnIndex, transcript: event.transcript, confidence: event.confidence });
+      voiceRef.current.stop();
+      void accepted;
+    },
     onFallback: () => controllerRef.current?.setSttFallback(true),
     onPrimaryReady: () => controllerRef.current?.setSttFallback(false),
     onSpeechEvent: event => controllerRef.current?.acceptSpeechEvent(event),
@@ -379,12 +408,13 @@ export function useTurnController(options: UseTurnControllerOptions): UseTurnCon
       speakPhrase: (turnId, phrase) => voiceRef.current.speakPhrase(turnId, phrase),
       finishSpeech: turnId => voiceRef.current.finishSpeech(turnId),
       cancelGeneration: () => {},
-      invalidatePhraseQueue: () => {},
-      stopAudio: turnId => voiceRef.current.cancelSpeech(turnId),
-      clearTts: () => {},
+      invalidatePhraseQueue: turnId => voiceRef.current.invalidateSpeech(turnId),
+      stopAudio: turnId => voiceRef.current.stopSpeechAudio(turnId),
+      clearTts: turnId => voiceRef.current.clearSpeechTts(turnId),
       beginListening: () => {},
-      recordMetric: async metric => { await fetch("/api/turn-metrics", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(metric), keepalive: true }); },
+      recordMetric: async metric => { await fetch("/api/turn-metrics", { method: "POST", credentials: "same-origin", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify(metric), keepalive: true }); },
       now: () => performance.now(),
+      createLifecycleId: () => crypto.randomUUID(),
     });
     controllerRef.current = controller;
     const unsubscribe = controller.subscribe(setSnapshot);
@@ -392,18 +422,23 @@ export function useTurnController(options: UseTurnControllerOptions): UseTurnCon
   }, [options.sessionId, options.voiceModel]);
 
   const startListening = useCallback(() => voiceRef.current.start(), []);
-  const stopAndSubmit = useCallback(async (requestOptions = {}) => {
-    voiceRef.current.stop();
+  const finishInput = useCallback(async (requestOptions = {}) => {
     const transcript = `${voiceRef.current.finalTranscript} ${voiceRef.current.interimTranscript}`.trim();
-    if (transcript) await controllerRef.current?.submitTranscript(transcript, voiceRef.current.finalizedTranscript?.confidence ?? 1, requestOptions);
+    if (voiceRef.current.usingFallback) {
+      voiceRef.current.stop();
+      if (transcript) await controllerRef.current?.finalizeFallbackTranscript(transcript, voiceRef.current.finalizedTranscript?.confidence ?? 1, requestOptions);
+      controllerRef.current?.setSttFallback(false);
+    } else {
+      controllerRef.current?.queuePrimaryEndOfTurn(requestOptions);
+    }
   }, []);
-  const submitTranscript = useCallback(async (transcript: string, confidence = 1, requestOptions = {}) => {
-    await controllerRef.current?.submitTranscript(transcript, confidence, requestOptions);
+  const submitPresentationTurn = useCallback(async (transcript: string, alreadyPersisted: boolean, requestOptions = {}) => {
+    await controllerRef.current?.submitPresentationTurn(transcript, alreadyPersisted, requestOptions);
   }, []);
   const cancel = useCallback(() => controllerRef.current?.dispose(), []);
 
   return { ...snapshot, isSupported: voice.isSupported, isListening: voice.isListening,
     finalTranscript: voice.finalTranscript, interimTranscript: voice.interimTranscript,
     startListening, start: startListening, stop: voice.stop, reset: voice.reset,
-    submitTranscript, stopAndSubmit, cancel };
+    finishInput, submitPresentationTurn, cancel };
 }

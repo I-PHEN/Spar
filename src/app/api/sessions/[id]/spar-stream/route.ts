@@ -49,14 +49,20 @@ const PERSONAS_PER_USER_TURN = 1;
 const PATTERN_MEMORY_CACHE_KEY = "__pattern-memory__";
 
 const liveTurnBodySchema = z.object({
-  turnId: z.string().min(1).max(128).optional(),
+  turnId: z.string().min(1).max(128),
   transcript: z.string().min(1).max(5_000),
   confidence: z.number().finite().min(0).max(1),
   forcedPersonaId: z.string().min(1).max(128).optional(),
   isInterrupt: z.boolean().optional(),
   drillInterrupt: z.boolean().optional(),
   drillClean: z.boolean().optional(),
+  presentationHandoff: z.boolean().optional(),
 }).strict();
+
+const LIVE_PROTOCOL_FIELDS = [
+  "turnId", "transcript", "confidence", "forcedPersonaId", "isInterrupt",
+  "drillInterrupt", "drillClean", "presentationHandoff",
+] as const;
 
 function liveTurnResponse(request: LiveTurnRequest, signal: AbortSignal): Response {
   const encoder = new TextEncoder();
@@ -87,10 +93,10 @@ export async function POST(
 ) {
   const { id } = await params;
   const livePayload = await req.clone().json().catch(() => null);
-  if (livePayload && typeof livePayload === "object" && "transcript" in livePayload && "confidence" in livePayload) {
+  if (livePayload && typeof livePayload === "object" && LIVE_PROTOCOL_FIELDS.some(field => field in livePayload)) {
     const parsed = liveTurnBodySchema.safeParse(livePayload);
     if (!parsed.success) return Response.json({ error: "Invalid live turn request." }, { status: 400 });
-    return liveTurnResponse({ sessionId: id, ...parsed.data, turnId: parsed.data.turnId ?? crypto.randomUUID() }, req.signal);
+    return liveTurnResponse({ sessionId: id, ...parsed.data }, req.signal);
   }
   const body = await req.json().catch(() => ({}));
 

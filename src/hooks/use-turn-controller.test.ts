@@ -34,6 +34,7 @@ function harness(events: LiveTurnEvent[]) {
     beginListening: turnId => { effects.push(`listen:${turnId}`); },
     recordMetric: async () => {},
     now: () => 20,
+    createLifecycleId: () => "",
   };
   return { controller: createTurnController("room", "aura-2-thalia-en", dependencies), effects, spoken, requests };
 }
@@ -63,6 +64,61 @@ describe("turn controller", () => {
     expect(h.controller.getSnapshot().assistantCaption).toBe("Exact answer. ");
     expect(h.spoken).toEqual(["Exact answer. "]);
     expect(h.effects.filter(value => value.startsWith("finish:"))).toHaveLength(1);
+  });
+
+  test("primary Done and agitation only annotate the next real Flux EndOfTurn", async () => {
+    const h = harness(normalEvents);
+    await h.controller.acceptStt({ type: "StartOfTurn", turnIndex: 1, transcript: "" });
+    h.controller.queuePrimaryEndOfTurn({ isInterrupt: true, forcedPersonaId: "p" });
+    expect(h.requests).toHaveLength(0);
+    await h.controller.acceptStt({ type: "interim", turnIndex: 1, transcript: "still talking" });
+    expect(h.requests).toHaveLength(0);
+    await h.controller.acceptStt({ type: "EndOfTurn", turnIndex: 1, transcript: "actual Flux final", confidence: 0.9 });
+    expect(h.requests).toHaveLength(1);
+    expect(h.requests[0]).toMatchObject({ transcript: "actual Flux final", isInterrupt: true, forcedPersonaId: "p" });
+  });
+
+  test("explicit fallback finalization and presentation handoff remain functional", async () => {
+    const fallback = harness(normalEvents);
+    fallback.controller.setSttFallback(true);
+    await fallback.controller.finalizeFallbackTranscript("browser final", 0.7, { drillClean: true });
+    expect(fallback.requests[0]).toMatchObject({ transcript: "browser final", confidence: 0.7, drillClean: true });
+
+    const presentation = harness(normalEvents);
+    await presentation.controller.submitPresentationTurn("persisted presentation", true);
+    expect(presentation.requests[0]).toMatchObject({ transcript: "persisted presentation", presentationHandoff: true });
+  });
+
+  test("uses a unique injected lifecycle prefix across controller remounts", async () => {
+    let lifecycle = 0;
+    const build = () => {
+      return createTurnController("room", "aura-2-thalia-en", {
+        streamTurn: stream([]), beginSpeech: async () => {}, speakPhrase: () => {}, finishSpeech: () => {},
+        cancelGeneration: () => {}, invalidatePhraseQueue: () => {}, stopAudio: () => {}, clearTts: () => {},
+        beginListening: () => {}, recordMetric: async () => {}, now: () => 0,
+        createLifecycleId: () => `life-${++lifecycle}`,
+      });
+    };
+    const first = build();
+    const second = build();
+    await first.acceptStt({ type: "StartOfTurn", turnIndex: 0, transcript: "" });
+    await second.acceptStt({ type: "StartOfTurn", turnIndex: 0, transcript: "" });
+    expect(first.getSnapshot().turn.turnId).not.toBe(second.getSnapshot().turn.turnId);
+    expect(first.getSnapshot().turn.turnId.length).toBeLessThanOrEqual(128);
+  });
+
+  test("retains completion type, mood, and claim reference on the visible message", async () => {
+    const h = harness([
+      event("turn-start", { persona, model: "openai/gpt-oss-20b", maxOutputTokens: 80 }),
+      event("text-delta", { text: "Hold on. " }),
+      event("phrase", { phrase: { text: "Hold on. ", sequence: 0, isFinal: false } }),
+      event("complete", { text: "Hold on. ", messageId: "interrupt", metadata: { type: "interruption", claimRef: 3, mood: "pressing" } }),
+    ]);
+    await h.controller.acceptStt({ type: "StartOfTurn", transcript: "" });
+    await h.controller.acceptStt({ type: "EndOfTurn", transcript: "answer", confidence: 1 });
+    expect(h.controller.getSnapshot().messages.at(-1)).toMatchObject({
+      metadata: { type: "interruption", claimRef: 3, mood: "pressing" },
+    });
   });
 
   test("resets unspoken Groq text on fallback without duplicating captions or speech", async () => {

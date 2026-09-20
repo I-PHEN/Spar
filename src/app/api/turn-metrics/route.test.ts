@@ -212,7 +212,7 @@ describe("POST /api/turn-metrics", () => {
     expect(db.$transaction).not.toHaveBeenCalled();
   });
 
-  test("returns a no-store 404 outside development", async () => {
+  test("accepts secure same-origin metric writes outside development", async () => {
     Object.assign(process.env, { NODE_ENV: "production" });
 
     const response = await POST(
@@ -224,9 +224,9 @@ describe("POST /api/turn-metrics", () => {
       }),
     );
 
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(202);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
-    expect(db.$transaction).not.toHaveBeenCalled();
+    expect(db.$transaction).toHaveBeenCalledTimes(1);
   });
 });
 

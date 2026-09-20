@@ -69,7 +69,7 @@ describe("live turn service", () => {
     expect(providerMessages[0]).toEqual({ role: "system", content: "STABLE PREFIX", section: "stable-prefix" });
     expect(providerMessages.at(-1)?.content).toContain("My exact words.");
     expect(events.map((event) => event.type)).toEqual([
-      "turn-start", "metric", "metric", "metric", "text-delta", "metric", "phrase", "metric", "text-delta", "usage", "metric", "phrase", "complete",
+      "turn-start", "metric", "metric", "text-delta", "metric", "phrase", "metric", "text-delta", "usage", "metric", "metric", "phrase", "complete",
     ]);
     expect(events.filter((event) => event.type === "text-delta").map((event) => event.text).join(""))
       .toBe("Exact first sentence. Exact second sentence.");
@@ -77,7 +77,7 @@ describe("live turn service", () => {
       .toBe("Exact first sentence. Exact second sentence.");
     expect(events.findIndex((event) => event.type === "phrase"))
       .toBeLessThan(events.findIndex((event) => event.type === "complete"));
-    expect(metricTypes).toEqual(["turn-context", "transcript-finalized", "generation-started", "first-token", "first-phrase", "usage"]);
+    expect(metricTypes).toEqual(["turn-context", "transcript-finalized", "first-token", "first-phrase", "usage", "generation-started"]);
     const start = events[0];
     expect(start.type === "turn-start" && start.maxOutputTokens).toBe(80);
     expect(events.every((event) => event.turnId === "turn-1")).toBe(true);
@@ -103,5 +103,25 @@ describe("live turn service", () => {
     const events = await collect(service({ sessionId: "s", turnId: "t", transcript: "hello", confidence: 1 }, new AbortController().signal));
     expect(assistantWrites).toBe(0);
     expect(events.at(-1)).toMatchObject({ type: "error", turnId: "t", code: "network-error" });
+  });
+
+  test("persists the selected fallback provider and model in generation metrics", async () => {
+    const metrics: Array<{ type: string; provider?: string; model?: string }> = [];
+    const service = createLiveTurnService({
+      now: () => 10,
+      loadContext: async () => ({ persona: { id: "p", name: "P", archetype: "skeptic", behaviorStyle: "moderate", seatOrder: 0 },
+        experience: "open_spar", selectedRegion: "us", stablePrefix: "s", sessionRules: "r", rollingSummary: "", history: [], deterministicState: {} }),
+      persistUser: async () => {}, persistAssistant: async () => "m",
+      persistMetric: async metric => { metrics.push(metric); },
+      generator: { async *stream() {
+        yield { type: "provider-selected", provider: "groq", model: "groq-model" } as const;
+        yield { type: "fallback", from: "groq", to: "openrouter", reason: "network-error", resetText: true } as const;
+        yield { type: "provider-selected", provider: "openrouter", model: "fallback-model" } as const;
+        yield { type: "text-delta", provider: "openrouter", model: "fallback-model", text: '{"content":"Fallback answer.","type":"normal","claimRef":null,"mood":"neutral"}' } as const;
+        yield { type: "complete", provider: "openrouter", model: "fallback-model", status: "success", usage: null } as const;
+      } },
+    });
+    await collect(service({ sessionId: "s", turnId: "t", transcript: "hello", confidence: 1 }, new AbortController().signal));
+    expect(metrics.find(metric => metric.type === "generation-started")).toMatchObject({ provider: "openrouter", model: "fallback-model" });
   });
 });

@@ -279,7 +279,9 @@ export function SparringRoom({
           personaName: message.role === "assistant" ? persona?.name : undefined,
           archetype: message.role === "assistant" ? persona?.archetype as ArchetypeKey | undefined : undefined,
           content: message.content,
-          type: "normal",
+          type: message.metadata?.type ?? "normal",
+          claimRef: message.metadata?.claimRef,
+          mood: message.metadata?.mood as PersonaMood | undefined,
           createdAt: Date.now(),
         };
         const index = next.findIndex((caption) => caption.id === message.id);
@@ -291,14 +293,18 @@ export function SparringRoom({
         const liveAssistant: CaptionEntry = {
           id, role: "persona", personaId: persona?.id, personaName: persona?.name,
           archetype: persona?.archetype as ArchetypeKey | undefined,
-          content: turnController.assistantCaption, type: "normal", createdAt: Date.now(),
+          content: turnController.assistantCaption,
+          type: turnController.assistantMetadata?.type ?? "normal",
+          claimRef: turnController.assistantMetadata?.claimRef,
+          mood: turnController.assistantMetadata?.mood as PersonaMood | undefined,
+          createdAt: Date.now(),
         };
         const index = next.findIndex((caption) => caption.id === id);
         next = index < 0 ? [...next, liveAssistant] : next.map((caption, current) => current === index ? { ...caption, ...liveAssistant } : caption);
       }
       return next;
     });
-  }, [turnController.messages, turnController.assistantCaption, turnController.turn.turnId, turnController.activePersona]);
+  }, [turnController.messages, turnController.assistantCaption, turnController.assistantMetadata, turnController.turn.turnId, turnController.activePersona]);
 
   useEffect(() => {
     if (isPresenting) return;
@@ -311,7 +317,10 @@ export function SparringRoom({
     }
     const personaId = turnController.activePersona?.id;
     if (personaId) setPersonaStates((previous) => ({ ...previous, [personaId]: turnController.turn.status === "speaking" ? "speaking" : busy ? "thinking" : "listening" }));
-  }, [isPresenting, turnController.turn.status, turnController.error, turnController.activePersona]);
+    if (personaId && turnController.assistantMetadata?.mood) {
+      setPersonaMoods((previous) => ({ ...previous, [personaId]: turnController.assistantMetadata!.mood as PersonaMood }));
+    }
+  }, [isPresenting, turnController.turn.status, turnController.error, turnController.activePersona, turnController.assistantMetadata]);
 
   // Initial load: fetch session + open
   useEffect(() => {
@@ -481,7 +490,6 @@ export function SparringRoom({
       resumePresenting: boolean = false,
       drillFlags?: { drillInterrupt?: boolean; drillClean?: boolean }
     ) => {
-      voice.stop();
       // Stop the audio recorder and save the clip to IndexedDB.
       // Non-blocking — the clip saves async, doesn't delay the turn.
       if (recorder.isRecording) {
@@ -489,17 +497,6 @@ export function SparringRoom({
       }
       // Increment the message index for the next user turn
       messageIndexRef.current += 1;
-
-      await new Promise((r) => setTimeout(r, 300));
-
-      const transcript = (
-        voice.finalTranscript +
-        " " +
-        voice.interimTranscript
-      ).trim();
-      if (!transcript || transcript.length < 3) {
-        return;
-      }
 
       if (sparInFlight.current) return;
       sparInFlight.current = true;
@@ -518,12 +515,21 @@ export function SparringRoom({
       });
 
       try {
-        await turnController.submitTranscript(transcript, 1, {
+        const requestOptions = {
           isInterrupt,
           forcedPersonaId: interruptingPersonaId,
           drillInterrupt: drillFlags?.drillInterrupt ?? false,
           drillClean: drillFlags?.drillClean ?? false,
-        });
+        };
+        if (isPresenting) {
+          presentationVoice.stop();
+          await new Promise((r) => setTimeout(r, 300));
+          const transcript = `${presentationVoice.finalTranscript} ${presentationVoice.interimTranscript}`.trim();
+          if (transcript.length < 3) return;
+          await turnController.submitPresentationTurn(transcript, false, requestOptions);
+        } else {
+          await turnController.finishInput(requestOptions);
+        }
         if (resumePresenting) setIsPresenting(true);
         if (drillFlags?.drillClean) {
           setDrillRetryBoth(false);
@@ -541,7 +547,7 @@ export function SparringRoom({
       }
       return;
     },
-    [voice, sessionId, recorder, turnController, setDrillRetryBoth]
+    [isPresenting, presentationVoice, recorder, turnController, setDrillRetryBoth]
   );
 
   // Handle user pressing "Done" (stop speaking)
@@ -654,89 +660,11 @@ export function SparringRoom({
     setIsUserTurn(false);
 
     try {
-      // Now Q&A begins — use the streaming endpoint for the first question
-      const sparResponse = await fetch(`/api/sessions/${sessionId}/spar-stream`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      if (!sparResponse.ok) throw new Error("Failed to start Q&A");
-      if (!sparResponse.body) throw new Error("No Q&A response body");
+      const transcript = pendingPresentation.current?.trim();
+      if (!transcript) throw new Error("No presentation transcript available");
+      await turnController.submitPresentationTurn(transcript, true);
 
-      // Read the SSE stream (same logic as submitTurn)
-      const qaReader = sparResponse.body.getReader();
-      const qaDecoder = new TextDecoder();
-      let qaBuffer = "";
-      let qaPersonaId = "";
-      let qaCaptionId = "";
-      let qaCaptionText = "";
-      let qaStarted = false;
-
-      while (true) {
-        const { done, value } = await qaReader.read();
-        if (done) break;
-
-        qaBuffer += qaDecoder.decode(value, { stream: true });
-        const events = qaBuffer.split("\n\n");
-        qaBuffer = events.pop() || "";
-
-        for (const event of events) {
-          const lines = event.split("\n");
-          let eventType = "message";
-          let data = "";
-          for (const line of lines) {
-            if (line.startsWith("event: ")) eventType = line.slice(7).trim();
-            else if (line.startsWith("data: ")) data = line.slice(6);
-          }
-
-          if (!data) continue;
-          let parsed: any;
-          try { parsed = JSON.parse(data); } catch { continue; }
-
-          if (eventType === "start") {
-            qaPersonaId = parsed.personaId;
-            qaCaptionId = `qa-${Date.now()}`;
-            qaCaptionText = "";
-            qaStarted = false;
-            setPersonaStates((prev) => ({ ...prev, [qaPersonaId]: "thinking" }));
-          } else if (eventType === "sentence") {
-            if (!qaStarted) {
-              qaStarted = true;
-              setPersonaStates((prev) => ({ ...prev, [qaPersonaId]: "speaking" }));
-              setCaptions((prev) => [
-                ...prev,
-                {
-                  id: qaCaptionId,
-                  role: "persona",
-                  personaId: parsed.personaId || qaPersonaId,
-                  personaName: parsed.personaName,
-                  archetype: parsed.archetype,
-                  content: parsed.text,
-                  type: "normal",
-                  createdAt: Date.now(),
-                },
-              ]);
-              qaCaptionText = parsed.text;
-            } else {
-              qaCaptionText += " " + parsed.text;
-              setCaptions((prev) =>
-                prev.map((c) => c.id === qaCaptionId ? { ...c, content: qaCaptionText } : c)
-              );
-            }
-            if (parsed.audio) {
-              setAudioPlaying(true);
-              try { await playBase64Audio(parsed.audio); } catch (e) { console.error(e); }
-              setAudioPlaying(false);
-            }
-          } else if (eventType === "done") {
-            if (parsed.mood && qaPersonaId) {
-              setPersonaMoods((prev) => ({ ...prev, [qaPersonaId]: parsed.mood }));
-            }
-            setPersonaStates((prev) => ({ ...prev, [qaPersonaId]: "listening" }));
-          }
-        }
-      }
-
+      qaFailedRef.current = false;
       setIsUserTurn(true);
     } catch (e) {
       console.error("[beginQA] Failed to start Q&A:", e);

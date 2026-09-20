@@ -65,10 +65,6 @@ function jsonResponse(body: unknown, status: number): Response {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  if (process.env.NODE_ENV !== "development") {
-    return jsonResponse({ error: "Not found." }, 404);
-  }
-
   const origin = request.headers.get("Origin");
   if (origin !== null && origin !== new URL(request.url).origin) {
     return jsonResponse({ error: "Forbidden." }, 403);
