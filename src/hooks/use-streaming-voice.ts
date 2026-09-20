@@ -226,9 +226,12 @@ export class StreamingVoiceSession {
   private scheduleReconnect(): void {
     if (!this.desired || this.disposed || this.reconnectTimer !== undefined) return;
     const random = Math.max(0, Math.min(1, (this.dependencies.random ?? Math.random)()));
-    const exponential = RECONNECT_BASE_MS * 2 ** Math.min(this.reconnectAttempt, 20);
+    const windowMs = Math.min(
+      RECONNECT_CAP_MS,
+      RECONNECT_BASE_MS * 2 ** Math.min(this.reconnectAttempt, 20),
+    );
     this.reconnectAttempt += 1;
-    const delayMs = Math.min(RECONNECT_CAP_MS, Math.round(exponential * (0.5 + random)));
+    const delayMs = Math.round(windowMs * (0.5 + random * 0.5));
     const setTimer = this.dependencies.setTimer ?? ((callback: () => void, delay: number) => setTimeout(callback, delay));
     this.reconnectTimer = setTimer(() => {
       this.reconnectTimer = undefined;
@@ -323,6 +326,12 @@ export function createStreamingVoiceHook(
     });
 
     runtime.useEffect(() => {
+      setPrimaryListening(false);
+      setInterimTranscript("");
+      setFinalizedTranscript(null);
+      setUsingFallback(false);
+      setError(null);
+      webSpeechReset();
       const session = new StreamingVoiceSession({
         roomId: options.roomId,
         region: options.region,
@@ -364,7 +373,7 @@ export function createStreamingVoiceHook(
         sessionRef.current = null;
         webSpeechStop();
       };
-    }, [options.roomId, options.region, webSpeechStart, webSpeechStop]);
+    }, [options.roomId, options.region, webSpeechStart, webSpeechStop, webSpeechReset]);
 
     const start = runtime.useCallback(() => {
       setError(null);

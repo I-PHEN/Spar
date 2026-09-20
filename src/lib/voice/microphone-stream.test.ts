@@ -56,7 +56,23 @@ function captureHarness(options: {
 } = {}) {
   const chunks: { sequence: number; audio: Uint8Array }[] = [];
   const errors: Error[] = [];
-  const track = { stopped: false, stop() { this.stopped = true; } };
+  const endedListeners = new Set<EventListener>();
+  const track = {
+    stopped: false,
+    readyState: 'live' as MediaStreamTrackState,
+    stop() { this.stopped = true; this.readyState = 'ended'; },
+    addEventListener(type: string, listener: EventListener) {
+      if (type === 'ended') endedListeners.add(listener);
+    },
+    removeEventListener(type: string, listener: EventListener) {
+      if (type === 'ended') endedListeners.delete(listener);
+    },
+    end() {
+      this.readyState = 'ended';
+      for (const listener of [...endedListeners]) listener(new Event('ended'));
+    },
+    endedListenerCount: () => endedListeners.size,
+  };
   const stream = { getTracks: () => [track] } as unknown as MediaStream;
   const node = () => ({
     connected: false,
@@ -266,6 +282,35 @@ describe('microphone capture', () => {
     expect(harness.context.closed).toBe(true);
     expect(harness.worklet.port.closed).toBe(true);
     expect(harness.errors).toHaveLength(1);
+  });
+
+  test('reports an unexpectedly ended microphone track and releases every resource', async () => {
+    const harness = captureHarness();
+    const capture = makeCapture(harness);
+    await capture.start();
+    expect(harness.track.endedListenerCount()).toBe(1);
+
+    harness.track.end();
+
+    expect(harness.errors.map((error) => error.message)).toEqual(['Microphone track ended']);
+    expect(harness.track.stopped).toBe(true);
+    expect(harness.track.endedListenerCount()).toBe(0);
+    expect(harness.context.closed).toBe(true);
+    expect(harness.source.disconnected).toBe(true);
+    expect(harness.script.disconnected).toBe(true);
+  });
+
+  test('removes the track-ended listener before explicit stop without reporting failure', async () => {
+    const harness = captureHarness();
+    const capture = makeCapture(harness);
+    await capture.start();
+    expect(harness.track.endedListenerCount()).toBe(1);
+
+    capture.stop();
+    harness.track.end();
+
+    expect(harness.track.endedListenerCount()).toBe(0);
+    expect(harness.errors).toEqual([]);
   });
 
   test('does not connect a capture stopped while the audio context resumes', async () => {

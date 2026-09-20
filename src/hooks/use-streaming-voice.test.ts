@@ -60,6 +60,10 @@ class FakeMicrophone {
   emit(chunk: MicrophoneChunk): void {
     this.options.onChunk(chunk);
   }
+
+  fail(message: string): void {
+    this.options.onError?.(new Error(message));
+  }
 }
 
 function harness(overrides: Partial<StreamingVoiceDependencies> = {}) {
@@ -334,10 +338,25 @@ describe("streaming voice room lifecycle", () => {
     expect(h.sttClients[0].closeCount).toBe(1);
   });
 
+  test("records microphone fallback when an active capture fails at runtime", async () => {
+    const h = harness();
+    await h.session.start();
+
+    h.microphones[0].fail("Microphone track ended");
+
+    expect(h.fallbacks).toEqual(["microphone"]);
+    expect(h.metrics[0]?.reason).toBe("microphone");
+    expect(h.sttClients[0].closeCount).toBe(1);
+    expect(h.microphones[0].stopCount).toBe(1);
+    expect(h.scheduled.size).toBe(1);
+  });
+
   test("reconnects with exponential jitter capped at five seconds and recovers primary speech", async () => {
     let rejectReconnects = true;
+    const randomValues = [1, 1, 1, 1, 0.2, 0.8, 0.2, 0.8, 0.4];
+    let randomIndex = 0;
     const h = harness({
-      random: () => 1,
+      random: () => randomValues[randomIndex++],
       createSttClient: (options) => {
         const client = new FakeStt(options);
         if (h.sttClients.length > 0 && rejectReconnects) {
@@ -351,14 +370,14 @@ describe("streaming voice room lifecycle", () => {
 
     h.sttClients[0].emit({ type: "close", code: 1011, intentional: false });
     const delays: number[] = [];
-    for (let attempt = 0; attempt < 5; attempt += 1) {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
       delays.push(await fireNextTimer(h.scheduled));
     }
-    expect(delays).toEqual([375, 750, 1_500, 3_000, 5_000]);
+    expect(delays).toEqual([250, 500, 1_000, 2_000, 2_400, 4_500, 3_000, 4_500]);
 
     rejectReconnects = false;
-    expect(await fireNextTimer(h.scheduled)).toBe(5_000);
-    expect(h.sttClients).toHaveLength(7);
+    expect(await fireNextTimer(h.scheduled)).toBe(3_500);
+    expect(h.sttClients).toHaveLength(10);
     expect(h.recoveries).toHaveLength(1);
   });
 
@@ -501,6 +520,72 @@ describe("useStreamingVoice hook lifecycle", () => {
     host.unmount();
     expect(fallbackStops).toBe(1);
     expect(timers.size).toBe(0);
+  });
+
+  test("clears room fallback state before a healthy replacement room listens", async () => {
+    const host = hookHost();
+    const clients: FakeStt[] = [];
+    let fallbackStops = 0;
+    let fallbackResets = 0;
+    const fallback: UseVoiceRecognitionResult = {
+      isSupported: true,
+      isListening: true,
+      interimTranscript: "room A interim",
+      finalTranscript: "room A final",
+      error: null,
+      start: () => {},
+      stop: () => { fallbackStops += 1; },
+      reset: () => { fallbackResets += 1; },
+    };
+    const dependencies: StreamingVoiceDependencies = {
+      createSttClient: (options) => {
+        const client = new FakeStt(options);
+        if (clients.length === 0) client.connectError = new Error("room A offline");
+        clients.push(client);
+        return client;
+      },
+      createMicrophoneStream: (options) => new FakeMicrophone(options),
+      setTimer: () => ({}),
+      clearTimer: () => {},
+    };
+    const useHook = createStreamingVoiceHook(host.runtime, () => fallback);
+    let roomId = "room-a";
+    let result = host.render(() => useHook({ roomId, region: "us", dependencies }));
+
+    result.start();
+    await flushHookStartup();
+    result = host.render(() => useHook({ roomId, region: "us", dependencies }));
+    expect(result.usingFallback).toBe(true);
+    expect(result.finalTranscript).toBe("room A final");
+
+    roomId = "room-b";
+    host.render(() => useHook({ roomId, region: "us", dependencies }));
+    result = host.render(() => useHook({ roomId, region: "us", dependencies }));
+    result.start();
+    await flushHookStartup();
+    result = host.render(() => useHook({ roomId, region: "us", dependencies }));
+
+    expect(result.usingFallback).toBe(false);
+    expect(result.isListening).toBe(true);
+    expect(result.interimTranscript).toBe("");
+    expect(result.finalTranscript).toBe("");
+    expect(fallbackStops).toBeGreaterThanOrEqual(1);
+    expect(fallbackResets).toBeGreaterThanOrEqual(1);
+
+    clients[1].emit({
+      type: "EndOfTurn",
+      turnIndex: 0,
+      transcript: "room B final",
+      confidence: 0.95,
+    });
+    clients[0].emit({
+      type: "EndOfTurn",
+      turnIndex: 0,
+      transcript: "late room A",
+      confidence: 0.2,
+    });
+    result = host.render(() => useHook({ roomId, region: "us", dependencies }));
+    expect(result.finalTranscript).toBe("room B final");
   });
 
   test("reports support only when a complete primary path or Web Speech is available", () => {

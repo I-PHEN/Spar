@@ -105,6 +105,10 @@ interface CaptureRun {
   resampler?: MonoResampler;
   pending: Int16Array;
   pendingLength: number;
+  trackEndListeners: Array<{
+    track: MediaStreamTrack;
+    listener: EventListener;
+  }>;
 }
 
 export class MicrophoneStream {
@@ -115,7 +119,11 @@ export class MicrophoneStream {
 
   start(): Promise<void> {
     if (this.current?.startPromise) return this.current.startPromise;
-    const run: CaptureRun = { pending: new Int16Array(CHUNK_SAMPLES), pendingLength: 0 };
+    const run: CaptureRun = {
+      pending: new Int16Array(CHUNK_SAMPLES),
+      pendingLength: 0,
+      trackEndListeners: [],
+    };
     this.current = run;
     run.startPromise = this.initialize(run);
     return run.startPromise;
@@ -134,6 +142,12 @@ export class MicrophoneStream {
       if (!mediaDevices) throw new Error('Microphone capture is unavailable');
       run.stream = await mediaDevices.getUserMedia({ audio: { channelCount: 1 }, video: false });
       if (this.current !== run) { this.release(run); return; }
+      for (const track of run.stream.getTracks()) {
+        const listener = () => this.failRuntime(run, 'Microphone track ended');
+        track.addEventListener('ended', listener);
+        run.trackEndListeners.push({ track, listener });
+        if (track.readyState === 'ended') throw new Error('Microphone track ended');
+      }
 
       const createContext = dependencies.createAudioContext ?? (() => new AudioContext());
       const context = createContext();
@@ -156,9 +170,7 @@ export class MicrophoneStream {
           run.processor = run.worklet = worklet;
           worklet.port.onmessage = (event: MessageEvent<Float32Array>) => this.accept(run, event.data);
           worklet.onprocessorerror = () => {
-            if (this.current !== run) return;
-            this.stop();
-            this.options.onError?.(new Error('Microphone audio processor failed'));
+            this.failRuntime(run, 'Microphone audio processor failed');
           };
         } catch {
           // Browsers can expose AudioWorklet while CSP or module loading blocks it.
@@ -225,6 +237,13 @@ export class MicrophoneStream {
     revoke(url);
   }
 
+  private failRuntime(run: CaptureRun, message: string): void {
+    if (this.current !== run) return;
+    this.current = undefined;
+    this.release(run);
+    this.options.onError?.(new Error(message));
+  }
+
   private release(run: CaptureRun): void {
     if (run.worklet) {
       run.worklet.port.onmessage = null;
@@ -239,6 +258,10 @@ export class MicrophoneStream {
     }
     run.source?.disconnect();
     run.source = undefined;
+    for (const { track, listener } of run.trackEndListeners) {
+      track.removeEventListener('ended', listener);
+    }
+    run.trackEndListeners = [];
     run.stream?.getTracks().forEach((track) => track.stop());
     run.stream = undefined;
     if (run.context) {
