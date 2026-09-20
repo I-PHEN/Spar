@@ -11,10 +11,205 @@ import {
   createStreamingVoiceHook,
   isStreamingVoiceSupported,
   StreamingVoiceSession,
+  StreamingSpeechSession,
+  type StreamingSpeechDependencies,
+  type StreamingSpeechEvent,
   type StreamingVoiceDependencies,
   type StreamingVoiceHookRuntime,
 } from "./use-streaming-voice";
 import type { UseVoiceRecognitionResult } from "./use-voice";
+import type { DeepgramTtsOptions, DeepgramTtsEvent } from "../lib/providers/deepgram-tts";
+import type { PhraseChunk } from "../lib/voice/phrase-chunker";
+import type { PcmPlayerOptions, PcmPlayerEvent, PcmFrame } from "../lib/voice/pcm-player";
+
+function speechHarness(failStart = false) {
+  const events: StreamingSpeechEvent[] = [];
+  const clients: Array<{ options: DeepgramTtsOptions; phrases: string[]; turns: string[]; flushes: number; clears: number; closes: number }> = [];
+  const audio: PcmFrame[] = [];
+  const browser: Array<{ text: string; onStart: () => void; onEnd: () => void }> = [];
+  let playerOptions!: PcmPlayerOptions;
+  let stops = 0, resets = 0, cancels = 0;
+  const dependencies: StreamingSpeechDependencies = {
+    createTtsClient: options => {
+      const state = { options, phrases: [] as string[], turns: [] as string[], flushes: 0, clears: 0, closes: 0 };
+      clients.push(state);
+      return {
+        async beginTurn(turnId) { state.turns.push(turnId); if (failStart) throw new Error("private detail"); },
+        speak(text) { state.phrases.push(text); return true; },
+        flush() { state.flushes++; return true; },
+        clear() { state.clears++; }, close() { state.closes++; },
+      };
+    },
+    createPlayer: options => {
+      playerOptions = options;
+      return { async start() {}, enqueue(frame) { audio.push(frame); return true; }, stop() { stops++; }, reset() { resets++; } };
+    },
+    browserSpeech: { speak(text, callbacks) { browser.push({ text, ...callbacks }); }, cancel() { cancels++; } },
+    now: () => 1234,
+    setTimer: () => ({}), clearTimer: () => {},
+  };
+  const session = new StreamingSpeechSession({ roomId: "room", region: "eu", dependencies, onEvent: event => events.push(event) });
+  return { session, clients, audio, browser, events, dependencies,
+    emit(event: DeepgramTtsEvent, index = 0) { clients[index].options.onEvent(event); },
+    playback(event: PcmPlayerEvent) { playerOptions.onEvent(event); },
+    counts: () => ({ stops, resets, cancels }),
+  };
+}
+
+describe("streaming speech lifecycle", () => {
+  test("a suspended playback context cannot indefinitely block startup or fallback", async () => {
+    const callbacks: Array<() => void> = [];
+    const events: StreamingSpeechEvent[] = [];
+    const session = new StreamingSpeechSession({ roomId: "room", region: "us", onEvent: event => events.push(event), dependencies: {
+      createTtsClient: () => ({ async beginTurn() {}, speak: () => true, flush: () => true, close() {}, clear() {} }),
+      createPlayer: () => ({ start: () => new Promise<void>(() => {}), enqueue: () => true, stop() {}, reset() {} }),
+      setTimer: callback => { callbacks.push(callback); return {}; }, clearTimer() {},
+    } });
+    let settled = false;
+    void session.begin("one", "voice").then(() => { settled = true; });
+    expect(callbacks).toHaveLength(1);
+    callbacks[0]();
+    await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+    expect(settled).toBe(true);
+    expect(events.filter(event => event.type === "fallback")).toHaveLength(1);
+  });
+  test("recognizes playback that starts while buffered audio resumes", async () => {
+    let resumePlayback!: () => void;
+    let timeout!: () => void;
+    let clientOptions!: DeepgramTtsOptions;
+    let playerOptions!: PcmPlayerOptions;
+    const events: StreamingSpeechEvent[] = [];
+    const session = new StreamingSpeechSession({ roomId: "room", region: "us", onEvent: event => events.push(event), dependencies: {
+      createTtsClient: options => {
+        clientOptions = options;
+        return { async beginTurn() {}, speak: () => true, flush: () => true, clear() {}, close() {} };
+      },
+      createPlayer: options => {
+        playerOptions = options;
+        return {
+          start: () => new Promise<void>(resolve => { resumePlayback = resolve; }),
+          enqueue: () => true, stop() {}, reset() {},
+        };
+      },
+      setTimer: callback => { timeout = callback; return {}; }, clearTimer() {},
+    } });
+
+    const beginning = session.begin("one", "voice");
+    await Promise.resolve();
+    clientOptions.onEvent({ type: "audio", turnId: "one", sequence: 0, audio: new Uint8Array([0, 0]) });
+    playerOptions.onEvent({ type: "playback-start", turnId: "one", timestampMs: 1, audioTime: 2 });
+    resumePlayback();
+    await beginning;
+    timeout();
+
+    expect(events.filter(event => event.type === "fallback")).toEqual([]);
+    expect(events).toContainEqual({ type: "playback-start", turnId: "one", timestampMs: 1, audioTime: 2 });
+  });
+  test("replaces a cancelled connecting client before the next turn begins", async () => {
+    const h = speechHarness();
+    let release!: () => void;
+    h.dependencies.createTtsClient = options => {
+      const state = { options, phrases: [] as string[], turns: [] as string[], flushes: 0, clears: 0, closes: 0 };
+      h.clients.push(state);
+      return { beginTurn: async () => { if (h.clients.length === 1) await new Promise<void>(resolve => { release = resolve; }); },
+        speak: () => true, flush: () => true, clear: () => { state.clears++; }, close: () => { state.closes++; } };
+    };
+    const old = h.session.begin("old", "voice");
+    h.session.cancel("old");
+    const next = h.session.begin("new", "voice");
+    expect(h.clients).toHaveLength(2);
+    release(); await old; await next;
+    expect(h.clients[0].closes).toBe(1);
+    expect(h.events.filter(event => event.type === "fallback")).toEqual([]);
+  });
+  test("falls back with all exact text if streaming fails before the first scheduled sample", async () => {
+    const h = speechHarness(); await h.session.begin("one", "voice");
+    h.session.pushText("one", "First  sentence. ");
+    h.emit({ type: "error", turnId: "one", reason: "socket-error" });
+    h.session.pushText("one", "Second."); h.session.finish("one");
+    expect(h.browser.map(item => item.text).join("")).toBe("First  sentence. Second.");
+    h.browser[0].onStart(); h.browser[0].onEnd(); h.browser[1].onEnd();
+    expect(h.events.filter(event => event.type === "complete")).toEqual([{ type: "complete", turnId: "one" }]);
+  });
+  test("times out a connected provider that never produces audio", async () => {
+    const h = speechHarness();
+    let timeout!: () => void;
+    h.dependencies.setTimer = callback => { timeout = callback; return {}; };
+    await h.session.begin("one", "voice");
+    h.session.pushText("one", "Do not lose this. "); timeout();
+    expect(h.browser.map(item => item.text)).toEqual(["Do not lose this. "]);
+    expect(h.events.filter(event => event.type === "fallback")).toHaveLength(1);
+  });
+  test("reuses temporary grants across persona sockets and refreshes expired grants", async () => {
+    const tokens: string[] = [];
+    const requests: { input: string; init: RequestInit }[] = [];
+    let now = 0;
+    const h = speechHarness();
+    h.dependencies.now = () => now;
+    h.dependencies.fetch = async (input, init) => { requests.push({ input, init }); return Response.json({ accessToken: `temporary.${requests.length}.jwt`, expiresIn: 60 }); };
+    h.dependencies.createTtsClient = options => ({
+      async beginTurn() { tokens.push(await options.dependencies.getToken()); },
+      speak: () => true, flush: () => true, clear() {}, close() {},
+    });
+    await h.session.begin("one", "voice-a"); await h.session.begin("two", "voice-b");
+    now = 60000; await h.session.begin("three", "voice-c");
+    expect(tokens).toEqual(["temporary.1.jwt", "temporary.1.jwt", "temporary.2.jwt"]);
+    expect(requests).toHaveLength(2);
+    expect(requests[0].input).toBe("/api/deepgram-token");
+    expect(requests[0].init).toMatchObject({ method: "POST", credentials: "same-origin", cache: "no-store" });
+    h.session.dispose(); expect(requests[0].init.signal?.aborted).toBe(true);
+  });
+  test("passes exact chunker output immediately and reuses each persona connection across turns", async () => {
+    const h = speechHarness(); await h.session.begin("one", "aura-2-athena-en");
+    h.session.pushText("one", "Exact  first sentence. ");
+    expect(h.clients[0].phrases).toEqual(["Exact  first sentence. "]);
+    h.session.pushText("one", "Last fragment"); h.session.finish("one"); h.session.finish("one");
+    expect(h.clients[0].phrases.join("")).toBe("Exact  first sentence. Last fragment");
+    expect(h.clients[0].flushes).toBe(1);
+    h.emit({ type: "audio", turnId: "one", sequence: 0, audio: new Uint8Array([0, 0]) });
+    expect(h.audio).toHaveLength(1);
+    h.emit({ type: "complete", turnId: "one" });
+    await h.session.begin("two", "aura-2-athena-en");
+    expect(h.clients).toHaveLength(1);
+    expect(h.clients[0].turns).toEqual(["one", "two"]);
+    await h.session.begin("three", "aura-2-zeus-en");
+    expect(h.clients).toHaveLength(2);
+    h.session.dispose(); expect(h.clients.every(client => client.closes === 1)).toBe(true);
+  });
+  test("falls back before playback with exact captions, one metric and cancellable speech", async () => {
+    const h = speechHarness(true); await h.session.begin("one", "aura-2-athena-en");
+    h.session.pushText("one", "Exact  caption. "); h.session.pushText("one", "Residual"); h.session.finish("one");
+    expect(h.browser.map(item => item.text).join("")).toBe("Exact  caption. Residual");
+    expect(h.events.filter(event => event.type === "caption").map(event => event.text).join("")).toBe("Exact  caption. Residual");
+    expect(h.events.filter(event => event.type === "fallback")).toEqual([{ type: "fallback", turnId: "one", reason: "tts-unavailable", timestampMs: 1234 }]);
+    h.browser[0].onStart(); h.session.cancel("one"); const count = h.events.length;
+    h.browser[1].onEnd(); h.emit({ type: "error", turnId: "one", reason: "provider-error" });
+    expect(h.events).toHaveLength(count); expect(h.counts().cancels).toBeGreaterThan(0);
+  });
+  test("never replays a partially spoken answer and reconnects only for the next turn", async () => {
+    const h = speechHarness(); await h.session.begin("one", "voice");
+    h.session.pushText("one", "Already spoken. ");
+    h.playback({ type: "playback-start", turnId: "one", timestampMs: 1234, audioTime: 0 });
+    h.emit({ type: "error", turnId: "one", reason: "provider-error" });
+    h.session.pushText("one", "Never replay this."); h.session.finish("one");
+    expect(h.browser).toEqual([]); expect(h.clients).toHaveLength(1);
+    expect(h.events).toContainEqual({ type: "error", turnId: "one", reason: "provider-error" });
+    await h.session.begin("two", "voice"); expect(h.clients).toHaveLength(2);
+    h.emit({ type: "audio", turnId: "one", sequence: 0, audio: new Uint8Array([0,0]) });
+    h.emit({ type: "error", turnId: "one", reason: "socket-error" });
+    expect(h.audio).toEqual([]);
+  });
+  test("accepts pre-chunked phrases, suppresses stale text and clears both playback and TTS on cancellation", async () => {
+    const h = speechHarness(); await h.session.begin("one", "voice");
+    const phrase: PhraseChunk = { text: "Preserve me  ", sequence: 0, isFinal: true };
+    h.session.speakPhrase("one", phrase); h.session.finish("one");
+    h.session.cancel("one");
+    h.session.speakPhrase("one", { ...phrase, sequence: 1 });
+    h.session.pushText("old", "Stale");
+    expect(h.clients[0].phrases).toEqual(["Preserve me  "]);
+    expect(h.clients[0].clears).toBe(1); expect(h.counts().stops).toBeGreaterThan(0);
+  });
+});
 
 class FakeStt {
   readonly sent: MicrophoneChunk[] = [];
@@ -414,6 +609,22 @@ describe("streaming voice room lifecycle", () => {
 });
 
 describe("useStreamingVoice hook lifecycle", () => {
+  test("routes hook speech methods and disposes speech resources when the room changes", async () => {
+    const host = hookHost();
+    const h = speechHarness();
+    const fallback: UseVoiceRecognitionResult = { isSupported: true, isListening: false, interimTranscript: "", finalTranscript: "", error: null, start() {}, stop() {}, reset() {} };
+    const useHook = createStreamingVoiceHook(host.runtime, () => fallback);
+    let roomId = "a";
+    let result = host.render(() => useHook({ roomId, region: "us", speechDependencies: h.dependencies }));
+    await result.beginSpeech("one", "voice"); result.pushSpeechText("one", "Exact text. "); result.finishSpeech("one");
+    expect(h.clients[0].phrases).toEqual(["Exact text. "]);
+    roomId = "b";
+    result = host.render(() => useHook({ roomId, region: "us", speechDependencies: h.dependencies }));
+    expect(h.clients[0].closes).toBe(1);
+    await result.beginSpeech("two", "voice");
+    host.unmount(); expect(h.clients[1].closes).toBe(1);
+    expect(h.counts().resets).toBe(2);
+  });
   test("mounts one room session, replaces it on room change, and disposes it on unmount", async () => {
     const host = hookHost();
     const clients: FakeStt[] = [];

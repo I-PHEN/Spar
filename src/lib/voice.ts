@@ -7,6 +7,8 @@
 
 import ZAI from "z-ai-web-dev-sdk";
 import type { ArchetypeKey, BehaviorStyle } from "./types";
+import { PERSONA_VOICES } from "./providers/deepgram-tts";
+export { PERSONA_VOICES } from "./providers/deepgram-tts";
 
 let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null;
 
@@ -37,13 +39,6 @@ async function getZai() {
  *   timekeeper → arcas    (neutral — cuts you off)
  *   ally       → apollo   (warm — supportive before the probe)
  */
-export const PERSONA_VOICES: Record<ArchetypeKey, string> = {
-  skeptic: "aura-2-zeus-en",
-  nitpicker: "aura-2-athena-en",
-  so_what: "aura-2-orion-en",
-  timekeeper: "aura-2-arcas-en",
-  ally: "aura-2-apollo-en",
-};
 
 /**
  * Speed mapping by behavior style.
@@ -59,6 +54,8 @@ export const BEHAVIOR_SPEEDS: Record<BehaviorStyle, number> = {
 };
 
 /**
+ * Legacy non-streaming call sites only. Task 8 establishes the browser-owned
+ * DeepgramTtsClient and PcmPlayer path; Task 9 migrates the live loop to it.
  * Generate TTS audio for a persona's text using Deepgram.
  * Returns base64-encoded audio (MP3 format — smaller than WAV, faster to transfer).
  *
