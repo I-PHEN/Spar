@@ -425,6 +425,22 @@ export class StreamingSpeechSession {
     turn.phrases.length = turn.sent;
   }
 
+  /**
+   * Mid-turn generation fallback: discard the failed provider's queued text so
+   * the replacement provider's restarted phrase stream stays speakable. Unlike
+   * invalidateText, the turn is not permanently invalidated — playback and the
+   * TTS connection keep serving the same turn.
+   */
+  resetText(turnId: string): void {
+    const turn = this.active;
+    if (!turn || turn.turnId !== turnId || turn.finalized) return;
+    turn.invalidated = false;
+    turn.externalPhrases = false;
+    turn.chunker = createPhraseChunker();
+    turn.phrases.length = 0;
+    turn.sent = 0;
+  }
+
   stopAudio(turnId: string): void {
     const turn = this.active;
     if (!turn || turn.turnId !== turnId) return;
@@ -609,6 +625,7 @@ export interface UseStreamingVoiceResult {
   finishSpeech: (turnId: string) => void;
   cancelSpeech: (turnId: string) => void;
   invalidateSpeech: (turnId: string) => void;
+  resetSpeechText: (turnId: string) => void;
   stopSpeechAudio: (turnId: string) => void;
   clearSpeechTts: (turnId: string) => void;
 }
@@ -766,6 +783,7 @@ export function createStreamingVoiceHook(
       finishSpeech: turnId => speechRef.current?.finish(turnId),
       cancelSpeech: turnId => speechRef.current?.cancel(turnId),
       invalidateSpeech: turnId => speechRef.current?.invalidateText(turnId),
+      resetSpeechText: turnId => speechRef.current?.resetText(turnId),
       stopSpeechAudio: turnId => speechRef.current?.stopAudio(turnId),
       clearSpeechTts: turnId => speechRef.current?.clearTts(turnId),
     };

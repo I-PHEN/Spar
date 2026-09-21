@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { LiveTurnEvent, LiveTurnRequest } from "../lib/spar/live-turn-service";
-import { createTurnController, type TurnControllerDependencies } from "./use-turn-controller";
+import type { DeepgramTtsOptions, DeepgramTtsEvent } from "../lib/providers/deepgram-tts";
+import type { PcmPlayerOptions, PcmPlayerEvent, PcmFrame } from "../lib/voice/pcm-player";
+import { createTurnController, type LiveTurnController, type TurnControllerDependencies } from "./use-turn-controller";
+import { StreamingSpeechSession, type StreamingSpeechDependencies } from "./use-streaming-voice";
 
 function stream(events: LiveTurnEvent[]): TurnControllerDependencies["streamTurn"] {
   return async function* (_request, signal) {
@@ -29,6 +32,7 @@ function harness(events: LiveTurnEvent[]) {
     finishSpeech: turnId => { effects.push(`finish:${turnId}`); },
     cancelGeneration: turnId => { effects.push(`abort:${turnId}`); },
     invalidatePhraseQueue: turnId => { effects.push(`invalidate:${turnId}`); },
+    resetPhraseQueue: turnId => { effects.push(`reset:${turnId}`); },
     stopAudio: turnId => { effects.push(`stop-audio:${turnId}`); },
     clearTts: turnId => { effects.push(`clear-tts:${turnId}`); },
     beginListening: turnId => { effects.push(`listen:${turnId}`); },
@@ -37,6 +41,64 @@ function harness(events: LiveTurnEvent[]) {
     createLifecycleId: () => "",
   };
   return { controller: createTurnController("room", "aura-2-thalia-en", dependencies), effects, spoken, requests };
+}
+
+/**
+ * Controller wired to a real StreamingSpeechSession with deterministic TTS,
+ * player, and browser-speech doubles, so fallback speech must traverse the
+ * production speakPhrase/scheduling path instead of a mock.
+ */
+function realSpeechHarness(events: LiveTurnEvent[]) {
+  const scheduled: string[] = [];
+  const browser: string[] = [];
+  const audio: PcmFrame[] = [];
+  let flushes = 0;
+  let clientOptions!: DeepgramTtsOptions;
+  let playerOptions!: PcmPlayerOptions;
+  const dependencies: StreamingSpeechDependencies = {
+    createTtsClient: options => {
+      clientOptions = options;
+      return {
+        async beginTurn() {},
+        speak(text) { scheduled.push(text); return true; },
+        flush() { flushes += 1; return true; },
+        clear() {}, close() {},
+      };
+    },
+    createPlayer: options => {
+      playerOptions = options;
+      return { async start() {}, enqueue(frame) { audio.push(frame); return true; }, stop() {}, reset() {} };
+    },
+    browserSpeech: { speak(text) { browser.push(text); }, cancel() {} },
+    now: () => 1234,
+    setTimer: () => ({}), clearTimer: () => {},
+  };
+  let controller!: LiveTurnController;
+  const speech = new StreamingSpeechSession({
+    roomId: "room", region: "eu", dependencies,
+    onEvent: speechEvent => controller.acceptSpeechEvent(speechEvent),
+  });
+  controller = createTurnController("room", "aura-2-thalia-en", {
+    streamTurn: stream(events),
+    beginSpeech: (turnId, model) => speech.begin(turnId, model),
+    speakPhrase: (turnId, phrase) => speech.speakPhrase(turnId, phrase),
+    finishSpeech: turnId => speech.finish(turnId),
+    cancelGeneration: () => {},
+    invalidatePhraseQueue: turnId => speech.invalidateText(turnId),
+    resetPhraseQueue: turnId => speech.resetText(turnId),
+    stopAudio: turnId => speech.stopAudio(turnId),
+    clearTts: turnId => speech.clearTts(turnId),
+    beginListening: () => {},
+    recordMetric: async () => {},
+    now: () => 20,
+    createLifecycleId: () => "",
+  });
+  return {
+    controller, scheduled, browser, audio,
+    flushes: () => flushes,
+    ttsEvent: (ttsEvent: DeepgramTtsEvent) => clientOptions.onEvent(ttsEvent),
+    playback: (playbackEvent: PcmPlayerEvent) => playerOptions.onEvent(playbackEvent),
+  };
 }
 
 const persona = { id: "p", name: "The Skeptic", archetype: "skeptic", behaviorStyle: "moderate", seatOrder: 0 };
@@ -94,7 +156,7 @@ describe("turn controller", () => {
     const build = () => {
       return createTurnController("room", "aura-2-thalia-en", {
         streamTurn: stream([]), beginSpeech: async () => {}, speakPhrase: () => {}, finishSpeech: () => {},
-        cancelGeneration: () => {}, invalidatePhraseQueue: () => {}, stopAudio: () => {}, clearTts: () => {},
+        cancelGeneration: () => {}, invalidatePhraseQueue: () => {}, resetPhraseQueue: () => {}, stopAudio: () => {}, clearTts: () => {},
         beginListening: () => {}, recordMetric: async () => {}, now: () => 0,
         createLifecycleId: () => `life-${++lifecycle}`,
       });
@@ -135,6 +197,38 @@ describe("turn controller", () => {
     expect(h.controller.getSnapshot().assistantCaption).toBe("Use me. ");
     expect(h.spoken).toEqual(["Use me. "]);
     expect(h.controller.getSnapshot().messages.filter(message => message.role === "assistant")).toHaveLength(1);
+    // A mid-turn fallback trims the phrase queue; it must not permanently
+    // invalidate the turn's speech (that semantic belongs to cleanup only).
+    expect(h.effects).toContain("reset:room:1");
+    expect(h.effects).not.toContain("invalidate:room:1");
+  });
+
+  test("speaks the fallback provider's answer through the real streaming speech session", async () => {
+    const h = realSpeechHarness([
+      event("turn-start", { persona, model: "openai/gpt-oss-20b", maxOutputTokens: 80 }),
+      event("text-delta", { text: "Groq partial" }),
+      event("fallback", { from: "groq", to: "openrouter", reason: "network-error", resetText: true }),
+      event("text-delta", { text: "Fallback answer. " }),
+      event("phrase", { phrase: { text: "Fallback answer. ", sequence: 0, isFinal: false } }),
+      event("complete", { text: "Fallback answer. ", messageId: "m3", metadata: { type: "normal", claimRef: null, mood: "neutral" } }),
+    ]);
+    await h.controller.acceptStt({ type: "StartOfTurn", transcript: "", confidence: 0 });
+    await h.controller.acceptStt({ type: "EndOfTurn", transcript: "Question", confidence: 1 });
+
+    // Visible: one captioned assistant message carrying only the fallback text.
+    expect(h.controller.getSnapshot().assistantCaption).toBe("Fallback answer. ");
+    expect(h.controller.getSnapshot().messages.filter(message => message.role === "assistant")).toEqual([
+      expect.objectContaining({ content: "Fallback answer. ", messageId: "m3" }),
+    ]);
+    // Audible: the restarted phrase stream reaches actual TTS playback
+    // scheduling through the real session, not browser fallback or silence.
+    expect(h.scheduled).toEqual(["Fallback answer. "]);
+    expect(h.flushes()).toBe(1);
+    expect(h.browser).toEqual([]);
+    h.ttsEvent({ type: "audio", turnId: "room:1", sequence: 0, audio: new Uint8Array([0, 0]) });
+    expect(h.audio).toHaveLength(1);
+    h.playback({ type: "playback-start", turnId: "room:1", timestampMs: 1, audioTime: 2 });
+    expect(h.controller.getSnapshot().turn.status).toBe("speaking");
   });
 
   test.each(["generation", "playback"])("executes fixed cancellation order for barge-in during %s", async phase => {

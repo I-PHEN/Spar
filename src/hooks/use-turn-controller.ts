@@ -38,6 +38,7 @@ export interface TurnControllerDependencies {
   finishSpeech(turnId: string): void;
   cancelGeneration(turnId: string): void;
   invalidatePhraseQueue(turnId: string): void;
+  resetPhraseQueue(turnId: string): void;
   stopAudio(turnId: string): void;
   clearTts(turnId: string): void;
   beginListening(turnId: string): void;
@@ -162,7 +163,9 @@ export class LiveTurnController {
       // guard above is still the stale-event boundary; do not write duplicates.
       return;
     } else if (event.type === "fallback") {
-      this.dependencies.invalidatePhraseQueue(event.turnId);
+      // The fallback provider restarts the phrase stream within the same turn;
+      // trim the discarded queue without permanently invalidating speech.
+      this.dependencies.resetPhraseQueue(event.turnId);
       this.publish({ assistantCaption: "" });
     } else if (event.type === "complete") {
       if (!this.snapshot.messages.some(message => message.messageId === event.messageId)) {
@@ -409,6 +412,7 @@ export function useTurnController(options: UseTurnControllerOptions): UseTurnCon
       finishSpeech: turnId => voiceRef.current.finishSpeech(turnId),
       cancelGeneration: () => {},
       invalidatePhraseQueue: turnId => voiceRef.current.invalidateSpeech(turnId),
+      resetPhraseQueue: turnId => voiceRef.current.resetSpeechText(turnId),
       stopAudio: turnId => voiceRef.current.stopSpeechAudio(turnId),
       clearTts: turnId => voiceRef.current.clearSpeechTts(turnId),
       beginListening: () => {},

@@ -75,6 +75,30 @@ describe("streaming speech lifecycle", () => {
     expect(h.clients[0].clears).toBe(1);
     expect(h.clients[0].phrases).toEqual(["Queued sentence. "]);
   });
+  test("resetText trims the discarded queue so a restarted phrase stream stays speakable", async () => {
+    const h = speechHarness(); await h.session.begin("one", "voice");
+    h.session.pushText("one", "Unsent partial");
+    h.session.resetText("one");
+    const phrases: PhraseChunk[] = [
+      { text: "Fallback answer. ", sequence: 0, isFinal: false },
+      { text: "Tail", sequence: 1, isFinal: true },
+    ];
+    for (const phrase of phrases) h.session.speakPhrase("one", phrase);
+    h.session.finish("one");
+    expect(h.clients[0].phrases).toEqual(phrases.map(phrase => phrase.text));
+    expect(h.clients[0].flushes).toBe(1);
+    expect(h.events.filter(event => event.type === "error")).toEqual([]);
+  });
+  test("resetText restarts the client chunker so later pushed text is not lost", async () => {
+    const h = speechHarness(); await h.session.begin("one", "voice");
+    h.session.pushText("one", "Discarded partial");
+    h.session.resetText("one");
+    h.session.pushText("one", "Fresh sentence. ");
+    h.session.pushText("one", "Tail");
+    h.session.finish("one");
+    expect(h.clients[0].phrases).toEqual(["Fresh sentence. ", "Tail"]);
+    expect(h.clients[0].flushes).toBe(1);
+  });
   test("a suspended playback context cannot indefinitely block startup or fallback", async () => {
     const callbacks: Array<() => void> = [];
     const events: StreamingSpeechEvent[] = [];
