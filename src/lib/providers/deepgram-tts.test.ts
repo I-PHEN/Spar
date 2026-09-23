@@ -23,9 +23,9 @@ function setup(region: "us" | "eu" = "us") {
   const events: DeepgramTtsEvent[] = [];
   const connections: { url: string; protocols: string[] }[] = [];
   const timers = new Map<object, () => void>();
-  const client = new DeepgramTtsClient({ region, model: "aura-2-athena-en", onEvent: event => events.push(event),
+  const client = new DeepgramTtsClient({ model: "aura-2-athena-en", onEvent: event => events.push(event),
     dependencies: {
-      getToken: async () => "temporary.jwt.fixture",
+      getToken: async () => ({ token: "temporary.jwt.fixture", region }),
       createWebSocket: (url, protocols) => { connections.push({ url, protocols }); return socket; },
       setTimer: callback => { const id = {}; timers.set(id, callback); return id; },
       clearTimer: id => { timers.delete(id as object); },
@@ -41,7 +41,7 @@ function setup(region: "us" | "eu" = "us") {
 }
 
 describe("Aura streaming protocol", () => {
-  test.each(["us", "eu"] as const)("authenticates the regional %s PCM stream with a temporary JWT", async region => {
+  test.each(["us", "eu"] as const)("authenticates the granted %s regional PCM stream with a temporary JWT", async region => {
     const h = setup(region); await h.begin();
     expect(h.connections).toEqual([{ url: `wss://${region === "eu" ? "api.eu.deepgram.com" : "api.deepgram.com"}/v1/speak?model=aura-2-athena-en&encoding=linear16&sample_rate=24000`, protocols: ["bearer", "temporary.jwt.fixture"] }]);
     expect(h.socket.binaryType).toBe("arraybuffer");

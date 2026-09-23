@@ -248,7 +248,7 @@ async function runAcceptanceSample(arguments_: Arguments): Promise<number> {
   const known = new Set(baseline.map(record => record.turnId));
 
   console.log("\nAcceptance sample — speak in the browser, the script collects measured turns.");
-  console.log(`Open ${arguments_.baseUrl} and complete ${perExperience} spoken turns in EACH experience:`);
+  console.log(`Open ${arguments_.baseUrl} and complete ${arguments_.turns} spoken turns spanning ALL four experiences (at least one in each; ~${perExperience} per experience):`);
   for (const experience of EXPERIENCES) console.log(`  - ${experience}`);
   console.log("\nA valid sample turn has a finalized transcript and a first-playback measurement.");
   console.log("Interrupt the panel mid-answer at least once per experience where it is reachable.");

@@ -35,8 +35,6 @@ export interface DeepgramSttDependencies extends Partial<VoiceTimers> {
 }
 
 export interface DeepgramSttOptions {
-  /** Pass the server-selected DEEPGRAM_REGION; never a public credential. */
-  region: "us" | "eu";
   onEvent: (event: DeepgramSttEvent) => void;
   dependencies?: DeepgramSttDependencies;
 }
@@ -83,7 +81,7 @@ export class DeepgramSttClient {
 
   private async open(): Promise<void> {
     const fetcher = this.options.dependencies?.fetch ?? globalThis.fetch;
-    let grant: { accessToken?: unknown; expiresIn?: unknown };
+    let grant: { accessToken?: unknown; expiresIn?: unknown; region?: unknown };
     try {
       const response = await fetcher("/api/deepgram-token", {
         method: "POST", credentials: "same-origin", cache: "no-store", signal: this.abort.signal,
@@ -91,14 +89,17 @@ export class DeepgramSttClient {
       if (!response.ok) throw new Error();
       grant = await response.json();
       if (!grant || typeof grant.accessToken !== "string" || !grant.accessToken.trim() ||
-        typeof grant.expiresIn !== "number" || !Number.isFinite(grant.expiresIn) || grant.expiresIn <= 0) throw new Error();
+        typeof grant.expiresIn !== "number" || !Number.isFinite(grant.expiresIn) || grant.expiresIn <= 0 ||
+        (grant.region !== "us" && grant.region !== "eu")) throw new Error();
     } catch {
       if (!this.closed) this.fail("token-grant");
       return;
     }
     if (this.closed) return;
     try {
-      const host = this.options.region === "eu" ? "api.eu.deepgram.com" : "api.deepgram.com";
+      // The grant carries the server-selected region so the socket host can
+      // never diverge from the server's DEEPGRAM_REGION.
+      const host = grant.region === "eu" ? "api.eu.deepgram.com" : "api.deepgram.com";
       const url = `wss://${host}/v2/listen?model=flux-general-en&encoding=linear16&sample_rate=16000`;
       const create = this.options.dependencies?.createWebSocket ?? ((address, protocols) => new WebSocket(address, protocols));
       const socket = create(url, ["bearer", grant.accessToken as string]);

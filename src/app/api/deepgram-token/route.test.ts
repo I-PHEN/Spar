@@ -72,7 +72,7 @@ describe("POST /api/deepgram-token", () => {
     expect(response.headers.get("Cache-Control")).toBe("no-store");
   });
 
-  test("returns only a no-store temporary token for a same-origin development request", async () => {
+  test("returns only a no-store temporary token plus the server region for a same-origin development request", async () => {
     installFetchMock(() =>
       Promise.resolve(
         new Response(
@@ -94,6 +94,32 @@ describe("POST /api/deepgram-token", () => {
     expect(await response.json()).toEqual({
       accessToken: "temporary-token",
       expiresIn: 60,
+      region: "us",
+    });
+  });
+
+  test("reports the server's eu region so browser sockets cannot diverge from it", async () => {
+    process.env.DEEPGRAM_REGION = "eu";
+    installFetchMock(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({ access_token: "temporary-token", expires_in: 60 }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+
+    const response = await POST(
+      new Request("http://localhost:3000/api/deepgram-token", {
+        method: "POST",
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      accessToken: "temporary-token",
+      expiresIn: 60,
+      region: "eu",
     });
   });
 

@@ -124,7 +124,7 @@ export const architectureManifest: ArchitectureManifest = {
       label: "Deepgram Flux streaming STT",
       layer: "browser",
       purpose: "Streams microphone PCM to Deepgram's Flux speech-to-text socket using a short-lived token and emits interim and finalized turn transcripts.",
-      inputs: ["Microphone audio", "Short-lived Deepgram token from the token route", "Configured Deepgram region"],
+      inputs: ["Microphone audio", "Short-lived Deepgram token and server-selected region from the token route"],
       outputs: ["StartOfTurn, interim, and EndOfTurn transcript events", "Connection failures"],
       files: [
         "src/lib/providers/deepgram-stt.ts",

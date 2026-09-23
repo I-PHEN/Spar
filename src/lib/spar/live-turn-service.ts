@@ -289,7 +289,14 @@ function rollingSummary(history: ReadonlyArray<{ role: "user" | "assistant"; con
   const earlier = history.slice(0, Math.max(0, history.length - 6));
   const value = earlier.map(message => `${message.role === "user" ? "User" : "Panelist"}: ${message.content}`).join("\n");
   const limit = 875;
-  return value.length <= limit ? value : `[Earlier conversation omitted.]\n${value.slice(-limit + 32)}`;
+  return value.length <= limit ? value : `[Earlier conversation omitted.]\n${tailWellFormed(value, limit - 32)}`;
+}
+
+/** Keeps a value's tail without opening it on a lone low surrogate. */
+function tailWellFormed(value: string, limit: number): string {
+  const sliced = value.slice(-limit);
+  const first = sliced.charCodeAt(0);
+  return first >= 0xdc00 && first <= 0xdfff ? sliced.slice(1) : sliced;
 }
 
 function parseClaims(value: string | null): ExtractedClaim[] {

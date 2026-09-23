@@ -1,5 +1,7 @@
 /// <reference types="bun-types" />
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, test } from "bun:test";
 import { architectureManifest } from "./manifest";
 import { validateManifest } from "./validate";
@@ -266,5 +268,18 @@ describe("architecture manifest", () => {
     expect(webSpeech?.failure).toBe(
       "Unsupported browsers are blocked from entering the Sparring Room and directed to switch to Chrome or Edge or return home.",
     );
+  });
+
+  test("documents the TurnMetric persistence entity in the data-memory model", () => {
+    const source = readFileSync(
+      join(process.cwd(), "src/components/architecture/data-memory.tsx"),
+      "utf8",
+    );
+
+    // The persistence model must keep the live pipeline's telemetry entity
+    // alongside the other Prisma models, with its session cardinality.
+    expect(source).toContain('<EntityCard name="TurnMetric"');
+    expect(source).toContain('["Session", "1 → many", "TurnMetric"');
+    expect(source).toContain("turnId is unique");
   });
 });

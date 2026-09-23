@@ -190,7 +190,6 @@ export function SparringRoom({
   const presentationVoice = useVoiceRecognition();
   const turnController = useTurnController({
     sessionId,
-    region: process.env.NEXT_PUBLIC_DEEPGRAM_REGION === "eu" ? "eu" : "us",
     voiceModel: "aura-2-zeus-en",
   });
   const voice = isPresenting ? presentationVoice : turnController;

@@ -2,8 +2,19 @@ import { describe, expect, test } from "bun:test";
 import type { LiveTurnEvent, LiveTurnRequest } from "../lib/spar/live-turn-service";
 import type { DeepgramTtsOptions, DeepgramTtsEvent } from "../lib/providers/deepgram-tts";
 import type { PcmPlayerOptions, PcmPlayerEvent, PcmFrame } from "../lib/voice/pcm-player";
-import { createTurnController, type LiveTurnController, type TurnControllerDependencies } from "./use-turn-controller";
-import { StreamingSpeechSession, type StreamingSpeechDependencies } from "./use-streaming-voice";
+import {
+  createTurnController,
+  createTurnControllerHook,
+  type LiveTurnController,
+  type TurnControllerDependencies,
+  type TurnControllerHookRuntime,
+} from "./use-turn-controller";
+import {
+  createStreamingVoiceHook,
+  StreamingSpeechSession,
+  type StreamingSpeechDependencies,
+} from "./use-streaming-voice";
+import type { UseVoiceRecognitionResult } from "./use-voice";
 
 function stream(events: LiveTurnEvent[]): TurnControllerDependencies["streamTurn"] {
   return async function* (_request, signal) {
@@ -75,7 +86,7 @@ function realSpeechHarness(events: LiveTurnEvent[]) {
   };
   let controller!: LiveTurnController;
   const speech = new StreamingSpeechSession({
-    roomId: "room", region: "eu", dependencies,
+    roomId: "room", dependencies,
     onEvent: speechEvent => controller.acceptSpeechEvent(speechEvent),
   });
   controller = createTurnController("room", "aura-2-thalia-en", {
@@ -169,6 +180,19 @@ describe("turn controller", () => {
     expect(first.getSnapshot().turn.turnId.length).toBeLessThanOrEqual(128);
   });
 
+  test("never splits a surrogate pair when trimming the session id prefix", async () => {
+    // 82 code units of emoji: the 80-unit cut lands inside the last pair.
+    const controller = createTurnController("😀".repeat(41), "aura-2-thalia-en", {
+      streamTurn: stream([]), beginSpeech: async () => {}, speakPhrase: () => {}, finishSpeech: () => {},
+      cancelGeneration: () => {}, invalidatePhraseQueue: () => {}, resetPhraseQueue: () => {}, stopAudio: () => {}, clearTts: () => {},
+      beginListening: () => {}, recordMetric: async () => {}, now: () => 0,
+      createLifecycleId: () => "life",
+    });
+    const turnId = controller.getSnapshot().turn.turnId;
+    expect(turnId.isWellFormed()).toBe(true);
+    expect(turnId.length).toBeLessThanOrEqual(128);
+  });
+
   test("retains completion type, mood, and claim reference on the visible message", async () => {
     const h = harness([
       event("turn-start", { persona, model: "openai/gpt-oss-20b", maxOutputTokens: 80 }),
@@ -259,5 +283,119 @@ describe("turn controller", () => {
     h.controller.dispose();
     h.controller.dispose();
     expect(h.effects.length).toBeGreaterThan(afterRepeat);
+  });
+});
+
+type HookCleanup = void | (() => void);
+
+/**
+ * Minimal deterministic host for the composed turn-controller hook; effects
+ * flush after render like a commit. Simple identity semantics suffice because
+ * the hosted hook receives stable options across renders.
+ */
+function turnControllerHookHost() {
+  const state: unknown[] = [];
+  const cleanups: Array<HookCleanup> = [];
+  let cursor = 0;
+  let pendingEffects: Array<() => void> = [];
+  const runtime = {
+    useState<T>(initial?: T | (() => T)) {
+      const index = cursor++;
+      if (!(index in state)) state[index] = typeof initial === "function" ? (initial as () => T)() : initial;
+      const setValue = (update: T | ((previous: T) => T)) => {
+        const previous = state[index] as T;
+        state[index] = typeof update === "function" ? (update as (value: T) => T)(previous) : update;
+      };
+      return [state[index] as T, setValue] as const;
+    },
+    useRef<T>(initial: T) {
+      const index = cursor++;
+      if (!(index in state)) state[index] = { current: initial };
+      return state[index] as { current: T };
+    },
+    useCallback<T>(callback: T) {
+      const index = cursor++;
+      if (!(index in state)) state[index] = callback;
+      return state[index] as T;
+    },
+    useEffect(effect: () => HookCleanup) {
+      const index = cursor++;
+      if (!(index in state)) {
+        state[index] = true;
+        pendingEffects.push(() => { cleanups[index] = effect(); });
+      }
+    },
+  } as unknown as TurnControllerHookRuntime;
+  return {
+    runtime,
+    render<T>(renderHook: () => T): T {
+      cursor = 0;
+      pendingEffects = [];
+      const result = renderHook();
+      for (const flush of pendingEffects) flush();
+      return result;
+    },
+    unmount(): void {
+      for (const cleanup of cleanups) cleanup?.();
+    },
+  };
+}
+
+describe("turn controller voice metric wiring", () => {
+  test("a streaming-voice fallback metric is persisted to /api/turn-metrics", async () => {
+    const host = turnControllerHookHost();
+    const fallbackVoice: UseVoiceRecognitionResult = {
+      isSupported: true, isListening: false, interimTranscript: "", finalTranscript: "",
+      error: null, start() {}, stop() {}, reset() {},
+    };
+    const useTurnControllerForTest = createTurnControllerHook(
+      host.runtime,
+      createStreamingVoiceHook(host.runtime, () => fallbackVoice),
+    );
+    const postedMetrics: unknown[] = [];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/api/turn-metrics")) {
+        postedMetrics.push(typeof init?.body === "string" ? JSON.parse(init.body) : null);
+        return Response.json({ ok: true });
+      }
+      return new Response("unreachable in this test", { status: 404 });
+    }) as typeof fetch;
+
+    try {
+      const options = {
+        sessionId: "metric-room",
+        voiceModel: "aura-2-zeus-en",
+        voiceDependencies: {
+          createSttClient: () => ({ connect: () => Promise.reject(new Error("socket offline with private detail")), sendAudio: () => false, close() {} }),
+          createMicrophoneStream: () => ({ start: () => Promise.resolve(), stop() {} }),
+          setTimer: () => ({}),
+          clearTimer: () => {},
+        },
+      };
+      const result = host.render(() => useTurnControllerForTest(options));
+
+      // The failed Flux startup both switches to Web Speech and emits the
+      // room-scoped fallback metric through the voice session's onMetric.
+      result.startListening();
+      for (let index = 0; index < 10; index += 1) await Promise.resolve();
+      const updated = host.render(() => useTurnControllerForTest(options));
+
+      expect(updated.usingSttFallback).toBe(true);
+      const bodies = postedMetrics.splice(0);
+      expect(bodies).toEqual([
+        expect.objectContaining({
+          type: "fallback",
+          sessionId: "metric-room",
+          reason: "socket-error",
+          turnId: expect.stringMatching(/^metric-room:/),
+        }),
+      ]);
+
+      host.unmount();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

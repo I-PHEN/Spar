@@ -48,7 +48,7 @@ function speechHarness(failStart = false) {
     now: () => 1234,
     setTimer: () => ({}), clearTimer: () => {},
   };
-  const session = new StreamingSpeechSession({ roomId: "room", region: "eu", dependencies, onEvent: event => events.push(event) });
+  const session = new StreamingSpeechSession({ roomId: "room", dependencies, onEvent: event => events.push(event) });
   return { session, clients, audio, browser, events, dependencies,
     emit(event: DeepgramTtsEvent, index = 0) { clients[index].options.onEvent(event); },
     playback(event: PcmPlayerEvent) { playerOptions.onEvent(event); },
@@ -102,7 +102,7 @@ describe("streaming speech lifecycle", () => {
   test("a suspended playback context cannot indefinitely block startup or fallback", async () => {
     const callbacks: Array<() => void> = [];
     const events: StreamingSpeechEvent[] = [];
-    const session = new StreamingSpeechSession({ roomId: "room", region: "us", onEvent: event => events.push(event), dependencies: {
+    const session = new StreamingSpeechSession({ roomId: "room", onEvent: event => events.push(event), dependencies: {
       createTtsClient: () => ({ async beginTurn() {}, speak: () => true, flush: () => true, close() {}, clear() {} }),
       createPlayer: () => ({ start: () => new Promise<void>(() => {}), enqueue: () => true, stop() {}, reset() {} }),
       setTimer: callback => { callbacks.push(callback); return {}; }, clearTimer() {},
@@ -121,7 +121,7 @@ describe("streaming speech lifecycle", () => {
     let clientOptions!: DeepgramTtsOptions;
     let playerOptions!: PcmPlayerOptions;
     const events: StreamingSpeechEvent[] = [];
-    const session = new StreamingSpeechSession({ roomId: "room", region: "us", onEvent: event => events.push(event), dependencies: {
+    const session = new StreamingSpeechSession({ roomId: "room", onEvent: event => events.push(event), dependencies: {
       createTtsClient: options => {
         clientOptions = options;
         return { async beginTurn() {}, speak: () => true, flush: () => true, clear() {}, close() {} };
@@ -202,7 +202,7 @@ describe("streaming speech lifecycle", () => {
       async start() { options.onEvent({ type: "playback-start", turnId: "one", timestampMs: 1, audioTime: 2 }); },
       enqueue: () => true, stop() {}, reset() {},
     });
-    const session = new StreamingSpeechSession({ roomId: "room", region: "us", dependencies: h.dependencies, onEvent: event => h.events.push(event) });
+    const session = new StreamingSpeechSession({ roomId: "room", dependencies: h.dependencies, onEvent: event => h.events.push(event) });
 
     await session.begin("one", "voice");
 
@@ -228,19 +228,20 @@ describe("streaming speech lifecycle", () => {
     expect(h.events.filter(event => event.type === "fallback")).toHaveLength(1);
   });
   test("reuses temporary grants across persona sockets and refreshes expired grants", async () => {
-    const tokens: string[] = [];
+    const grants: Array<{ token: string; region: "us" | "eu" }> = [];
     const requests: { input: string; init: RequestInit }[] = [];
     let now = 0;
     const h = speechHarness();
     h.dependencies.now = () => now;
-    h.dependencies.fetch = async (input, init) => { requests.push({ input, init }); return Response.json({ accessToken: `temporary.${requests.length}.jwt`, expiresIn: 60 }); };
+    h.dependencies.fetch = async (input, init) => { requests.push({ input, init }); return Response.json({ accessToken: `temporary.${requests.length}.jwt`, expiresIn: 60, region: "eu" }); };
     h.dependencies.createTtsClient = options => ({
-      async beginTurn() { tokens.push(await options.dependencies.getToken()); },
+      async beginTurn() { grants.push(await options.dependencies.getToken()); },
       speak: () => true, flush: () => true, clear() {}, close() {},
     });
     await h.session.begin("one", "voice-a"); await h.session.begin("two", "voice-b");
     now = 60000; await h.session.begin("three", "voice-c");
-    expect(tokens).toEqual(["temporary.1.jwt", "temporary.1.jwt", "temporary.2.jwt"]);
+    expect(grants.map(grant => grant.token)).toEqual(["temporary.1.jwt", "temporary.1.jwt", "temporary.2.jwt"]);
+    expect(grants.every(grant => grant.region === "eu")).toBe(true);
     expect(requests).toHaveLength(2);
     expect(requests[0].input).toBe("/api/deepgram-token");
     expect(requests[0].init).toMatchObject({ method: "POST", credentials: "same-origin", cache: "no-store" });
@@ -394,7 +395,6 @@ function harness(overrides: Partial<StreamingVoiceDependencies> = {}) {
   const metrics: Array<{ type: "fallback"; roomId: string; reason: string; timestampMs: number }> = [];
   const session = new StreamingVoiceSession({
     roomId: "room-7",
-    region: "eu",
     onStartOfTurn: (event) => starts.push(event.turnIndex),
     onInterimTranscript: (event) => interim.push(event.transcript),
     onEndOfTurn: (event) => finalized.push(event),
@@ -714,11 +714,11 @@ describe("useStreamingVoice hook lifecycle", () => {
     const fallback: UseVoiceRecognitionResult = { isSupported: true, isListening: false, interimTranscript: "", finalTranscript: "", error: null, start() {}, stop() {}, reset() {} };
     const useHook = createStreamingVoiceHook(host.runtime, () => fallback);
     let roomId = "a";
-    let result = host.render(() => useHook({ roomId, region: "us", speechDependencies: h.dependencies }));
+    let result = host.render(() => useHook({ roomId, speechDependencies: h.dependencies }));
     await result.beginSpeech("one", "voice"); result.pushSpeechText("one", "Exact text. "); result.finishSpeech("one");
     expect(h.clients[0].phrases).toEqual(["Exact text. "]);
     roomId = "b";
-    result = host.render(() => useHook({ roomId, region: "us", speechDependencies: h.dependencies }));
+    result = host.render(() => useHook({ roomId, speechDependencies: h.dependencies }));
     expect(h.clients[0].closes).toBe(1);
     await result.beginSpeech("two", "voice");
     host.unmount(); expect(h.clients[1].closes).toBe(1);
@@ -753,18 +753,18 @@ describe("useStreamingVoice hook lifecycle", () => {
     };
     const useHook = createStreamingVoiceHook(host.runtime, () => fallback);
     let roomId = "room-a";
-    let result = host.render(() => useHook({ roomId, region: "us", dependencies }));
+    let result = host.render(() => useHook({ roomId, dependencies }));
 
     result.start();
     await flushHookStartup();
-    result = host.render(() => useHook({ roomId, region: "us", dependencies }));
+    result = host.render(() => useHook({ roomId, dependencies }));
     result.start();
     await flushHookStartup();
     expect(clients).toHaveLength(1);
     expect(microphones).toHaveLength(1);
 
     roomId = "room-b";
-    result = host.render(() => useHook({ roomId, region: "us", dependencies }));
+    result = host.render(() => useHook({ roomId, dependencies }));
     expect(clients[0].closeCount).toBe(1);
     expect(microphones[0].stopCount).toBe(1);
     result.start();
@@ -811,7 +811,6 @@ describe("useStreamingVoice hook lifecycle", () => {
     const useHook = createStreamingVoiceHook(host.runtime, () => fallback);
     const options = {
       roomId: "fallback-room",
-      region: "eu" as const,
       dependencies,
       onMetric: (metric: { reason: string }) => metrics.push(metric.reason),
     };
@@ -860,20 +859,20 @@ describe("useStreamingVoice hook lifecycle", () => {
     };
     const useHook = createStreamingVoiceHook(host.runtime, () => fallback);
     let roomId = "room-a";
-    let result = host.render(() => useHook({ roomId, region: "us", dependencies }));
+    let result = host.render(() => useHook({ roomId, dependencies }));
 
     result.start();
     await flushHookStartup();
-    result = host.render(() => useHook({ roomId, region: "us", dependencies }));
+    result = host.render(() => useHook({ roomId, dependencies }));
     expect(result.usingFallback).toBe(true);
     expect(result.finalTranscript).toBe("room A final");
 
     roomId = "room-b";
-    host.render(() => useHook({ roomId, region: "us", dependencies }));
-    result = host.render(() => useHook({ roomId, region: "us", dependencies }));
+    host.render(() => useHook({ roomId, dependencies }));
+    result = host.render(() => useHook({ roomId, dependencies }));
     result.start();
     await flushHookStartup();
-    result = host.render(() => useHook({ roomId, region: "us", dependencies }));
+    result = host.render(() => useHook({ roomId, dependencies }));
 
     expect(result.usingFallback).toBe(false);
     expect(result.isListening).toBe(true);
@@ -894,7 +893,7 @@ describe("useStreamingVoice hook lifecycle", () => {
       transcript: "late room A",
       confidence: 0.2,
     });
-    result = host.render(() => useHook({ roomId, region: "us", dependencies }));
+    result = host.render(() => useHook({ roomId, dependencies }));
     expect(result.finalTranscript).toBe("room B final");
   });
 

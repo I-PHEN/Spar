@@ -7,7 +7,7 @@ import type { DeepgramSttEvent } from "../lib/providers/deepgram-stt";
 import type { PhraseChunk } from "../lib/voice/phrase-chunker";
 import { PERSONA_VOICES } from "../lib/providers/deepgram-tts";
 import { initialTurnState, reduceTurn, type TurnEffect, type TurnEvent, type TurnState } from "../lib/voice/turn-state";
-import { useStreamingVoice, type StreamingSpeechEvent, type StreamingVoiceDependencies, type StreamingSpeechDependencies } from "./use-streaming-voice";
+import { useStreamingVoice, type StreamingSpeechEvent, type StreamingVoiceDependencies, type StreamingSpeechDependencies, type StreamingVoiceFallbackMetric } from "./use-streaming-voice";
 
 export interface TurnControllerMessage {
   id: string;
@@ -52,6 +52,13 @@ type SttTurnEvent =
   | { type: "interim"; turnIndex?: number; transcript: string; confidence?: number }
   | { type: "EndOfTurn"; turnIndex?: number; transcript: string; confidence: number };
 
+/** Truncates by code units without splitting a surrogate pair at the cut. */
+function truncateWellFormed(value: string, limit: number): string {
+  const sliced = value.slice(0, limit);
+  const last = sliced.charCodeAt(sliced.length - 1);
+  return last >= 0xd800 && last <= 0xdbff ? sliced.slice(0, -1) : sliced;
+}
+
 export class LiveTurnController {
   private turn: TurnState;
   private snapshot: TurnControllerSnapshot;
@@ -73,7 +80,7 @@ export class LiveTurnController {
   ) {
     this.activeVoiceModel = voiceModel;
     const lifecycleId = dependencies.createLifecycleId?.() || "";
-    const prefix = lifecycleId ? `${sessionId.slice(0, 80)}:${lifecycleId.slice(0, 36)}` : sessionId;
+    const prefix = lifecycleId ? `${truncateWellFormed(sessionId, 80)}:${lifecycleId.slice(0, 36)}` : sessionId;
     this.turn = initialTurnState(sessionId, prefix);
     this.snapshot = {
       turn: this.turn,
@@ -209,6 +216,16 @@ export class LiveTurnController {
   }
 
   setSttFallback(value: boolean): void { this.publish({ usingSttFallback: value }); }
+
+  /**
+   * STT fallback metrics are room-scoped; attribute them to the current turn
+   * so socket-error and microphone fallbacks reach /api/turn-metrics like the
+   * other browser milestones.
+   */
+  recordVoiceFallback(metric: StreamingVoiceFallbackMetric): void {
+    if (this.disposed) return;
+    void this.queueMetric({ type: "fallback", turnId: this.turn.turnId, sessionId: this.sessionId, reason: metric.reason });
+  }
 
   networkLost(message = "Network connection lost."): void {
     if (this.disposed) return;
@@ -360,7 +377,6 @@ async function* fetchTurn(request: LiveTurnRequest, signal: AbortSignal): AsyncI
 
 export interface UseTurnControllerOptions {
   sessionId: string;
-  region: "us" | "eu";
   voiceModel: string;
   voiceDependencies?: StreamingVoiceDependencies;
   speechDependencies?: StreamingSpeechDependencies;
@@ -380,69 +396,93 @@ export interface UseTurnControllerResult extends TurnControllerSnapshot {
   cancel(): void;
 }
 
-export function useTurnController(options: UseTurnControllerOptions): UseTurnControllerResult {
-  const controllerRef = useRef<LiveTurnController | null>(null);
-  const [snapshot, setSnapshot] = useState<TurnControllerSnapshot>(() => ({
-    turn: initialTurnState(options.sessionId), transcriptPreview: "", assistantCaption: "", messages: [],
-    error: null, usingSttFallback: false, usingTtsFallback: false,
-    activePersona: null, assistantMetadata: null,
-  }));
-  const voice = useStreamingVoice({
-    roomId: options.sessionId, region: options.region, dependencies: options.voiceDependencies,
-    speechDependencies: options.speechDependencies,
-    onStartOfTurn: event => { void controllerRef.current?.acceptStt(event); },
-    onInterimTranscript: event => { void controllerRef.current?.acceptStt(event); },
-    onEndOfTurn: event => {
-      const accepted = controllerRef.current?.acceptStt({ type: "EndOfTurn", turnIndex: event.turnIndex, transcript: event.transcript, confidence: event.confidence });
-      voiceRef.current.stop();
-      void accepted;
-    },
-    onFallback: () => controllerRef.current?.setSttFallback(true),
-    onPrimaryReady: () => controllerRef.current?.setSttFallback(false),
-    onSpeechEvent: event => controllerRef.current?.acceptSpeechEvent(event),
-  });
-  const voiceRef = useRef(voice);
-  useEffect(() => { voiceRef.current = voice; }, [voice]);
-
-  useEffect(() => {
-    const controller = createTurnController(options.sessionId, options.voiceModel, {
-      streamTurn: fetchTurn,
-      beginSpeech: (turnId, model) => voiceRef.current.beginSpeech(turnId, model),
-      speakPhrase: (turnId, phrase) => voiceRef.current.speakPhrase(turnId, phrase),
-      finishSpeech: turnId => voiceRef.current.finishSpeech(turnId),
-      cancelGeneration: () => {},
-      invalidatePhraseQueue: turnId => voiceRef.current.invalidateSpeech(turnId),
-      resetPhraseQueue: turnId => voiceRef.current.resetSpeechText(turnId),
-      stopAudio: turnId => voiceRef.current.stopSpeechAudio(turnId),
-      clearTts: turnId => voiceRef.current.clearSpeechTts(turnId),
-      beginListening: () => {},
-      recordMetric: async metric => { await fetch("/api/turn-metrics", { method: "POST", credentials: "same-origin", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify(metric), keepalive: true }); },
-      now: () => performance.now(),
-      createLifecycleId: () => crypto.randomUUID(),
-    });
-    controllerRef.current = controller;
-    const unsubscribe = controller.subscribe(setSnapshot);
-    return () => { unsubscribe(); controller.dispose(); controllerRef.current = null; };
-  }, [options.sessionId, options.voiceModel]);
-
-  const startListening = useCallback(() => voiceRef.current.start(), []);
-  const finishInput = useCallback(async (requestOptions = {}) => {
-    const transcript = `${voiceRef.current.finalTranscript} ${voiceRef.current.interimTranscript}`.trim();
-    if (voiceRef.current.usingFallback) {
-      voiceRef.current.stop();
-      if (transcript) await controllerRef.current?.finalizeFallbackTranscript(transcript, voiceRef.current.finalizedTranscript?.confidence ?? 1, requestOptions);
-      controllerRef.current?.setSttFallback(false);
-    } else {
-      controllerRef.current?.queuePrimaryEndOfTurn(requestOptions);
-    }
-  }, []);
-  const submitPresentationTurn = useCallback(async (transcript: string, alreadyPersisted: boolean, requestOptions = {}) => {
-    await controllerRef.current?.submitPresentationTurn(transcript, alreadyPersisted, requestOptions);
-  }, []);
-  const cancel = useCallback(() => controllerRef.current?.dispose(), []);
-
-  return { ...snapshot, isSupported: voice.isSupported, isListening: voice.isListening,
-    finalTranscript: voice.finalTranscript, interimTranscript: voice.interimTranscript,
-    startListening, start: startListening, stop: voice.stop, reset: voice.reset,
-    finishInput, submitPresentationTurn, cancel };
+export interface TurnControllerHookRuntime {
+  useCallback: typeof useCallback;
+  useEffect: typeof useEffect;
+  useRef: typeof useRef;
+  useState: typeof useState;
 }
+
+type StreamingVoiceHook = typeof useStreamingVoice;
+
+/**
+ * Built from injectable React hooks and streaming-voice hook so deterministic
+ * lifecycle tests can host the full controller wiring without a DOM.
+ */
+export function createTurnControllerHook(
+  runtime: TurnControllerHookRuntime,
+  useStreamingVoiceHook: StreamingVoiceHook,
+): (options: UseTurnControllerOptions) => UseTurnControllerResult {
+  return function useTurnControllerWithRuntime(options): UseTurnControllerResult {
+    const controllerRef = runtime.useRef<LiveTurnController | null>(null);
+    const [snapshot, setSnapshot] = runtime.useState<TurnControllerSnapshot>(() => ({
+      turn: initialTurnState(options.sessionId), transcriptPreview: "", assistantCaption: "", messages: [],
+      error: null, usingSttFallback: false, usingTtsFallback: false,
+      activePersona: null, assistantMetadata: null,
+    }));
+    const voice = useStreamingVoiceHook({
+      roomId: options.sessionId, dependencies: options.voiceDependencies,
+      speechDependencies: options.speechDependencies,
+      onStartOfTurn: event => { void controllerRef.current?.acceptStt(event); },
+      onInterimTranscript: event => { void controllerRef.current?.acceptStt(event); },
+      onEndOfTurn: event => {
+        const accepted = controllerRef.current?.acceptStt({ type: "EndOfTurn", turnIndex: event.turnIndex, transcript: event.transcript, confidence: event.confidence });
+        voiceRef.current.stop();
+        void accepted;
+      },
+      onFallback: () => controllerRef.current?.setSttFallback(true),
+      onPrimaryReady: () => controllerRef.current?.setSttFallback(false),
+      onSpeechEvent: event => controllerRef.current?.acceptSpeechEvent(event),
+      onMetric: metric => { void controllerRef.current?.recordVoiceFallback(metric); },
+    });
+    const voiceRef = runtime.useRef(voice);
+    runtime.useEffect(() => { voiceRef.current = voice; }, [voice]);
+
+    runtime.useEffect(() => {
+      const controller = createTurnController(options.sessionId, options.voiceModel, {
+        streamTurn: fetchTurn,
+        beginSpeech: (turnId, model) => voiceRef.current.beginSpeech(turnId, model),
+        speakPhrase: (turnId, phrase) => voiceRef.current.speakPhrase(turnId, phrase),
+        finishSpeech: turnId => voiceRef.current.finishSpeech(turnId),
+        cancelGeneration: () => {},
+        invalidatePhraseQueue: turnId => voiceRef.current.invalidateSpeech(turnId),
+        resetPhraseQueue: turnId => voiceRef.current.resetSpeechText(turnId),
+        stopAudio: turnId => voiceRef.current.stopSpeechAudio(turnId),
+        clearTts: turnId => voiceRef.current.clearSpeechTts(turnId),
+        beginListening: () => {},
+        recordMetric: async metric => { await fetch("/api/turn-metrics", { method: "POST", credentials: "same-origin", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify(metric), keepalive: true }); },
+        now: () => performance.now(),
+        createLifecycleId: () => crypto.randomUUID(),
+      });
+      controllerRef.current = controller;
+      const unsubscribe = controller.subscribe(setSnapshot);
+      return () => { unsubscribe(); controller.dispose(); controllerRef.current = null; };
+    }, [options.sessionId, options.voiceModel]);
+
+    const startListening = runtime.useCallback(() => voiceRef.current.start(), []);
+    const finishInput = runtime.useCallback(async (requestOptions = {}) => {
+      const transcript = `${voiceRef.current.finalTranscript} ${voiceRef.current.interimTranscript}`.trim();
+      if (voiceRef.current.usingFallback) {
+        voiceRef.current.stop();
+        if (transcript) await controllerRef.current?.finalizeFallbackTranscript(transcript, voiceRef.current.finalizedTranscript?.confidence ?? 1, requestOptions);
+        controllerRef.current?.setSttFallback(false);
+      } else {
+        controllerRef.current?.queuePrimaryEndOfTurn(requestOptions);
+      }
+    }, []);
+    const submitPresentationTurn = runtime.useCallback(async (transcript: string, alreadyPersisted: boolean, requestOptions = {}) => {
+      await controllerRef.current?.submitPresentationTurn(transcript, alreadyPersisted, requestOptions);
+    }, []);
+    const cancel = runtime.useCallback(() => controllerRef.current?.dispose(), []);
+
+    return { ...snapshot, isSupported: voice.isSupported, isListening: voice.isListening,
+      finalTranscript: voice.finalTranscript, interimTranscript: voice.interimTranscript,
+      startListening, start: startListening, stop: voice.stop, reset: voice.reset,
+      finishInput, submitPresentationTurn, cancel };
+  };
+}
+
+export const useTurnController = createTurnControllerHook(
+  { useCallback, useEffect, useRef, useState },
+  useStreamingVoice,
+);

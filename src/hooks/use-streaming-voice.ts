@@ -62,7 +62,6 @@ export interface StreamingVoiceDependencies
 
 export interface StreamingVoiceSessionOptions {
   roomId: string;
-  region: "us" | "eu";
   onStartOfTurn?: (event: Extract<DeepgramSttEvent, { type: "StartOfTurn" }>) => void;
   onInterimTranscript?: (event: Extract<DeepgramSttEvent, { type: "interim" }>) => void;
   onEndOfTurn?: (event: FinalizedVoiceTranscript) => void;
@@ -129,7 +128,6 @@ export class StreamingVoiceSession {
     const createStt = this.dependencies.createSttClient
       ?? ((options: DeepgramSttOptions) => new DeepgramSttClient(options));
     const stt = createStt({
-      region: this.options.region,
       onEvent: (event) => this.acceptSttEvent(epoch, event),
       dependencies: {
         fetch: this.dependencies.fetch,
@@ -291,7 +289,6 @@ export type StreamingSpeechEvent = DeepgramTtsEvent | PcmPlayerEvent | ({ turnId
 
 export interface StreamingSpeechOptions {
   roomId: string;
-  region: "us" | "eu";
   onEvent?: (event: StreamingSpeechEvent) => void;
   dependencies?: StreamingSpeechDependencies;
 }
@@ -320,8 +317,8 @@ export class StreamingSpeechSession {
   private readonly player: ReturnType<NonNullable<StreamingSpeechDependencies["createPlayer"]>>;
   private active?: SpeechTurn;
   private disposed = false;
-  private token?: { value: string; expiresAt: number };
-  private tokenPromise?: Promise<string>;
+  private token?: { value: string; region: "us" | "eu"; expiresAt: number };
+  private tokenPromise?: Promise<{ token: string; region: "us" | "eu" }>;
   private readonly abort = new AbortController();
   private audioDeadline: unknown;
   private browser?: BrowserSpeech;
@@ -348,7 +345,7 @@ export class StreamingSpeechSession {
     const createClient = () => {
       let created!: ReturnType<NonNullable<StreamingSpeechDependencies["createTtsClient"]>>;
       created = (this.dependencies.createTtsClient ?? (options => new DeepgramTtsClient(options)))({
-        region: this.options.region, model,
+        model,
         onEvent: event => this.acceptTts(turn.model, created, event),
         dependencies: { getToken: () => this.getToken(), createWebSocket: this.dependencies.createWebSocket,
           setTimer: this.dependencies.setTimer, clearTimer: this.dependencies.clearTimer },
@@ -583,8 +580,8 @@ export class StreamingSpeechSession {
 
   private now(): number { return (this.dependencies.now ?? (() => performance.now()))(); }
 
-  private getToken(): Promise<string> {
-    if (this.token && this.token.expiresAt > this.now()) return Promise.resolve(this.token.value);
+  private getToken(): Promise<{ token: string; region: "us" | "eu" }> {
+    if (this.token && this.token.expiresAt > this.now()) return Promise.resolve({ token: this.token.value, region: this.token.region });
     if (this.tokenPromise) return this.tokenPromise;
     this.tokenPromise = (async () => {
       try {
@@ -592,10 +589,11 @@ export class StreamingSpeechSession {
           method: "POST", credentials: "same-origin", cache: "no-store", signal: this.abort.signal,
         });
         if (!response.ok) throw new Error();
-        const grant = await response.json() as { accessToken?: unknown; expiresIn?: unknown };
-        if (typeof grant.accessToken !== "string" || !grant.accessToken.trim() || typeof grant.expiresIn !== "number" || !Number.isFinite(grant.expiresIn) || grant.expiresIn <= 0 || this.disposed) throw new Error();
-        this.token = { value: grant.accessToken, expiresAt: this.now() + Math.max(0, grant.expiresIn - 5) * 1000 };
-        return grant.accessToken;
+        const grant = await response.json() as { accessToken?: unknown; expiresIn?: unknown; region?: unknown };
+        if (typeof grant.accessToken !== "string" || !grant.accessToken.trim() || typeof grant.expiresIn !== "number" || !Number.isFinite(grant.expiresIn) || grant.expiresIn <= 0
+          || (grant.region !== "us" && grant.region !== "eu") || this.disposed) throw new Error();
+        this.token = { value: grant.accessToken, region: grant.region, expiresAt: this.now() + Math.max(0, grant.expiresIn - 5) * 1000 };
+        return { token: grant.accessToken, region: grant.region };
       } catch { throw new Error("token-grant"); }
       finally { this.tokenPromise = undefined; }
     })();
@@ -689,7 +687,6 @@ export function createStreamingVoiceHook(
       webSpeechReset();
       const session = new StreamingVoiceSession({
         roomId: options.roomId,
-        region: options.region,
         dependencies: options.dependencies,
         onStartOfTurn: (event) => {
           setInterimTranscript("");
@@ -723,7 +720,7 @@ export function createStreamingVoiceHook(
         onMetric: (metric) => callbacks.current.onMetric?.(metric),
       });
       sessionRef.current = session;
-      const speech = new StreamingSpeechSession({ roomId: options.roomId, region: options.region,
+      const speech = new StreamingSpeechSession({ roomId: options.roomId,
         dependencies: options.speechDependencies, onEvent: event => callbacks.current.onSpeechEvent?.(event) });
       speechRef.current = speech;
       return () => {
@@ -733,7 +730,7 @@ export function createStreamingVoiceHook(
         sessionRef.current = null;
         webSpeechStop();
       };
-    }, [options.roomId, options.region, webSpeechStart, webSpeechStop, webSpeechReset]);
+    }, [options.roomId, webSpeechStart, webSpeechStop, webSpeechReset]);
 
     const start = runtime.useCallback(() => {
       setError(null);

@@ -13,12 +13,14 @@ export type DeepgramTtsEvent = { turnId: string } & (
   | { type: "error"; reason: DeepgramTtsFailure }
 );
 export interface DeepgramTtsOptions {
-  region: "us" | "eu";
   model: string;
   onEvent: (event: DeepgramTtsEvent) => void;
   dependencies: Partial<VoiceTimers> & {
-    /** Obtain/reuse a short-lived grant; never supply a durable API key. */
-    getToken: () => Promise<string>;
+    /**
+     * Obtain/reuse a short-lived grant plus the server-selected region it
+     * carries; never supply a durable API key.
+     */
+    getToken: () => Promise<{ token: string; region: "us" | "eu" }>;
     createWebSocket?: (url: string, protocols: string[]) => DeepgramSocket;
   };
 }
@@ -100,15 +102,20 @@ export class DeepgramTtsClient {
   close(): void { this.finish("TTS closed"); }
 
   private async open(): Promise<void> {
-    let token: string;
-    try { token = await this.options.dependencies.getToken(); if (!token?.trim()) throw new Error(); }
+    let grant: { token: string; region: "us" | "eu" };
+    try {
+      grant = await this.options.dependencies.getToken();
+      if (!grant?.token?.trim() || (grant.region !== "us" && grant.region !== "eu")) throw new Error();
+    }
     catch { this.fail("token-grant"); return; }
     if (this.closed) return;
     try {
-      const host = this.options.region === "eu" ? "api.eu.deepgram.com" : "api.deepgram.com";
+      // The grant carries the server-selected region so the socket host can
+      // never diverge from the server's DEEPGRAM_REGION.
+      const host = grant.region === "eu" ? "api.eu.deepgram.com" : "api.deepgram.com";
       const params = new URLSearchParams({ model: this.options.model, encoding: "linear16", sample_rate: "24000" });
       const create = this.options.dependencies.createWebSocket ?? ((url, protocols) => new WebSocket(url, protocols));
-      const socket = create(`wss://${host}/v1/speak?${params}`, ["bearer", token]);
+      const socket = create(`wss://${host}/v1/speak?${params}`, ["bearer", grant.token]);
       this.socket = socket; socket.binaryType = "arraybuffer";
       socket.onopen = () => {
         if (this.closed) return;

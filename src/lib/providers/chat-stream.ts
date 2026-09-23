@@ -45,6 +45,8 @@ export function createChatStream(
             messages: request.messages.map(({ role, content }) => ({ role, content })),
             stream: true,
             stream_options: { include_usage: true },
+            // Coupled to scripts/stress-live-turns.ts, which regex-reads this
+            // `max_completion_tokens` literal; keep the two sites in sync.
             max_completion_tokens: 80,
             temperature: 0.5,
             ...(provider === "groq" ? { reasoning_effort: "low" } : { reasoning: { effort: "low" } }),

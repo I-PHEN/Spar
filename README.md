@@ -67,7 +67,7 @@ DEEPGRAM_API_KEY="your-deepgram-key"
 DEEPGRAM_REGION="us"
 ```
 
-All three provider keys stay server-side. The browser only ever receives short-lived Deepgram tokens minted by `POST /api/deepgram-token`; no durable key reaches client code, logs, or metrics.
+All three provider keys stay server-side. The browser only ever receives short-lived Deepgram tokens minted by `POST /api/deepgram-token`; no durable key reaches client code, logs, or metrics. `DEEPGRAM_REGION` is the single region control: the token route returns it alongside each grant, so the browser's Flux STT and Aura-2 TTS sockets always connect to the same region the server uses and records in its turn metrics (there is no `NEXT_PUBLIC_` region override).
 
 **Deepgram token troubleshooting.** If the console shows `Configured Deepgram API key needs permission to grant temporary tokens`, your key's scopes do not allow minting temporary tokens. In the Deepgram console, edit the API key and enable the permission to grant short-lived credentials, then reload the room.
 
@@ -78,7 +78,7 @@ The voice pipeline degrades in bounded, labeled steps; a failure never produces 
 - **STT** — Flux streaming STT is primary. On failure the room switches to Web Speech recognition, keeps accepting turns, and reconnects to Flux with backoff. A browser with neither path is blocked from entering the room.
 - **Generation** — Groq is primary. If Groq fails **before** a phrase has been spoken, the same turn restarts on OpenRouter and the phrase stream resets. After speech has started, the turn ends with an error instead of switching providers mid-answer.
 - **Speech** — Aura-2 streaming TTS is primary. If it fails **before** the first audio frame, the queued phrases are spoken with the browser's speech synthesis. After playback has started, a failure ends the turn and the durable text answer remains.
-- **Legacy buffered path** — The pre-streaming route (full reply, REST TTS, base64 audio) remains for the opening line and non-live clients.
+- **Legacy buffered path** — The pre-streaming route (full reply, REST TTS, base64 audio) remains only for requests that carry none of the live turn protocol's fields (for example, the opening line). A body carrying any live-protocol field (`turnId`, `isInterrupt`, drill flags, ...) must be a complete live turn request or it is rejected with 400.
 
 ### Database Setup
 
@@ -140,6 +140,10 @@ The browser suite double-replaces MediaDevices, WebSocket, AudioContext, and sam
 DEEPGRAM_REGION=us bun run benchmark:voice --region=us --turns=5
 DEEPGRAM_REGION=eu bun run benchmark:voice --region=eu --turns=5
 #    -> keep the region with the lower end-to-end median in DEEPGRAM_REGION
+#
+# DEEPGRAM_REGION is server-side and is served to the browser with every
+# short-lived token, so setting it alone moves the browser's STT/TTS sockets
+# too — the measured region and the metric labels cannot diverge.
 
 # 2. Acceptance sample: speak 20 turns across all four experiences in the browser
 bun run benchmark:voice --turns=20

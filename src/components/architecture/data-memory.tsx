@@ -25,6 +25,7 @@ const RELATIONSHIPS = [
   ["Session", "1 → many", "SessionPersona", "the configured panel"],
   ["Session", "1 → many", "SessionMessage", "the complete transcript"],
   ["SessionPersona", "0/1 → many", "SessionMessage", "persona-authored turns only"],
+  ["Session", "1 → many", "TurnMetric", "per-turn latency, usage, and fallback telemetry"],
   ["Session", "1 → 0/1", "SessionSummary", "one generated debrief"],
   ["User", "1 → many", "PatternMemory", "patterns accumulated across sessions"],
   ["Session", "1 → 0/1", "SkillSnapshot", "one five-dimension score snapshot"],
@@ -55,6 +56,7 @@ export function DataMemory() {
           <EntityCard name="Session" cardinality="Core record" detail="Owns experience state, material, telemetry, timestamps, panel, messages, summary, and skill snapshot." />
           <EntityCard name="SessionPersona" cardinality="Many / session" detail="Stores each configured panelist and optionally identifies the persona behind a transcript message." />
           <EntityCard name="SessionMessage" cardinality="Many / session" detail="Stores user, persona, coach, and system transcript entries; personaId is nullable." />
+          <EntityCard name="TurnMetric" cardinality="Many / session" detail="Stores one live-voice turn's latency milestones, providers, token usage, cost, and fallback reason. turnId is unique per browser turn; rows are owned by the session and deleted with it." />
           <EntityCard name="SessionSummary" cardinality="Zero or one" detail="Stores the six-section coaching debrief after the session is ended and analyzed." />
           <EntityCard name="PatternMemory" cardinality="Many / user" detail="Upserts recurring behavior by user and tag so later sessions can receive cross-session context." />
           <EntityCard name="SkillSnapshot" cardinality="Zero or one" detail="Records clarity, recovery, concision, presence, and evidence for one session and one user." />

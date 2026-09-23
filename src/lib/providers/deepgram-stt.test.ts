@@ -33,10 +33,10 @@ function setup(
   const requests: { input: string; init: RequestInit }[] = [];
   const connections: { url: string; protocols: string[] }[] = [];
   const timers = new Map<object, () => void>();
-  const client = new DeepgramSttClient({ region, onEvent: (event) => events.push(event), dependencies: {
+  const client = new DeepgramSttClient({ onEvent: (event) => events.push(event), dependencies: {
     fetch: fetcher ?? (async (input, init) => {
       requests.push({ input, init });
-      return Response.json({ accessToken: "temporary.jwt.fixture", expiresIn: 60 });
+      return Response.json({ accessToken: "temporary.jwt.fixture", expiresIn: 60, region });
     }),
     createWebSocket: (url, protocols) => { connections.push({ url, protocols }); return socket; },
     setTimer: (callback) => { const id = {}; timers.set(id, callback); return id; },
@@ -52,7 +52,7 @@ function setup(
 }
 
 describe("Flux protocol", () => {
-  test.each(["us", "eu"] as const)("uses a temporary bearer JWT on the %s v2 endpoint", async (region) => {
+  test.each(["us", "eu"] as const)("uses the grant's region and a temporary bearer JWT on the %s v2 endpoint", async (region) => {
     const h = setup(region);
     await h.connect();
     const url = new URL(h.connections[0].url);
@@ -126,14 +126,16 @@ describe("Flux protocol", () => {
     expect(first).toBe(second);
     h.client.close();
     expect(signal?.aborted).toBe(true);
-    resolve(Response.json({ accessToken: "late.jwt.fixture", expiresIn: 60 }));
+    resolve(Response.json({ accessToken: "late.jwt.fixture", expiresIn: 60, region: "us" }));
     expect(await outcome).toContain("closed");
     await Promise.resolve();
     expect(h.connections).toHaveLength(0);
   });
 
   test.each([Response.json({ error: "private-key" }, { status: 500 }), Response.json({ apiKey: "private-key" }),
-    Response.json({ accessToken: "", expiresIn: 60 })])("rejects bad grants without exposing the response", async (response) => {
+    Response.json({ accessToken: "", expiresIn: 60, region: "us" }),
+    Response.json({ accessToken: "temporary.jwt.fixture", expiresIn: 60 }),
+    Response.json({ accessToken: "temporary.jwt.fixture", expiresIn: 60, region: "ap-southeast" })])("rejects bad grants without exposing the response", async (response) => {
     const h = setup("us", async () => response);
     await expect(h.client.connect()).rejects.toThrow("token-grant");
     expect(h.connections).toHaveLength(0);

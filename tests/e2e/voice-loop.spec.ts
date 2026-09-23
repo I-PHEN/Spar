@@ -341,7 +341,7 @@ test.beforeEach(async ({ page }) => {
         }
         if (url.includes("/api/deepgram-token")) {
           log.tokenGrants += 1;
-          return jsonResponse({ accessToken: "deterministic-access-token", expiresIn: 600 });
+          return jsonResponse({ accessToken: "deterministic-access-token", expiresIn: 600, region: "us" });
         }
         if (url.includes("/api/turn-metrics")) {
           if (body) {

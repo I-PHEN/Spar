@@ -32,7 +32,10 @@ export async function POST(request: Request): Promise<Response> {
       DEEPGRAM_TOKEN_TTL_SECONDS,
     );
 
-    return jsonResponse(grant, 200);
+    // The public region string rides along with the grant so browser sockets
+    // structurally cannot diverge from the server's selected Deepgram region
+    // (the same value the server records in its turn metrics).
+    return jsonResponse({ ...grant, region: config.deepgramRegion }, 200);
   } catch (error) {
     const message =
       error instanceof DeepgramGrantError

@@ -116,7 +116,11 @@ const PERSONAS: LivePersona[] = [
   { id: "persona-2", name: "The Timekeeper", archetype: "timekeeper", behaviorStyle: "aggressive", seatOrder: 1 },
 ];
 
-/** The output cap the server actually configures for every provider request. */
+/**
+ * The output cap the server actually configures for every provider request.
+ * Coupled to the `max_completion_tokens` literal in src/lib/providers/chat-stream.ts:
+ * this regex enforces whatever that source literal says, so change both together.
+ */
 function configuredOutputTokenCap(): number {
   const source = readFileSync(join(process.cwd(), "src/lib/providers/chat-stream.ts"), "utf8");
   const match = source.match(/max_completion_tokens:\s*(\d+)/);
