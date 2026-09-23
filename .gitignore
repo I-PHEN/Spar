@@ -12,9 +12,12 @@ node_modules
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
 
 # next.js
 /.next/
+/.next-e2e/
 /out/
 
 # production

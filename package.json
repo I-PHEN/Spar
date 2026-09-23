@@ -7,6 +7,9 @@
     "build": "next build && node -e \"const fs=require('node:fs');fs.cpSync('.next/static','.next/standalone/.next/static',{recursive:true});fs.cpSync('public','.next/standalone/public',{recursive:true})\"",
     "test": "bun test",
     "test:watch": "bun test --watch",
+    "test:e2e": "playwright test",
+    "test:stress-turns": "bun run scripts/stress-live-turns.ts",
+    "benchmark:voice": "bun run scripts/benchmark-voice.ts",
     "typecheck": "tsc --noEmit",
     "start": "NODE_ENV=production bun .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",
@@ -84,6 +87,7 @@
     "zustand": "^5.0.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/react": "^19",
     "@types/react-dom": "^19",

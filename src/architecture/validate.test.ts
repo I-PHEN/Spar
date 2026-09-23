@@ -123,7 +123,7 @@ describe("architecture manifest", () => {
     });
   });
 
-  test("shows the current voice path through the session API in order", () => {
+  test("shows the implemented streaming path as the current voice path, in order", () => {
     expect(
       architectureManifest.edges.filter((edge) =>
         edge.label.startsWith("current voice path:")
@@ -131,34 +131,49 @@ describe("architecture manifest", () => {
     ).toEqual([
       {
         from: "sparring-room",
+        to: "flux-stt",
+        label: "current voice path: streams microphone PCM",
+      },
+      {
+        from: "flux-stt",
+        to: "live-turn-controller",
+        label: "current voice path: interim and finalized transcripts",
+      },
+      {
+        from: "live-turn-controller",
         to: "session-api",
-        label: "current voice path: sends turn to /spar-stream",
+        label: "current voice path: POST /spar-stream with a turn id",
       },
       {
         from: "session-api",
-        to: "openrouter-live-generation",
-        label: "current voice path: streams persona response",
+        to: "groq-live-generation",
+        label: "current voice path: Groq streams the response",
       },
       {
-        from: "openrouter-live-generation",
-        to: "deepgram-tts",
-        label: "current voice path: synthesizes persona audio",
+        from: "session-api",
+        to: "live-turn-controller",
+        label: "current voice path: turn-tagged SSE events",
       },
       {
-        from: "deepgram-tts",
+        from: "live-turn-controller",
+        to: "aura-2-tts",
+        label: "current voice path: speaks each finalized phrase",
+      },
+      {
+        from: "aura-2-tts",
         to: "sparring-room",
-        label: "current voice path: returns audio to browser",
+        label: "current voice path: ordered PCM playback",
       },
     ]);
   });
 
-  test("keeps target generation behind the server API and its durable keys", () => {
+  test("keeps live generation behind the server API with its durable keys and fallback edges", () => {
     const nodeById = Object.fromEntries(
       architectureManifest.nodes.map((node) => [node.id, node]),
     );
 
-    expect(nodeById["groq-target-generation"]).toMatchObject({
-      label: "Groq target generation",
+    expect(nodeById["groq-live-generation"]).toMatchObject({
+      label: "Groq live generation",
       layer: "provider",
       inputs: [
         "Persona prompt",
@@ -174,26 +189,73 @@ describe("architecture manifest", () => {
       ],
     });
     expect(
-      architectureManifest.edges.filter((edge) =>
-        edge.label.startsWith("target voice"),
-      ),
+      architectureManifest.edges.filter((edge) => edge.label.startsWith("fallback:")),
     ).toEqual([
       {
-        from: "sparring-room",
-        to: "session-api",
-        label: "target voice path: sends turn through server API",
-      },
-      {
-        from: "session-api",
-        to: "groq-target-generation",
-        label: "target voice path: uses server-side Groq primary",
+        from: "flux-stt",
+        to: "web-speech-recognition",
+        label: "fallback: browser recognition while streaming STT reconnects",
       },
       {
         from: "session-api",
         to: "openrouter-live-generation",
-        label: "target voice fallback: uses OpenRouter before speech starts",
+        label: "fallback: OpenRouter only before speech starts",
       },
     ]);
+  });
+
+  test("preserves the pre-streaming REST path only as the legacy fallback", () => {
+    expect(
+      architectureManifest.edges.filter((edge) =>
+        edge.label.startsWith("legacy buffered path:")
+      )
+    ).toEqual([
+      {
+        from: "session-api",
+        to: "deepgram-tts",
+        label: "legacy buffered path: REST synthesis for non-live clients",
+      },
+      {
+        from: "deepgram-tts",
+        to: "sparring-room",
+        label: "legacy buffered path: returns base64 audio",
+      },
+    ]);
+
+    const nodeById = Object.fromEntries(
+      architectureManifest.nodes.map((node) => [node.id, node]),
+    );
+    expect(nodeById["deepgram-tts"]?.label).toBe("Legacy Deepgram REST TTS");
+    expect(nodeById["aura-2-tts"]?.label).toBe("Deepgram Aura-2 streaming TTS");
+  });
+
+  test("wires turn metrics into the latency lab", () => {
+    const nodeById = Object.fromEntries(
+      architectureManifest.nodes.map((node) => [node.id, node]),
+    );
+
+    expect(nodeById["turn-metrics"]?.files).toContain(
+      "src/components/architecture/latency-lab.tsx",
+    );
+    expect(
+      architectureManifest.edges.filter((edge) => edge.to === "turn-metrics"),
+    ).toEqual([
+      {
+        from: "live-turn-controller",
+        to: "turn-metrics",
+        label: "records browser turn metrics",
+      },
+      {
+        from: "session-api",
+        to: "turn-metrics",
+        label: "records server turn metrics",
+      },
+    ]);
+    expect(architectureManifest.edges).toContainEqual({
+      from: "turn-metrics",
+      to: "prisma-sqlite",
+      label: "persists per-turn metric records",
+    });
   });
 
   test("describes unsupported Web Speech as blocking room entry", () => {

@@ -1,0 +1,4 @@
+[test]
+# Playwright owns tests/e2e (Chromium, its own dev server on port 3100).
+# Keep those specs out of `bun test` discovery.
+pathIgnorePatterns = ["tests/e2e/**"]

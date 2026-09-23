@@ -5,7 +5,7 @@ import { useState } from "react";
 import { CURRENT_VOICE_FALLBACKS } from "@/architecture/voice-pipeline";
 import { cn } from "@/lib/utils";
 
-type PipelineMode = "current" | "target";
+type PipelineMode = "current" | "legacy";
 
 interface PipelineStage {
   name: string;
@@ -20,7 +20,45 @@ const PIPELINES: Record<
   current: {
     status: "Running today",
     description:
-      "The browser sends a completed turn to the session API. The server streams generation, slices phrases, synthesizes each slice, and returns audio events for sequential playback.",
+      "The browser streams microphone audio to Flux STT, one controller owns the turn, the server generates on Groq with a pre-speech OpenRouter fallback, and the browser speaks each phrase through Aura-2 as it arrives.",
+    stages: [
+      {
+        name: "STT",
+        owner: "Browser · Flux socket",
+        detail: "Streams PCM; interim and finalized transcripts",
+      },
+      {
+        name: "Turn controller",
+        owner: "Browser · turn owner",
+        detail: "Owns one lifecycle and cancel signal",
+      },
+      {
+        name: "Generator",
+        owner: "Server · Groq primary",
+        detail: "Streams tokens under an 80-token cap",
+      },
+      {
+        name: "Phrase chunker",
+        owner: "Server · /spar-stream",
+        detail: "Emits speakable phrases incrementally",
+      },
+      {
+        name: "TTS",
+        owner: "Browser · Aura-2 stream",
+        detail: "Speaks phrases behind one cancel scope",
+      },
+      {
+        name: "Playback",
+        owner: "Browser · PCM queue",
+        detail: "Starts at the first frame, drains in order",
+      },
+    ],
+    edges: ["PCM stream", "final transcript", "turn-tagged SSE", "phrase events", "audio frames"],
+  },
+  legacy: {
+    status: "Legacy buffered path · fallback only",
+    description:
+      "The pre-streaming path, kept as fallback and history: a completed turn is posted to the session API, OpenRouter generates the full reply, sentences are synthesized through Deepgram REST, and base64 audio returns for sequential playback. It still serves the opening line and non-live clients.",
     stages: [
       {
         name: "STT",
@@ -54,44 +92,6 @@ const PIPELINES: Record<
       },
     ],
     edges: ["final text", "POST /spar-stream", "token stream", "phrase text", "SSE sentence"],
-  },
-  target: {
-    status: "Design target · not shipped",
-    description:
-      "The target moves live response coordination into one cancellable browser-owned turn, with direct provider streaming and an explicit phrase and playback queue.",
-    stages: [
-      {
-        name: "STT",
-        owner: "Browser · recognition",
-        detail: "Feeds committed transcript segments",
-      },
-      {
-        name: "Turn controller",
-        owner: "Browser · turn owner",
-        detail: "Owns one lifecycle and cancel signal",
-      },
-      {
-        name: "Generator",
-        owner: "Target · direct stream",
-        detail: "Streams response under turn control",
-      },
-      {
-        name: "Phrase chunker",
-        owner: "Browser · queue",
-        detail: "Emits speakable phrases incrementally",
-      },
-      {
-        name: "TTS",
-        owner: "Target · streaming voice",
-        detail: "Accepts phrases behind cancellation",
-      },
-      {
-        name: "Playback",
-        owner: "Browser · queue",
-        detail: "Starts early and drains in order",
-      },
-    ],
-    edges: ["committed text", "controlled request", "token stream", "phrase queue", "audio queue"],
   },
 };
 
@@ -166,7 +166,7 @@ export function VoicePipeline() {
             className="inline-flex self-start rounded-lg border border-border bg-background/60 p-1"
             aria-label="Voice architecture version"
           >
-            {(["current", "target"] as const).map((option) => (
+            {(["current", "legacy"] as const).map((option) => (
               <button
                 key={option}
                 type="button"
@@ -208,16 +208,16 @@ export function VoicePipeline() {
           </p>
           {mode === "current" ? (
             <div className="mt-4">
-              <p className="text-sm font-medium">Recognition stops at turn submission.</p>
+              <p className="text-sm font-medium">One cancel signal fans out across the turn.</p>
               <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                Today, the browser stops Web Speech before posting. The provider request and each created Audio element do not share an abort signal, so end-to-end turn cancellation is not implemented.
+                A new StartOfTurn or ending the session aborts generation, retires the phrase queue, stops playback, and clears the speech socket inside a 200 ms teardown budget that the Chromium harness measures deterministically.
               </p>
             </div>
           ) : (
             <div className="mt-4">
-              <p className="text-sm font-medium">One cancel signal fans out across the turn.</p>
+              <p className="text-sm font-medium">Recognition stops at turn submission.</p>
               <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                Target behavior would abort recognition, generation, pending phrase synthesis, and queued playback together. This is an intended boundary, not current behavior.
+                In the legacy buffered path, the browser stops Web Speech before posting. The provider request and each created Audio element do not share an abort signal, so end-to-end turn cancellation is not implemented there. This path remains only as fallback and history.
               </p>
             </div>
           )}
