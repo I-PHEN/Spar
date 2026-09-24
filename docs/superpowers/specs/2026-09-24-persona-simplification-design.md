@@ -49,6 +49,14 @@ first names only.
   quiet text where a live indicator is required.
 - Tests referencing old names updated.
 
+## Panelist selection (added 2026-09-24)
+
+The user picks **1–3 panelists** (maximum three) from the five personas on
+the configure screen; any mix is allowed. The room and prompts reflect the
+selection: multi-panelist rooms keep the existing "other panelists" prompt
+block and handoff behavior; single-panelist rooms omit it. Selection is
+stored with the session.
+
 ## Non-goals
 
 - No new profile screens, no per-persona stats, no voice preview UI, no new
