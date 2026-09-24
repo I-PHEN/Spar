@@ -8,6 +8,9 @@ Status: Order approved by user
 One project at a time. Each project: **research → user reviews spec → plan →
 build → user checks it meets requirements → next project.** Nothing is built
 all at once; no surface-level work — every part gets its research phase.
+After every completed project or goal, `worklog.md` (repo root) gets a new
+entry summarizing what was built and what changed — it is the user's living
+map of the app.
 
 ## Projects, in order
 
