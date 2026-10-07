@@ -396,6 +396,7 @@ function liveMetricFields(record: TurnMetricRecord): TurnMetricRecord {
     ttsProvider: record.ttsProvider, ttsModel: record.ttsModel, inputTokens: record.inputTokens,
     outputTokens: record.outputTokens, cachedTokens: record.cachedTokens, estimatedCostUsd: record.estimatedCostUsd,
     fallbackReason: record.fallbackReason, cancelled: record.cancelled, orderingFailureCount: record.orderingFailureCount,
+    voiceEngine: record.voiceEngine, firstLiveAudioMs: record.firstLiveAudioMs, interruptions: record.interruptions,
   };
 }
 
