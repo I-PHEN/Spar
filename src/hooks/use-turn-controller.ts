@@ -8,6 +8,7 @@ import type { PhraseChunk } from "../lib/voice/phrase-chunker";
 import { PERSONA_VOICES } from "../lib/providers/deepgram-tts";
 import { initialTurnState, reduceTurn, type TurnEffect, type TurnEvent, type TurnState } from "../lib/voice/turn-state";
 import { useStreamingVoice, type StreamingSpeechEvent, type StreamingVoiceDependencies, type StreamingSpeechDependencies, type StreamingVoiceFallbackMetric } from "./use-streaming-voice";
+import { useLiveVoice, type LiveEngineMetricEvent, type LiveVoiceConfig, type LiveVoiceDependencies, type LiveVoiceHook, type LiveVoiceStatus } from "./use-live-voice";
 
 export interface TurnControllerMessage {
   id: string;
@@ -71,6 +72,8 @@ export class LiveTurnController {
   private requestOptions: TurnRequestOptions = {};
   private lastSttTurnIndex = -1;
   private cancelledTurns = new Set<string>();
+  /** Live turns that received turn-complete; cleanup must not mark them cancelled. */
+  private liveFinalizedTurns = new Set<string>();
   private metricWrites = Promise.resolve();
 
   constructor(
@@ -227,6 +230,62 @@ export class LiveTurnController {
     void this.queueMetric({ type: "fallback", turnId: this.turn.turnId, sessionId: this.sessionId, reason: metric.reason });
   }
 
+  /**
+   * Gemini Live engine lifecycle: the Live socket — not streamTurn — owns
+   * generation, so turns are registered here and driven by the caption/audio
+   * callbacks below. StartOfTurn allocates the next id synchronously inside
+   * dispatch (the reducer runs before any await), so the return value is
+   * already the fresh turnId.
+   */
+  registerLiveTurn(): string {
+    if (this.disposed) return this.turn.turnId;
+    void this.dispatch({ type: "StartOfTurn", turnId: this.turn.turnId });
+    return this.turn.turnId;
+  }
+
+  cancelLiveTurn(turnId: string): void {
+    if (this.disposed || turnId !== this.turn.turnId) return;
+    void this.dispatch({ type: "Cancel", turnId });
+  }
+
+  /** `turn-complete`: the live turn finished cleanly, so its later cleanup is not a cancellation. */
+  completeLiveTurn(turnId: string): void {
+    if (this.disposed || turnId !== this.turn.turnId) return;
+    this.liveFinalizedTurns.add(turnId);
+  }
+
+  acceptLiveUserInterim(text: string): void {
+    if (this.disposed) return;
+    this.publish({ transcriptPreview: text });
+  }
+
+  acceptLiveUserFinal(text: string): void {
+    if (this.disposed || !text.trim()) return;
+    const turnId = this.turn.turnId;
+    if (this.snapshot.messages.some(message => message.id === `user:${turnId}`)) return;
+    this.publish({ transcriptPreview: text, messages: [...this.snapshot.messages, {
+      id: `user:${turnId}`, turnId, role: "user", content: text,
+    }] });
+  }
+
+  acceptLiveAssistantCaption(turnId: string, text: string): void {
+    if (this.disposed || turnId !== this.turn.turnId) return;
+    this.publish({ assistantCaption: text });
+  }
+
+  /** Live-engine metrics ride the same queueMetric path as browser milestones. */
+  recordLiveEngineEvent(event: LiveEngineMetricEvent): void {
+    if (this.disposed) return;
+    void this.queueMetric({
+      type: "live-engine",
+      turnId: this.turn.turnId,
+      sessionId: this.sessionId,
+      ...event,
+      // firstLiveAudioMs is int-strict on the metrics route; round at the queue boundary.
+      ...(event.firstLiveAudioMs === undefined ? {} : { firstLiveAudioMs: Math.max(0, Math.round(event.firstLiveAudioMs)) }),
+    });
+  }
+
   networkLost(message = "Network connection lost."): void {
     if (this.disposed) return;
     this.publish({ error: message });
@@ -301,7 +360,7 @@ export class LiveTurnController {
       case "abort-generation":
         if (this.generation?.turnId === effect.turnId) this.generation.abort.abort();
         this.dependencies.cancelGeneration(effect.turnId);
-        if (!this.cancelledTurns.has(effect.turnId)) {
+        if (!this.cancelledTurns.has(effect.turnId) && !this.liveFinalizedTurns.has(effect.turnId)) {
           this.cancelledTurns.add(effect.turnId);
           void this.queueMetric({ type: "cancelled", turnId: effect.turnId, sessionId: this.sessionId, offsetMs: this.offset() });
         }
@@ -380,6 +439,8 @@ export interface UseTurnControllerOptions {
   voiceModel: string;
   voiceDependencies?: StreamingVoiceDependencies;
   speechDependencies?: StreamingSpeechDependencies;
+  /** Engine selection: configure to try Gemini Live first; absent keeps the cascade primary. */
+  live?: LiveVoiceConfig & { dependencies?: LiveVoiceDependencies };
 }
 
 export interface UseTurnControllerResult extends TurnControllerSnapshot {
@@ -394,6 +455,8 @@ export interface UseTurnControllerResult extends TurnControllerSnapshot {
   finishInput(requestOptions?: TurnRequestOptions): Promise<void>;
   submitPresentationTurn(transcript: string, alreadyPersisted: boolean, requestOptions?: TurnRequestOptions): Promise<void>;
   cancel(): void;
+  /** Active rung of the voice engine ladder; "fallback" when Live is not configured. */
+  liveEngineStatus: LiveVoiceStatus;
 }
 
 export interface TurnControllerHookRuntime {
@@ -405,6 +468,9 @@ export interface TurnControllerHookRuntime {
 
 type StreamingVoiceHook = typeof useStreamingVoice;
 
+/** Live hook stand-in for two-argument composition: engine ladder rests on the cascade. */
+const cascadeOnlyLiveHook: LiveVoiceHook = () => ({ status: "fallback", start: () => Promise.resolve(), stop: () => {} });
+
 /**
  * Built from injectable React hooks and streaming-voice hook so deterministic
  * lifecycle tests can host the full controller wiring without a DOM.
@@ -412,6 +478,7 @@ type StreamingVoiceHook = typeof useStreamingVoice;
 export function createTurnControllerHook(
   runtime: TurnControllerHookRuntime,
   useStreamingVoiceHook: StreamingVoiceHook,
+  useLiveVoiceHook: LiveVoiceHook = cascadeOnlyLiveHook,
 ): (options: UseTurnControllerOptions) => UseTurnControllerResult {
   return function useTurnControllerWithRuntime(options): UseTurnControllerResult {
     const controllerRef = runtime.useRef<LiveTurnController | null>(null);
@@ -437,6 +504,26 @@ export function createTurnControllerHook(
     });
     const voiceRef = runtime.useRef(voice);
     runtime.useEffect(() => { voiceRef.current = voice; }, [voice]);
+    const liveConfiguredRef = runtime.useRef(!!options.live);
+    const liveVoice = useLiveVoiceHook(options.live ? {
+      sessionId: options.sessionId,
+      mode: options.live.mode,
+      persona: options.live.persona,
+      scenarioLabel: options.live.scenarioLabel,
+      claims: options.live.claims,
+      otherPanelists: options.live.otherPanelists,
+      dependencies: options.live.dependencies,
+      onUserInterim: text => controllerRef.current?.acceptLiveUserInterim(text),
+      onUserFinal: text => controllerRef.current?.acceptLiveUserFinal(text),
+      onAssistantCaption: (turnId, text) => controllerRef.current?.acceptLiveAssistantCaption(turnId, text),
+      onRegisterTurn: () => controllerRef.current?.registerLiveTurn() ?? "",
+      onCancelTurn: turnId => controllerRef.current?.cancelLiveTurn(turnId),
+      onCompleteTurn: turnId => controllerRef.current?.completeLiveTurn(turnId),
+      onMetric: event => controllerRef.current?.recordLiveEngineEvent(event),
+      onFallback: () => voiceRef.current.start(),
+    } : null);
+    const liveVoiceRef = runtime.useRef(liveVoice);
+    runtime.useEffect(() => { liveVoiceRef.current = liveVoice; }, [liveVoice]);
 
     runtime.useEffect(() => {
       const controller = createTurnController(options.sessionId, options.voiceModel, {
@@ -459,7 +546,12 @@ export function createTurnControllerHook(
       return () => { unsubscribe(); controller.dispose(); controllerRef.current = null; };
     }, [options.sessionId, options.voiceModel]);
 
-    const startListening = runtime.useCallback(() => voiceRef.current.start(), []);
+    // Engine selection: Gemini Live first when configured (its onFallback
+    // hands the room to the cascade), otherwise the existing cascade start.
+    const startListening = runtime.useCallback(() => {
+      if (liveConfiguredRef.current) void liveVoiceRef.current?.start();
+      else voiceRef.current.start();
+    }, []);
     const finishInput = runtime.useCallback(async (requestOptions = {}) => {
       const transcript = `${voiceRef.current.finalTranscript} ${voiceRef.current.interimTranscript}`.trim();
       if (voiceRef.current.usingFallback) {
@@ -474,15 +566,20 @@ export function createTurnControllerHook(
       await controllerRef.current?.submitPresentationTurn(transcript, alreadyPersisted, requestOptions);
     }, []);
     const cancel = runtime.useCallback(() => controllerRef.current?.dispose(), []);
+    const stop = runtime.useCallback(() => {
+      liveVoiceRef.current?.stop();
+      voiceRef.current.stop();
+    }, []);
 
     return { ...snapshot, isSupported: voice.isSupported, isListening: voice.isListening,
       finalTranscript: voice.finalTranscript, interimTranscript: voice.interimTranscript,
-      startListening, start: startListening, stop: voice.stop, reset: voice.reset,
-      finishInput, submitPresentationTurn, cancel };
+      startListening, start: startListening, stop, reset: voice.reset,
+      finishInput, submitPresentationTurn, cancel, liveEngineStatus: liveVoice.status };
   };
 }
 
 export const useTurnController = createTurnControllerHook(
   { useCallback, useEffect, useRef, useState },
   useStreamingVoice,
+  useLiveVoice,
 );

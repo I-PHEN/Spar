@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { LiveTurnEvent, LiveTurnRequest } from "../lib/spar/live-turn-service";
+import type { TurnMetricEvent } from "../lib/observability/turn-metrics";
 import type { DeepgramTtsOptions, DeepgramTtsEvent } from "../lib/providers/deepgram-tts";
 import type { PcmPlayerOptions, PcmPlayerEvent, PcmFrame } from "../lib/voice/pcm-player";
 import {
@@ -283,6 +284,83 @@ describe("turn controller", () => {
     h.controller.dispose();
     h.controller.dispose();
     expect(h.effects.length).toBeGreaterThan(afterRepeat);
+  });
+});
+
+describe("turn controller live engine wiring", () => {
+  function liveHarness() {
+    const metrics: TurnMetricEvent[] = [];
+    const effects: string[] = [];
+    const dependencies: TurnControllerDependencies = {
+      streamTurn: stream([]), beginSpeech: async () => {}, speakPhrase: () => {}, finishSpeech: () => {},
+      cancelGeneration: () => {}, invalidatePhraseQueue: () => {}, resetPhraseQueue: () => {}, stopAudio: () => {}, clearTts: () => {},
+      beginListening: turnId => { effects.push(`listen:${turnId}`); },
+      recordMetric: async metric => { metrics.push(metric); },
+      now: () => 20,
+      createLifecycleId: () => "",
+    };
+    return { controller: createTurnController("room", "aura-2-thalia-en", dependencies), metrics, effects };
+  }
+
+  test("registerLiveTurn allocates a fresh machine turnId per AI utterance", () => {
+    const h = liveHarness();
+    const first = h.controller.registerLiveTurn();
+    const second = h.controller.registerLiveTurn();
+    expect(first).toMatch(/^room:\d+$/);
+    expect(second).toMatch(/^room:\d+$/);
+    expect(second).not.toBe(first);
+  });
+
+  test("a turn-complete-finalized live turn is not recorded as cancelled when the next turn registers", async () => {
+    const h = liveHarness();
+    const first = h.controller.registerLiveTurn();
+    h.controller.completeLiveTurn(first);
+    h.controller.registerLiveTurn();
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+    expect(h.metrics.filter(metric => metric.type === "cancelled")).toHaveLength(0);
+  });
+
+  test("a live-turn cancellation (barge-in) records exactly one cancelled metric and stays idempotent", async () => {
+    const h = liveHarness();
+    const turnId = h.controller.registerLiveTurn();
+    h.controller.cancelLiveTurn(turnId);
+    h.controller.cancelLiveTurn(turnId);
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+    const cancelled = h.metrics.filter(metric => metric.type === "cancelled");
+    expect(cancelled).toHaveLength(1);
+    expect(cancelled[0]).toMatchObject({ turnId, sessionId: "room" });
+  });
+
+  test("live captions honor turn identity and live-engine metrics carry the machine identity with integer milliseconds", async () => {
+    const h = liveHarness();
+    const stale = h.controller.registerLiveTurn();
+    const turnId = h.controller.registerLiveTurn();
+    h.controller.acceptLiveAssistantCaption(stale, "stale text");
+    expect(h.controller.getSnapshot().assistantCaption).toBe("");
+    h.controller.acceptLiveAssistantCaption(turnId, "live answer");
+    expect(h.controller.getSnapshot().assistantCaption).toBe("live answer");
+
+    h.controller.recordLiveEngineEvent({ voiceEngine: "gemini-live", firstLiveAudioMs: 812.6 });
+    h.controller.recordLiveEngineEvent({ voiceEngine: "cascade" });
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+    expect(h.metrics.filter(metric => metric.type === "live-engine")).toEqual([
+      // The queueMetric boundary enforces the int-strict firstLiveAudioMs contract.
+      { type: "live-engine", turnId, sessionId: "room", voiceEngine: "gemini-live", firstLiveAudioMs: 813 },
+      { type: "live-engine", turnId, sessionId: "room", voiceEngine: "cascade" },
+    ]);
+  });
+
+  test("live user transcripts publish interim previews and one finalized user message per turn", () => {
+    const h = liveHarness();
+    const turnId = h.controller.registerLiveTurn();
+    h.controller.acceptLiveUserInterim("hello wor");
+    expect(h.controller.getSnapshot().transcriptPreview).toBe("hello wor");
+    h.controller.acceptLiveUserFinal("hello world");
+    h.controller.acceptLiveUserFinal("hello world");
+    expect(h.controller.getSnapshot().messages).toEqual([
+      { id: `user:${turnId}`, turnId, role: "user", content: "hello world" },
+    ]);
+    expect(h.controller.getSnapshot().transcriptPreview).toBe("hello world");
   });
 });
 
