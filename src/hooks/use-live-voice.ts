@@ -127,6 +127,8 @@ export class LiveVoiceSession {
   private microphone?: MicrophoneConnection;
   private readonly player: PlayerHandle;
   private epoch = 0;
+  /** Config-level fallback: one retry on FALLBACK_VOICE after a setup rejection. */
+  private voiceRetried = false;
   // Per-utterance attribution state; frames for finished turns are dropped.
   private liveTurnId: string | null = null;
   private turnFinished = false;
@@ -167,6 +169,9 @@ export class LiveVoiceSession {
     this.releaseResources();
   }
 
+  /** A stopped session is fully released; the hook restarts via a fresh session. */
+  get isStopped(): boolean { return this.stopped; }
+
   private stale(epoch: number): boolean {
     return this.stopped || epoch !== this.epoch;
   }
@@ -179,39 +184,61 @@ export class LiveVoiceSession {
 
   private async connect(epoch: number): Promise<void> {
     try {
-      const token = await this.fetchToken();
+      await this.establish(epoch, await this.fetchToken(), this.personaVoice());
+    } catch (error) {
       if (this.stale(epoch)) return;
-      const createClient = this.dependencies.createClient ?? (clientOptions => new GeminiLiveClient(clientOptions));
-      const client = createClient({
-        token,
-        model: LIVE_MODEL_BY_MODE[this.options.mode],
-        systemInstruction: buildLiveSystemInstruction({
-          archetype: this.options.persona.archetype,
-          behaviorStyle: this.options.persona.behaviorStyle,
-          mode: this.options.mode,
-          scenarioLabel: this.options.scenarioLabel,
-          claims: this.options.claims,
-          otherPanelists: this.options.otherPanelists,
-        }),
-        voiceName: LIVE_VOICES[this.options.persona.archetype] ?? FALLBACK_VOICE,
-        vad: vadConfigFor(this.options.mode).automaticActivityDetection,
-        onEvent: event => this.acceptClientEvent(epoch, event),
-        dependencies: {
-          webSocket: this.dependencies.webSocket,
-          now: this.dependencies.now,
-          backoffMs: this.dependencies.backoffMs,
-        },
-      });
-      this.client = client;
-      await client.connect(); // resolves on setupComplete; rejects after retries
-      if (this.stale(epoch)) return;
-      this.setStatus("live");
-      await this.startMicrophone(epoch);
-    } catch {
-      // Token 503, setup rejection, socket exhaustion, or mic failure:
+      // Setup rejection with a non-Kore persona voice: ONE config-level retry
+      // on the only Live-documented voice before laddering down.
+      if (this.isSetupRejection(error) && !this.voiceRetried && this.personaVoice() !== FALLBACK_VOICE) {
+        this.voiceRetried = true;
+        try {
+          await this.establish(epoch, await this.fetchToken(), FALLBACK_VOICE);
+          return;
+        } catch {
+          // The Kore retry was rejected too; fall to the ladder below.
+        }
+      }
+      // Token 503, both setups rejected, socket exhaustion, or mic failure:
       // ladder down to the cascade without ever throwing to the caller.
-      if (!this.stale(epoch)) this.goFallback();
+      this.goFallback();
     }
+  }
+
+  private personaVoice(): string {
+    return LIVE_VOICES[this.options.persona.archetype] ?? FALLBACK_VOICE;
+  }
+
+  private isSetupRejection(error: unknown): boolean {
+    return error instanceof Error && error.message === "setup-rejected";
+  }
+
+  private async establish(epoch: number, token: string, voiceName: string): Promise<void> {
+    const createClient = this.dependencies.createClient ?? (clientOptions => new GeminiLiveClient(clientOptions));
+    const client = createClient({
+      token,
+      model: LIVE_MODEL_BY_MODE[this.options.mode],
+      systemInstruction: buildLiveSystemInstruction({
+        archetype: this.options.persona.archetype,
+        behaviorStyle: this.options.persona.behaviorStyle,
+        mode: this.options.mode,
+        scenarioLabel: this.options.scenarioLabel,
+        claims: this.options.claims,
+        otherPanelists: this.options.otherPanelists,
+      }),
+      voiceName,
+      vad: vadConfigFor(this.options.mode).automaticActivityDetection,
+      onEvent: event => this.acceptClientEvent(epoch, event),
+      dependencies: {
+        webSocket: this.dependencies.webSocket,
+        now: this.dependencies.now,
+        backoffMs: this.dependencies.backoffMs,
+      },
+    });
+    this.client = client;
+    await client.connect(); // resolves on setupComplete; rejects after retries
+    if (this.stale(epoch)) return;
+    this.setStatus("live");
+    await this.startMicrophone(epoch);
   }
 
   private async fetchToken(): Promise<string> {
@@ -277,7 +304,11 @@ export class LiveVoiceSession {
         this.interrupt();
         return;
       case "error":
-        if (event.reason !== "aborted") this.goFallback();
+        // Pre-ready failures ("setup-rejected") also reject connect(), where
+        // the FALLBACK_VOICE retry or ladder-down is decided; only post-ready
+        // socket death ladders down here. "aborted" is always user-initiated.
+        if (event.reason === "aborted" || this.status === "connecting") return;
+        this.goFallback();
         return;
       default:
         return; // ready/reconnecting/goaway are informational here
@@ -400,33 +431,47 @@ export function createLiveVoiceHook(runtime: LiveVoiceHookRuntime): LiveVoiceHoo
     const [status, setStatus] = runtime.useState<LiveVoiceStatus>("connecting");
 
     runtime.useEffect(() => { callbacks.current = options; });
+
+    // Reads the latest Live configuration from the callbacks ref at build time,
+    // so a restart (or a session built by a later render) never pins stale config.
+    const buildSession = () => new LiveVoiceSession({
+      sessionId: callbacks.current?.sessionId ?? "",
+      mode: callbacks.current?.mode ?? "open_spar",
+      persona: callbacks.current?.persona ?? { archetype: "skeptic", behaviorStyle: "moderate" },
+      scenarioLabel: callbacks.current?.scenarioLabel ?? "",
+      claims: callbacks.current?.claims ?? [],
+      otherPanelists: callbacks.current?.otherPanelists ?? [],
+      dependencies: callbacks.current?.dependencies,
+      onStatusChange: next => { setStatus(next); callbacks.current?.onStatusChange?.(next); },
+      onUserInterim: text => { callbacks.current?.onUserInterim?.(text); },
+      onUserFinal: text => { callbacks.current?.onUserFinal?.(text); },
+      onAssistantCaption: (turnId, text) => { callbacks.current?.onAssistantCaption?.(turnId, text); },
+      onRegisterTurn: () => callbacks.current?.onRegisterTurn?.() ?? "",
+      onCancelTurn: turnId => { callbacks.current?.onCancelTurn?.(turnId); },
+      onCompleteTurn: turnId => { callbacks.current?.onCompleteTurn?.(turnId); },
+      onMetric: event => { callbacks.current?.onMetric?.(event); },
+      onFallback: () => { callbacks.current?.onFallback?.(); },
+    });
     runtime.useEffect(() => {
       if (!options) return;
-      const session = new LiveVoiceSession({
-        sessionId: options.sessionId,
-        mode: options.mode,
-        persona: options.persona,
-        scenarioLabel: options.scenarioLabel,
-        claims: options.claims,
-        otherPanelists: options.otherPanelists,
-        dependencies: options.dependencies,
-        onStatusChange: next => { setStatus(next); callbacks.current?.onStatusChange?.(next); },
-        onUserInterim: text => { callbacks.current?.onUserInterim?.(text); },
-        onUserFinal: text => { callbacks.current?.onUserFinal?.(text); },
-        onAssistantCaption: (turnId, text) => { callbacks.current?.onAssistantCaption?.(turnId, text); },
-        onRegisterTurn: () => callbacks.current?.onRegisterTurn?.() ?? "",
-        onCancelTurn: turnId => { callbacks.current?.onCancelTurn?.(turnId); },
-        onCompleteTurn: turnId => { callbacks.current?.onCompleteTurn?.(turnId); },
-        onMetric: event => { callbacks.current?.onMetric?.(event); },
-        onFallback: () => { callbacks.current?.onFallback?.(); },
-      });
-      sessionRef.current = session;
-      return () => { session.stop(); sessionRef.current = null; };
+      sessionRef.current = buildSession();
+      // Stop whichever session is current (a restart may have replaced the
+      // original), keeping exactly one Live session per room.
+      return () => { sessionRef.current?.stop(); sessionRef.current = null; };
       // `options` is null without Live configuration; the optional chain keeps
       // the deps array evaluable so the unconfigured hook never throws at render.
     }, [options?.sessionId]);
 
-    const start = runtime.useCallback(() => sessionRef.current?.start() ?? Promise.resolve(), []);
+    const start = runtime.useCallback(() => {
+      const existing = sessionRef.current;
+      if (!existing) return Promise.resolve();
+      // stop() is room exit; a later start() re-enters with ONE fresh session
+      // (the old one already released everything) — symmetric with the cascade.
+      if (!existing.isStopped) return existing.start();
+      const restart = buildSession();
+      sessionRef.current = restart;
+      return restart.start();
+    }, []);
     const stop = runtime.useCallback(() => sessionRef.current?.stop(), []);
     // Without Live configuration the engine ladder already rests on the cascade.
     return { status: options ? status : "fallback", start, stop };

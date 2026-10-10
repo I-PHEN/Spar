@@ -15,6 +15,7 @@ import {
   StreamingSpeechSession,
   type StreamingSpeechDependencies,
 } from "./use-streaming-voice";
+import type { LiveVoiceHook, LiveVoiceStatus, UseLiveVoiceOptions } from "./use-live-voice";
 import type { UseVoiceRecognitionResult } from "./use-voice";
 
 function stream(events: LiveTurnEvent[]): TurnControllerDependencies["streamTurn"] {
@@ -470,6 +471,121 @@ describe("turn controller voice metric wiring", () => {
           turnId: expect.stringMatching(/^metric-room:/),
         }),
       ]);
+
+      host.unmount();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
+describe("turn controller composed live engine", () => {
+  /** Hook-free live double: records calls, captures wiring options, drives status. */
+  function liveHookDouble() {
+    const calls = { starts: 0, stops: 0 };
+    const state: { status: LiveVoiceStatus } = { status: "connecting" };
+    let wired: UseLiveVoiceOptions | null = null;
+    const hook: LiveVoiceHook = options => {
+      wired = options;
+      return {
+        get status() { return state.status; },
+        start() { calls.starts += 1; return Promise.resolve(); },
+        stop() { calls.stops += 1; },
+      };
+    };
+    return { hook, calls, state, wired: () => wired };
+  }
+
+  test("engine selection, live passthrough, cascade handoff, composed stop, and status mapping", async () => {
+    const host = turnControllerHookHost();
+    const fallbackVoice: UseVoiceRecognitionResult = {
+      isSupported: true, isListening: false, interimTranscript: "", finalTranscript: "",
+      error: null, start() {}, stop() {}, reset() {},
+    };
+    const live = liveHookDouble();
+    let micStarts = 0;
+    let micStops = 0;
+    const useTurnControllerForTest = createTurnControllerHook(
+      host.runtime,
+      createStreamingVoiceHook(host.runtime, () => fallbackVoice),
+      live.hook,
+    );
+    const postedMetrics: unknown[] = [];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/api/turn-metrics")) {
+        postedMetrics.push(typeof init?.body === "string" ? JSON.parse(init.body) : null);
+        return Response.json({ ok: true });
+      }
+      return new Response("unreachable in this test", { status: 404 });
+    }) as typeof fetch;
+
+    try {
+      const options = {
+        sessionId: "compose-room",
+        voiceModel: "aura-2-zeus-en",
+        voiceDependencies: {
+          createSttClient: () => ({ connect: () => Promise.resolve(), sendAudio: () => false, close() {} }),
+          createMicrophoneStream: () => ({
+            start: () => { micStarts += 1; return Promise.resolve(); },
+            stop: () => { micStops += 1; },
+          }),
+          setTimer: () => ({}),
+          clearTimer: () => {},
+        },
+        live: {
+          mode: "open_spar" as const,
+          persona: { archetype: "skeptic" as const, behaviorStyle: "moderate" as const },
+          scenarioLabel: "Seed round defense",
+          claims: [{ id: 1, label: "CAC", claim: "Blended CAC is $40." }],
+          otherPanelists: [{ name: "The Nitpicker", archetype: "nitpicker" as const }],
+        },
+      };
+      const result = host.render(() => useTurnControllerForTest(options));
+      const liveWiring = live.wired();
+      expect(liveWiring).not.toBeNull();
+      expect(result.liveEngineStatus).toBe("connecting");
+
+      // Engine selection: startListening starts Live, never the cascade mic.
+      result.startListening();
+      await new Promise<void>(resolve => setTimeout(resolve, 0));
+      expect(live.calls.starts).toBe(1);
+      expect(micStarts).toBe(0);
+
+      // Live passthrough: interim caption, machine turn registration, int metric.
+      liveWiring?.onUserInterim?.("live interim");
+      expect(host.render(() => useTurnControllerForTest(options)).transcriptPreview).toBe("live interim");
+      const turnId = liveWiring?.onRegisterTurn?.() ?? "";
+      // The composed hook mints the real lifecycle-id turn prefix.
+      expect(turnId).toMatch(/^compose-room:.+:\d+$/);
+      liveWiring?.onMetric?.({ voiceEngine: "gemini-live", firstLiveAudioMs: 812.6 });
+      await new Promise<void>(resolve => setTimeout(resolve, 0));
+      expect(postedMetrics).toEqual([
+        expect.objectContaining({
+          type: "live-engine", turnId, sessionId: "compose-room",
+          voiceEngine: "gemini-live", firstLiveAudioMs: 813,
+        }),
+      ]);
+
+      // Rung-2 handoff: Live's onFallback starts the cascade, which takes the room.
+      liveWiring?.onFallback?.();
+      for (let index = 0; index < 10; index += 1) await Promise.resolve();
+      expect(micStarts).toBe(1);
+      let updated = host.render(() => useTurnControllerForTest(options));
+      expect(updated.isListening).toBe(true);
+
+      // liveEngineStatus maps the live hook's status through the composition.
+      live.state.status = "fallback";
+      updated = host.render(() => useTurnControllerForTest(options));
+      expect(updated.liveEngineStatus).toBe("fallback");
+
+      // Composed stop releases BOTH engines.
+      updated.stop();
+      expect(live.calls.stops).toBe(1);
+      expect(micStops).toBe(1);
+      updated = host.render(() => useTurnControllerForTest(options));
+      expect(updated.isListening).toBe(false);
 
       host.unmount();
     } finally {

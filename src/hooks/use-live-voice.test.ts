@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { ArchetypeKey } from "../lib/types";
 import type { GeminiLiveSocket } from "../lib/providers/gemini-live";
 import type { PcmFrame, PcmPlayerOptions } from "../lib/voice/pcm-player";
 import type { MicrophoneChunk, MicrophoneStreamOptions } from "../lib/voice/microphone-stream";
@@ -94,7 +95,7 @@ function tokenResponse(status: number): Response {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
 
-function harness(tokenStatus = 200) {
+function harness(tokenStatus = 200, archetype: ArchetypeKey = "skeptic") {
   const host = liveHookHost();
   const useLiveVoiceForTest = createLiveVoiceHook(host.runtime);
   const sockets: Socket[] = [];
@@ -133,7 +134,7 @@ function harness(tokenStatus = 200) {
   const options: UseLiveVoiceOptions = {
     sessionId: "room",
     mode: "open_spar",
-    persona: { archetype: "skeptic", behaviorStyle: "moderate" },
+    persona: { archetype, behaviorStyle: "moderate" },
     scenarioLabel: "Seed round defense",
     claims: [{ id: 1, label: "CAC", claim: "Blended CAC is $40." }],
     otherPanelists: [{ name: "The Nitpicker", archetype: "nitpicker" }],
@@ -151,11 +152,11 @@ function harness(tokenStatus = 200) {
   const result = host.render(() => useLiveVoiceForTest(options));
   const settle = () => new Promise<void>(resolve => setTimeout(resolve, 0));
   const micChunk = (bytes: number[]) => ({ sequence: 0, audio: new Uint8Array(bytes) });
-  async function goLive(): Promise<void> {
+  async function goLive(index = 0): Promise<void> {
     const started = result.start();
     for (let index = 0; index < 10; index += 1) await Promise.resolve();
-    sockets[0].open();
-    sockets[0].frame({ setupComplete: {} });
+    sockets[index].open();
+    sockets[index].frame({ setupComplete: {} });
     await started;
     await Promise.resolve();
   }
@@ -168,6 +169,9 @@ function harness(tokenStatus = 200) {
     clock: (value: number) => { clock = value; },
     realtimeSends: () => sockets.flatMap(socket => socket.sent.map(entry => JSON.parse(entry))).filter(frame => frame.realtimeInput),
     setupSends: () => sockets.flatMap(socket => socket.sent.map(entry => JSON.parse(entry))).filter(frame => frame.setup),
+    setupVoices: () => sockets.flatMap(socket => socket.sent.map(entry => JSON.parse(entry)))
+      .filter(frame => frame.setup)
+      .map(frame => frame.setup.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName),
   };
 }
 
@@ -296,6 +300,74 @@ describe("live voice session", () => {
     expect(h.realtimeSends()).toHaveLength(0);
     await expect(h.result.start()).resolves.toBeUndefined();
     expect(h.sockets).toHaveLength(4);
+    h.host.unmount();
+  });
+
+  test("(g) setup rejection with a persona voice retries once on the Kore fallback voice before laddering down", async () => {
+    const h = harness(200, "nitpicker");
+    const started = h.result.start();
+    for (let index = 0; index < 10; index += 1) await Promise.resolve();
+    h.sockets[0].open(); // setup #1 sends the persona voice "Charon"
+    h.sockets[0].networkFail();
+    while (h.sockets.length < 4) { // 3 adapter reconnect attempts, all rejected
+      await h.settle();
+      h.sockets[h.sockets.length - 1].networkFail();
+    }
+    await h.settle(); // setup-rejected -> one Kore retry builds socket 4
+    h.sockets[4].open(); // setup #2 sends FALLBACK_VOICE "Kore"
+    h.sockets[4].frame({ setupComplete: {} });
+    await expect(started).resolves.toBeUndefined();
+
+    expect(h.setupVoices()).toEqual(["Charon", "Kore"]);
+    expect(h.host.render(() => createLiveVoiceHook(h.host.runtime)(h.options)).status).toBe("live");
+    expect(h.metrics).toEqual([]); // still Live — no cascade fallback metric
+    expect(h.mic.stops()).toBe(0);
+    h.mic.emit(h.micChunk([3, 3]));
+    expect(h.realtimeSends()).toHaveLength(1); // audio flows on the retried session
+    h.host.unmount();
+  });
+
+  test("(g) setup rejection that also rejects the Kore retry falls to the cascade once", async () => {
+    const h = harness(200, "nitpicker");
+    const started = h.result.start();
+    for (let index = 0; index < 10; index += 1) await Promise.resolve();
+    h.sockets[0].open();
+    h.sockets[0].networkFail();
+    while (h.sockets.length < 4) {
+      await h.settle();
+      h.sockets[h.sockets.length - 1].networkFail();
+    }
+    await h.settle();
+    h.sockets[4].open(); // the Kore retry
+    h.sockets[4].networkFail();
+    while (h.sockets.length < 8) { // the retried client burns its own reconnects
+      await h.settle();
+      h.sockets[h.sockets.length - 1].networkFail();
+    }
+    await h.settle();
+    await expect(started).resolves.toBeUndefined();
+
+    expect(h.setupVoices()).toEqual(["Charon", "Kore"]);
+    expect(h.host.render(() => createLiveVoiceHook(h.host.runtime)(h.options)).status).toBe("fallback");
+    expect(h.metrics.filter(metric => metric.voiceEngine === "cascade")).toHaveLength(1);
+    expect(h.fallbacks).toHaveLength(1);
+    h.host.unmount();
+  });
+
+  test("(h) start() after stop() re-enters the room with one fresh Live session", async () => {
+    const h = harness();
+    await h.goLive();
+    h.result.stop();
+    expect(h.sockets[0].closed).toBe(1);
+    expect(h.mic.stops()).toBe(1);
+
+    await h.goLive(1); // second activation on a fresh session
+    expect(h.sockets).toHaveLength(2);
+    expect(h.sockets[0].closed).toBe(1); // the old session's socket stays closed
+    expect(h.setupVoices()).toEqual(["Kore", "Kore"]);
+    expect(h.host.render(() => createLiveVoiceHook(h.host.runtime)(h.options)).status).toBe("live");
+    h.mic.emit(h.micChunk([9, 9]));
+    expect(h.realtimeSends()).toHaveLength(1); // mic flows only through the new socket
     h.host.unmount();
   });
 
