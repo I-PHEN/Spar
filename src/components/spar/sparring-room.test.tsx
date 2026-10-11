@@ -5,6 +5,8 @@ import {
   RoomControlDeck,
   engineStatusLabel,
   liveOwnsControls,
+  liveUserInterimCaption,
+  recordsTurnAudio,
   type RoomControlDeckProps,
 } from "./sparring-room";
 
@@ -54,6 +56,34 @@ describe("live engine control gating", () => {
     expect(liveOwnsControls(true, "fallback")).toBe(false);
     expect(liveOwnsControls(false, "live")).toBe(false);
     expect(liveOwnsControls(false, "fallback")).toBe(false);
+  });
+});
+
+describe("live engine debrief recording", () => {
+  test("classic activations record; live-owned activations are skipped, fallback resumes recording", () => {
+    // Presenting always runs the classic recognizer — per-turn clips continue.
+    expect(recordsTurnAudio(true, true, "live")).toBe(true);
+    // A room without Live configuration is pure classic.
+    expect(recordsTurnAudio(false, false, "fallback")).toBe(true);
+    // While the live engine owns the room there is one continuous capture the
+    // per-turn debrief cannot segment — the recorder must not start.
+    expect(recordsTurnAudio(false, true, "connecting")).toBe(false);
+    expect(recordsTurnAudio(false, true, "live")).toBe(false);
+    // Once the engine ladders down, the cascade owns the room again and the
+    // classic click flow records exactly as before.
+    expect(recordsTurnAudio(false, true, "fallback")).toBe(true);
+  });
+});
+
+describe("live interim user caption", () => {
+  test("live interim speech reaches the caption UI only while the live engine owns the room", () => {
+    expect(liveUserInterimCaption(true, "live", "our churn is")).toBe("our churn is");
+    expect(liveUserInterimCaption(true, "connecting", "our churn is")).toBe("our churn is");
+    // Fallback and never-activated rooms must not bleed live previews into
+    // the classic interim-caption path.
+    expect(liveUserInterimCaption(true, "fallback", "leftover preview")).toBe("");
+    expect(liveUserInterimCaption(false, "live", "leftover preview")).toBe("");
+    expect(liveUserInterimCaption(true, "live", "")).toBe("");
   });
 });
 

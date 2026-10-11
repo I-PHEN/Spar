@@ -263,14 +263,25 @@ export function SparringRoom({
     setLiveHasEvidence(s.hasEvidence);
   }, [voice.finalTranscript, voice.interimTranscript]);
 
-  // Show live interim transcript as a caption
+  // Show live interim transcript as a caption. Whichever engine owns the
+  // room drives it: the classic recognizer's interim transcript while it
+  // listens, or the live engine's transcript preview (interim-input-
+  // transcript) while the Gemini Live session owns the room. The finalized
+  // transcript retires the caption — the caption mirror below rebuilds
+  // without `isLive` entries whenever the messages change.
+  const liveInterim = liveUserInterimCaption(
+    liveSessionActive,
+    turnController.liveEngineStatus,
+    turnController.transcriptPreview,
+  );
   useEffect(() => {
-    if (voice.isListening && voice.interimTranscript) {
+    const interim = voice.isListening ? voice.interimTranscript : liveInterim;
+    if (interim) {
       setCaptions((prev) => {
         const existing = prev.find((c) => c.isLive);
         if (existing) {
           return prev.map((c) =>
-            c.id === existing.id ? { ...c, content: voice.interimTranscript } : c
+            c.id === existing.id ? { ...c, content: interim } : c
           );
         }
         return [
@@ -278,7 +289,7 @@ export function SparringRoom({
           {
             id: "live-user",
             role: "user" as const,
-            content: voice.interimTranscript,
+            content: interim,
             type: "normal" as MessageType,
             isLive: true,
             createdAt: Date.now(),
@@ -289,7 +300,7 @@ export function SparringRoom({
       // Remove the live caption when not listening
       setCaptions((prev) => prev.filter((c) => !c.isLive));
     }
-  }, [voice.interimTranscript, voice.isListening]);
+  }, [voice.interimTranscript, voice.isListening, liveInterim]);
 
   // Mirror controller-owned exact captions into the room without creating a
   // second generation, speech, or interruption state machine.
@@ -497,15 +508,20 @@ export function SparringRoom({
     if (!isPresenting && liveConfig) setLiveSessionActive(true);
     voice.reset();
     voice.start();
-    // Start audio recording alongside voice recognition.
+    // Start audio recording alongside voice recognition — classic turns only.
     // Both access the mic simultaneously — recording is for debrief playback.
-    // Keyed by sessionId + messageIndex so the debrief can fetch clips per turn.
-    if (recorder.isSupported) {
+    // Keyed by sessionId + messageIndex so the debrief can fetch clips per
+    // turn. Live-engine activations are skipped: the debrief cannot segment
+    // one continuous session capture (fallback re-activations record again).
+    if (
+      recorder.isSupported &&
+      recordsTurnAudio(isPresenting, !!liveConfig, turnController.liveEngineStatus)
+    ) {
       recorder.start(sessionId, messageIndexRef.current);
     }
     // Play the activation click — feels like a mic turning on
     playActivationClick();
-  }, [voice, recorder, sessionId, isPresenting, liveConfig]);
+  }, [voice, recorder, sessionId, isPresenting, liveConfig, turnController.liveEngineStatus]);
 
   // Submit the user's turn to the panel. Used by both "Done" (normal stop)
   // and the agitation engine (interrupt). When isInterrupt=true, the persona
@@ -1311,6 +1327,36 @@ export function liveOwnsControls(
   // The connecting window already counts: the user has activated once and
   // must not be handed a second click flow mid-handshake.
   return liveSessionActive && status !== "fallback";
+}
+
+/**
+ * Whether this mic activation should record a debrief audio clip. The
+ * debrief segments per classic turn; a live-engine session is one
+ * continuous capture it cannot segment, so those activations are skipped.
+ * Presenting (classic recognizer) and post-fallback activations record
+ * exactly as before.
+ */
+export function recordsTurnAudio(
+  isPresenting: boolean,
+  liveConfigured: boolean,
+  status: UseTurnControllerResult["liveEngineStatus"],
+): boolean {
+  if (isPresenting || !liveConfigured) return true;
+  return status === "fallback";
+}
+
+/**
+ * The interim user speech to show as the live "Speaking…" caption. The live
+ * engine publishes it as the controller's transcript preview; classic rooms
+ * never read it (their interim caption comes from the recognizer), and a
+ * leftover preview must not bleed into a room the cascade owns.
+ */
+export function liveUserInterimCaption(
+  liveSessionActive: boolean,
+  status: UseTurnControllerResult["liveEngineStatus"],
+  transcriptPreview: string,
+): string {
+  return liveOwnsControls(liveSessionActive, status) ? transcriptPreview : "";
 }
 
 /** Small quiet status chip: which voice engine is running the room. */

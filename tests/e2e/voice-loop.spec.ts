@@ -865,10 +865,15 @@ test("voice-loop live engine: one activation keeps the mic live with captions, b
   await sparControl(page, "liveFrame", {
     serverContent: { interimInputTranscription: { text: "our churn is" } },
   });
+  // The interim transcript renders as the live "Speaking…" user caption.
+  await expect(page.getByText("our churn is", { exact: true })).toBeVisible();
+  await expect(page.getByText("Speaking...")).toBeVisible();
   await sparControl(page, "liveFrame", {
     serverContent: { inputTranscription: { text: "Our churn is two percent." } },
   });
   await expect(page.getByText("Our churn is two percent.")).toBeVisible();
+  // The finalized user message retires the interim caption.
+  await expect(page.getByText("our churn is", { exact: true })).toHaveCount(0);
 
   // ─── The panel answers: audio reaches the player, transcript captions ─
   const startedBefore = (await sparLog(page)).playerStarted.length;
