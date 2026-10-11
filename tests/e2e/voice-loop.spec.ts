@@ -37,6 +37,14 @@ interface SparLog {
   markAt: number | null;
   playerStarted: number[];
   playerStopped: number[];
+  // Gemini Live engine doubles. The ephemeral token value is never recorded.
+  liveSockets: number;
+  liveTokenRequests: number;
+  liveTokenGrants: number;
+  liveSetup: Array<{ model: string; voiceName: string; hasInstruction: boolean }>;
+  liveRealtimeSent: number;
+  liveUrlConstrained: boolean | null;
+  liveUrlHasToken: boolean | null;
 }
 
 type SparPageState = { log: SparLog };
@@ -52,6 +60,9 @@ type SparControls = {
   pushSse: [event: Record<string, unknown>];
   endSse: [];
   drainPlayer: [];
+  setLiveToken: [ok: boolean];
+  openLive: [];
+  liveFrame: [frame: Record<string, unknown>];
 };
 
 function sparState(page: Page): Promise<SparPageState> {
@@ -104,6 +115,13 @@ test.beforeEach(async ({ page }) => {
         markAt: null,
         playerStarted: [],
         playerStopped: [],
+        liveSockets: 0,
+        liveTokenRequests: 0,
+        liveTokenGrants: 0,
+        liveSetup: [],
+        liveRealtimeSent: 0,
+        liveUrlConstrained: null,
+        liveUrlHasToken: null,
       };
 
       // ─── Microphone and recorder doubles ─────────────────────────────
@@ -241,9 +259,15 @@ test.beforeEach(async ({ page }) => {
       };
       const sttSockets: FakeSocket[] = [];
       const ttsSockets: FakeSocket[] = [];
+      const liveSockets: FakeSocket[] = [];
+      // The Gemini Live token route is doubled like every other same-origin
+      // route: default 503 (unconfigured key) so cascade specs stay
+      // deterministic; the live spec flips it to a granted token.
+      let liveTokenOk = false;
 
       class FakeWebSocket {
         url: string;
+        isLive = false;
         readyState = 0;
         bufferedAmount = 0;
         binaryType = "arraybuffer";
@@ -254,12 +278,56 @@ test.beforeEach(async ({ page }) => {
 
         constructor(url: string) {
           this.url = url;
-          (url.includes("/v1/speak") ? ttsSockets : sttSockets).push(this);
-          if (url.includes("/v1/speak")) log.ttsSockets += 1;
-          else log.sttSockets += 1;
+          this.isLive = url.includes("generativelanguage.googleapis.com");
+          if (this.isLive) {
+            liveSockets.push(this);
+            log.liveSockets += 1;
+            // Never record the access_token value itself.
+            log.liveUrlConstrained = url.includes("BidiGenerateContentConstrained");
+            log.liveUrlHasToken = /[?&]access_token=/.test(url);
+          } else if (url.includes("/v1/speak")) {
+            ttsSockets.push(this);
+            log.ttsSockets += 1;
+          } else if (url.includes("deepgram.com")) {
+            sttSockets.push(this);
+            log.sttSockets += 1;
+          }
+          // Anything else (the Next dev HMR socket, say) is not a voice
+          // socket and belongs to no provider count.
         }
 
         send(data: string | Uint8Array) {
+          if (this.isLive) {
+            if (typeof data === "string") {
+              try {
+                const frame = JSON.parse(data) as {
+                  setup?: {
+                    model?: string;
+                    systemInstruction?: { parts?: Array<{ text?: string }> };
+                    generationConfig?: {
+                      speechConfig?: { voiceConfig?: { prebuiltVoiceConfig?: { voiceName?: string } } };
+                    };
+                  };
+                  realtimeInput?: unknown;
+                };
+                if (frame.setup) {
+                  const instruction = frame.setup.systemInstruction?.parts?.[0]?.text;
+                  log.liveSetup.push({
+                    model: frame.setup.model ?? "",
+                    voiceName:
+                      frame.setup.generationConfig?.speechConfig?.voiceConfig?.prebuiltVoiceConfig
+                        ?.voiceName ?? "",
+                    hasInstruction: typeof instruction === "string" && instruction.length > 0,
+                  });
+                } else if (frame.realtimeInput) {
+                  log.liveRealtimeSent += 1;
+                }
+              } catch {
+                /* not a JSON frame */
+              }
+            }
+            return;
+          }
           const isTts = this.url.includes("/v1/speak");
           if (typeof data === "string") {
             (isTts ? log.ttsSent : log.sttSent).push({ at: now(), kind: "text", text: data, bytes: data.length });
@@ -338,6 +406,17 @@ test.beforeEach(async ({ page }) => {
         if (/groq\.com|openrouter\.ai|deepgram\.com/.test(url)) {
           log.providerRequests.push({ url, at: now() });
           return new Response("blocked by deterministic doubles", { status: 599 });
+        }
+        if (url.includes("/api/gemini-live-token")) {
+          log.liveTokenRequests += 1;
+          if (liveTokenOk) {
+            log.liveTokenGrants += 1;
+            return jsonResponse({ token: "auth_tokens/deterministic-live-token", expiresIn: 1800 });
+          }
+          return new Response(JSON.stringify({ error: "gemini-unconfigured" }), {
+            status: 503,
+            headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+          });
         }
         if (url.includes("/api/deepgram-token")) {
           log.tokenGrants += 1;
@@ -471,6 +550,19 @@ test.beforeEach(async ({ page }) => {
             const source = liveSources.shift();
             source?.onended?.();
           }
+        },
+        setLiveToken(ok: boolean) {
+          liveTokenOk = ok;
+        },
+        openLive() {
+          const socket = liveSockets[liveSockets.length - 1];
+          if (socket && socket.readyState === 0) {
+            socket.readyState = 1;
+            socket.onopen?.();
+          }
+        },
+        liveFrame(frame: Record<string, unknown>) {
+          liveSockets[liveSockets.length - 1]?.onmessage?.({ data: JSON.stringify(frame) });
         },
       };
 
@@ -728,4 +820,101 @@ test("captions, generation, playback, barge-in, and stale audio follow the live 
   expect(settled.providerRequests).toEqual([]);
   expect(settled.fetches.filter((entry) => /groq\.com|openrouter\.ai|deepgram\.com/.test(entry.url))).toEqual([]);
   expect(settled.tokenGrants).toBeGreaterThanOrEqual(2);
+});
+
+/** base64 of 3600 zero bytes: 1800 silent 16-bit samples at 24 kHz. */
+const LIVE_PCM_BASE64 = "A".repeat(4800);
+
+test("voice-loop live engine: one activation keeps the mic live with captions, barge-in, and no cascade", async ({
+  page,
+}) => {
+  page.on("pageerror", (error) => console.error("[pageerror]", error.message));
+  await enterSparringRoom(page);
+
+  // Before activation the cascade owns the room: classic chip, click flow.
+  await expect(page.locator('[data-engine="classic"]')).toBeVisible();
+
+  // Doubles grant the ephemeral token; the Live WebSocket is the FakeWebSocket.
+  await sparControl(page, "setLiveToken", true);
+
+  // ─── One mic activation → the live engine connects ──────────────────
+  await page.getByRole("button", { name: "Start speaking" }).click();
+  await page.waitForFunction(() => {
+    const spar = (window as unknown as { __spar?: SparPageState }).__spar;
+    return !!spar && spar.log.liveSockets === 1;
+  });
+  await sparControl(page, "openLive");
+  await sparControl(page, "liveFrame", { setupComplete: {} });
+
+  // The engine chip flips to Live; per-turn Speak/Done controls stay hidden.
+  await expect(page.locator('[data-engine="live"]')).toBeVisible();
+  await expect(page.getByRole("button", { name: "Start speaking" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Stop speaking" })).toHaveCount(0);
+
+  const afterConnect = await sparLog(page);
+  expect(afterConnect.liveTokenGrants).toBe(1);
+  expect(afterConnect.liveUrlConstrained).toBe(true);
+  expect(afterConnect.liveUrlHasToken).toBe(true);
+  expect(afterConnect.liveSetup.at(-1)).toMatchObject({
+    model: "models/gemini-3.8-live", // open_spar routes to the base live model
+    voiceName: "Kore", // the skeptic lead panelist
+    hasInstruction: true,
+  });
+
+  // ─── Continuous flow: user speech captions without any click ────────
+  await sparControl(page, "liveFrame", {
+    serverContent: { interimInputTranscription: { text: "our churn is" } },
+  });
+  await sparControl(page, "liveFrame", {
+    serverContent: { inputTranscription: { text: "Our churn is two percent." } },
+  });
+  await expect(page.getByText("Our churn is two percent.")).toBeVisible();
+
+  // ─── The panel answers: audio reaches the player, transcript captions ─
+  const startedBefore = (await sparLog(page)).playerStarted.length;
+  await sparControl(page, "liveFrame", {
+    serverContent: {
+      modelTurn: { parts: [{ inlineData: { mimeType: "audio/pcm;rate=24000", data: LIVE_PCM_BASE64 } }] },
+    },
+  });
+  await page.waitForFunction(
+    (count) => {
+      const spar = (window as unknown as { __spar?: SparPageState }).__spar;
+      return !!spar && spar.log.playerStarted.length > count;
+    },
+    startedBefore,
+  );
+  await sparControl(page, "liveFrame", {
+    serverContent: { outputTranscription: { text: "Two percent is flat. What is the CAC?" } },
+  });
+  await expect(page.getByText("Two percent is flat. What is the CAC?")).toBeVisible();
+
+  // ─── Barge-in: `interrupted` clears playback immediately ─────────────
+  const stoppedBefore = (await sparLog(page)).playerStopped.length;
+  await sparControl(page, "liveFrame", { serverContent: { interrupted: true } });
+  await page.waitForFunction(
+    (count) => {
+      const spar = (window as unknown as { __spar?: SparPageState }).__spar;
+      return !!spar && spar.log.playerStopped.length > count;
+    },
+    stoppedBefore,
+  );
+
+  // ─── Turn ends, mic STAYS live: the next utterance needs no click ────
+  await sparControl(page, "liveFrame", { serverContent: { turnComplete: true } });
+  await expect(page.getByRole("button", { name: "Start speaking" })).toHaveCount(0);
+  await sparControl(page, "liveFrame", {
+    serverContent: { inputTranscription: { text: "Blended CAC is forty dollars." } },
+  });
+  await expect(page.getByText("Blended CAC is forty dollars.")).toBeVisible();
+
+  // ─── No Groq/Deepgram request fired while live ───────────────────────
+  const log = await sparLog(page);
+  expect(log.providerRequests).toEqual([]);
+  expect(log.fetches.filter((entry) => /groq\.com|openrouter\.ai|deepgram\.com/.test(entry.url))).toEqual([]);
+  expect(log.sttSockets).toBe(0); // no Flux STT socket was ever opened
+  expect(log.ttsSockets).toBe(0); // no Aura TTS socket was ever opened
+  expect(log.tokenGrants).toBe(0); // no Deepgram token was fetched
+  expect(log.sseRequests.filter((request) => !request.warmup)).toEqual([]); // no Groq generation
+  expect(log.liveTokenRequests).toBe(1); // exactly one live activation
 });

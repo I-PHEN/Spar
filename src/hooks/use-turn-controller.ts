@@ -505,6 +505,11 @@ export function createTurnControllerHook(
     const voiceRef = runtime.useRef(voice);
     runtime.useEffect(() => { voiceRef.current = voice; }, [voice]);
     const liveConfiguredRef = runtime.useRef(!!options.live);
+    // The room builds its Live configuration from the asynchronously loaded
+    // panel, so the flag is re-read from the latest options on every render
+    // (useRef's initial value alone would pin the first, panel-less render
+    // and the engine selection would never engage).
+    liveConfiguredRef.current = !!options.live;
     const liveVoice = useLiveVoiceHook(options.live ? {
       sessionId: options.sessionId,
       mode: options.live.mode,
@@ -548,9 +553,15 @@ export function createTurnControllerHook(
 
     // Engine selection: Gemini Live first when configured (its onFallback
     // hands the room to the cascade), otherwise the existing cascade start.
+    // Once the live engine reports fallback the session's re-notify is a
+    // no-op by design, so later activations go straight to the cascade.
     const startListening = runtime.useCallback(() => {
-      if (liveConfiguredRef.current) void liveVoiceRef.current?.start();
-      else voiceRef.current.start();
+      const liveVoice = liveVoiceRef.current;
+      if (liveConfiguredRef.current && liveVoice && liveVoice.status !== "fallback") {
+        void liveVoice.start();
+      } else {
+        voiceRef.current.start();
+      }
     }, []);
     const finishInput = runtime.useCallback(async (requestOptions = {}) => {
       const transcript = `${voiceRef.current.finalTranscript} ${voiceRef.current.interimTranscript}`.trim();

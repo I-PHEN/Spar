@@ -592,4 +592,78 @@ describe("turn controller composed live engine", () => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  test("live config provided after mount engages engine selection, and fallback reroutes activation to the cascade", async () => {
+    const host = turnControllerHookHost();
+    const fallbackVoice: UseVoiceRecognitionResult = {
+      isSupported: true, isListening: false, interimTranscript: "", finalTranscript: "",
+      error: null, start() {}, stop() {}, reset() {},
+    };
+    const live = liveHookDouble();
+    let micStarts = 0;
+    const useTurnControllerForTest = createTurnControllerHook(
+      host.runtime,
+      createStreamingVoiceHook(host.runtime, () => fallbackVoice),
+      live.hook,
+    );
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => Response.json({ ok: true })) as unknown as typeof fetch;
+
+    try {
+      // The room loads its panel asynchronously, so the live configuration
+      // (built from the loaded personas) only exists on later renders.
+      const baseOptions = {
+        sessionId: "late-live-room",
+        voiceModel: "aura-2-zeus-en",
+        voiceDependencies: {
+          createSttClient: () => ({ connect: () => Promise.resolve(), sendAudio: () => false, close() {} }),
+          createMicrophoneStream: () => ({
+            start: () => { micStarts += 1; return Promise.resolve(); },
+            stop: () => {},
+          }),
+          setTimer: () => ({}),
+          clearTimer: () => {},
+        },
+      };
+      host.render(() => useTurnControllerForTest(baseOptions));
+      const settle = () => new Promise<void>(resolve => setTimeout(resolve, 0));
+
+      // Before any live configuration every activation is the cascade's.
+      host.render(() => useTurnControllerForTest(baseOptions)).startListening();
+      await settle();
+      expect(micStarts).toBe(1);
+      expect(live.calls.starts).toBe(0);
+
+      const liveOptions = {
+        ...baseOptions,
+        live: {
+          mode: "open_spar" as const,
+          persona: { archetype: "skeptic" as const, behaviorStyle: "moderate" as const },
+          scenarioLabel: "Seed round defense",
+          claims: [],
+          otherPanelists: [],
+        },
+      };
+      // Once the live configuration arrives, activation starts the Live engine.
+      host.render(() => useTurnControllerForTest(liveOptions)).startListening();
+      await settle();
+      expect(live.calls.starts).toBe(1);
+      expect(micStarts).toBe(1);
+
+      // After the engine ladders down, activation must reach the cascade
+      // again (the live session's re-notify is a no-op by design). The room
+      // stops the mic between turns, so the cascade restart is observable.
+      live.state.status = "fallback";
+      host.render(() => useTurnControllerForTest(liveOptions)).stop();
+      await settle();
+      host.render(() => useTurnControllerForTest(liveOptions)).startListening();
+      await settle();
+      expect(live.calls.starts).toBe(1);
+      expect(micStarts).toBe(2);
+
+      host.unmount();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });

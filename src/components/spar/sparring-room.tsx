@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   X,
   Mic,
@@ -29,7 +29,7 @@ import { PersonaCard } from "./persona-card";
 import { TelemetryBar } from "./telemetry-bar";
 import { WaveformBar } from "./waveform-bar";
 import { useVoiceRecognition, playBase64Audio } from "@/hooks/use-voice";
-import { useTurnController } from "@/hooks/use-turn-controller";
+import { useTurnController, type UseTurnControllerResult } from "@/hooks/use-turn-controller";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { useAgitationEngine, type CoachingMode, type DrillTarget } from "@/hooks/use-agitation";
 import { playActivationClick, useWaveformAmplitude } from "@/hooks/use-sound";
@@ -188,9 +188,32 @@ export function SparringRoom({
   // Presentation capture retains the long-form recognizer. Every live Q&A
   // turn is owned by the low-latency controller (Flux -> generator -> Aura).
   const presentationVoice = useVoiceRecognition();
+
+  // Gemini Live configuration: built once the panel has loaded. The lead
+  // panelist (lowest seat) voices the Live session — one socket, one voice.
+  // While undefined (panel still loading) the engine ladder rests on the
+  // existing cascade; a 503 from the token route ladders down the same way.
+  const liveConfig = useMemo(() => {
+    if (personas.length === 0) return undefined;
+    const [lead, ...rest] = [...personas].sort((a, b) => a.seatOrder - b.seatOrder);
+    return {
+      mode: experience,
+      persona: { archetype: lead.archetype, behaviorStyle: lead.behaviorStyle },
+      scenarioLabel,
+      claims: claims.map((claim) => ({
+        id: claim.id,
+        label: claim.label,
+        claim: claim.claim,
+        ...(claim.evidence ? { evidence: claim.evidence } : {}),
+      })),
+      otherPanelists: rest.map((p) => ({ name: p.name, archetype: p.archetype })),
+    };
+  }, [personas, experience, scenarioLabel, claims]);
+
   const turnController = useTurnController({
     sessionId,
     voiceModel: "aura-2-zeus-en",
+    live: liveConfig,
   });
   const voice = isPresenting ? presentationVoice : turnController;
   const recorder = useAudioRecorder();
@@ -203,6 +226,12 @@ export function SparringRoom({
   const [liveHedges, setLiveHedges] = useState(0);
   const [liveHasEvidence, setLiveHasEvidence] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
+
+  // Live engine (Gemini Live): the room tracks whether its one-activation mic
+  // session is running. The hook-level status can still read "live" after a
+  // stop() (it only transitions on the next session), so the room derives its
+  // engine UI from this flag AND the status — never the status alone.
+  const [liveSessionActive, setLiveSessionActive] = useState(false);
 
   const sparInFlight = useRef(false);
   // Stores the presentation transcript when handleDonePresenting runs, so
@@ -463,6 +492,9 @@ export function SparringRoom({
   // Handle user pressing "Speak" (or "Start presenting")
   const handleStartSpeaking = useCallback(() => {
     if (!voice.isSupported) return;
+    // One activation: in Q&A (not presenting) with Live configured, this
+    // click hands the room to the Live engine and the mic stays live.
+    if (!isPresenting && liveConfig) setLiveSessionActive(true);
     voice.reset();
     voice.start();
     // Start audio recording alongside voice recognition.
@@ -473,7 +505,7 @@ export function SparringRoom({
     }
     // Play the activation click — feels like a mic turning on
     playActivationClick();
-  }, [voice, recorder, sessionId]);
+  }, [voice, recorder, sessionId, isPresenting, liveConfig]);
 
   // Submit the user's turn to the panel. Used by both "Done" (normal stop)
   // and the agitation engine (interrupt). When isInterrupt=true, the persona
@@ -676,6 +708,25 @@ export function SparringRoom({
     }
   }
 
+  // Error recovery: smart retry.
+  // - If pendingPresentation exists AND coachAnalysis is null →
+  //   the present endpoint failed → retry submitPresentation.
+  // - If coachAnalysis was set (then cleared by beginQA) but
+  //   beginQA failed → retry beginQA. We detect this with a ref.
+  // - Otherwise → restart the mic.
+  const handleConnectionRetry = useCallback(() => {
+    setConnectionError(false);
+    setError(null);
+    if (qaFailedRef.current) {
+      qaFailedRef.current = false;
+      beginQA();
+    } else if (pendingPresentation.current) {
+      retryPresentation();
+    } else {
+      handleStartSpeaking();
+    }
+  }, [handleStartSpeaking]);
+
   // ─── The Agitation Engine ────────────────────────────────────────────
   // Watches the live transcript for heuristic triggers (hedges, long answers,
   // vague quantifiers). When a persona's agitation hits 100, fires an interrupt.
@@ -703,6 +754,20 @@ export function SparringRoom({
   // Track amplitude while listening (for the subtle waveform bar)
   const waveformAmplitude = useWaveformAmplitude(voice.isListening);
 
+  // ─── Engine status (Gemini Live vs classic cascade) ───────────────────
+  // Quiet chip label + control ownership. In live mode the per-turn click
+  // flow is hidden (one activation; server VAD owns turn-taking).
+  const engineLabel = engineStatusLabel(liveSessionActive, turnController.liveEngineStatus);
+  const liveEngineStatus = turnController.liveEngineStatus;
+  const liveDeckStatus: "connecting" | "live" | "off" = liveOwnsControls(
+    liveSessionActive,
+    liveEngineStatus,
+  )
+    ? liveEngineStatus === "live"
+      ? "live"
+      : "connecting"
+    : "off";
+
   // For Boardroom: the agitation engine runs DURING presenting (interrupts mid-speech).
   // For Defense: the agitation engine does NOT run during presenting (no interruptions).
   // For Open Spar/Drill: runs during normal Q&A turns.
@@ -727,6 +792,9 @@ export function SparringRoom({
   async function handleEnd() {
     setShowEndDialog(false);
     setEnding(true);
+    // The live session is released by the composed stop(); clear the room's
+    // activation flag so the engine UI never reports Live after teardown.
+    setLiveSessionActive(false);
     voice.stop();
     // Cancel the recorder (don't save a partial clip)
     if (recorder.isRecording) {
@@ -817,6 +885,7 @@ export function SparringRoom({
                   Defense
                 </span>
               )}
+              <EngineStatusChip label={engineLabel} />
             </div>
             <p className="hidden sm:block text-xs text-neutral-500 max-w-xl truncate">
               {roomContext}
@@ -1131,155 +1200,26 @@ export function SparringRoom({
             <span className="hidden sm:inline">I need a moment</span>
           </Button>
 
-          {/* Center — Speak / Done button + status */}
-          <div className="flex items-center gap-3">
-            {!voice.isSupported ? (
-              <div className="text-center">
-                <p className="text-xs text-neutral-500">
-                  Voice needs Chrome or Edge
-                </p>
-              </div>
-            ) : connectionError ? (
-              // Error recovery: smart retry.
-              // - If pendingPresentation exists AND coachAnalysis is null →
-              //   the present endpoint failed → retry submitPresentation.
-              // - If coachAnalysis was set (then cleared by beginQA) but
-              //   beginQA failed → retry beginQA. We detect this with a ref.
-              // - Otherwise → restart the mic.
-              <button
-                onClick={() => {
-                  setConnectionError(false);
-                  setError(null);
-                  if (qaFailedRef.current) {
-                    qaFailedRef.current = false;
-                    beginQA();
-                  } else if (pendingPresentation.current) {
-                    retryPresentation();
-                  } else {
-                    handleStartSpeaking();
-                  }
-                }}
-                className="flex items-center gap-2 px-4 h-10 rounded-md border border-[#3a3a3a] bg-[#171717] text-xs font-medium text-neutral-200 hover:bg-[#1a1a1a] transition-all"
-              >
-                <Loader2 className="h-3.5 w-3.5" />
-                Retry
-              </button>
-            ) : coachAnalysis ? (
-              // Coach analysis card is showing — hint the user to read it
-              // and click "Begin Q&A" in the card above
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#2a2a2a] bg-[#171717]">
-                  <FileText className="h-4 w-4 text-neutral-400" />
-                </div>
-                <span className="text-[10px] uppercase tracking-wider text-neutral-500 hidden sm:inline">
-                  Read the coach read above — then begin Q&amp;A
-                </span>
-              </div>
-            ) : analyzingPresentation ? (
-              <div className="flex items-center gap-3">
-                <Loader2 className="h-5 w-5 animate-spin text-neutral-400" />
-                <span className="text-[10px] uppercase tracking-wider text-neutral-500">
-                  Panel is reviewing...
-                </span>
-              </div>
-            ) : isPresenting ? (
-              // Defense mode: mic + "Done Presenting" button
-              <div className="flex items-center gap-3">
-                {voice.isListening ? (
-                  <button
-                    onClick={handleDonePresenting}
-                    className="flex items-center gap-2 px-4 h-10 rounded-md bg-neutral-100 text-black text-xs font-medium hover:bg-white transition-all"
-                  >
-                    <Square className="h-3.5 w-3.5 fill-current" />
-                    Done Presenting
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleStartSpeaking}
-                    className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-black transition-transform active:scale-95"
-                    aria-label="Start presenting"
-                  >
-                    <Mic className="h-5 w-5" />
-                  </button>
-                )}
-                <span className="text-[10px] uppercase tracking-wider text-neutral-500 hidden sm:inline">
-                  {voice.isListening
-                    ? "Presenting... click Done when finished"
-                    : "Click to present"}
-                </span>
-              </div>
-            ) : drillRetry && isUserTurn && !isProcessing ? (
-              // Drill retry: show "Try again" with attempt count instead of
-              // the normal mic button. The user is re-answering after a
-              // deterministic correction. They must answer WITHOUT the
-              // drilled weakness to advance to the next question.
-              <div className="flex items-center gap-3">
-                {voice.isListening ? (
-                  <button
-                    onClick={handleStopSpeaking}
-                    className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-black transition-transform active:scale-95"
-                    aria-label="Stop speaking"
-                  >
-                    <Square className="h-4 w-4 fill-current" />
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleStartSpeaking}
-                    className="group flex items-center gap-2 px-4 h-10 rounded-md bg-neutral-100 text-black text-xs font-medium hover:bg-white transition-all"
-                    aria-label="Try again"
-                  >
-                    <Mic className="h-3.5 w-3.5" />
-                    Try again
-                  </button>
-                )}
-                <span className="text-[10px] uppercase tracking-wider text-amber-400/70 hidden sm:inline">
-                  {voice.isListening
-                    ? `Answering — attempt ${drillAttempts + 1}`
-                    : `Attempt ${drillAttempts + 1} — answer without the weakness`}
-                </span>
-              </div>
-            ) : isUserTurn && !isProcessing ? (
-              voice.isListening ? (
-                <button
-                  onClick={handleStopSpeaking}
-                  className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-black transition-transform active:scale-95"
-                  aria-label="Stop speaking"
-                >
-                  <Square className="h-4 w-4 fill-current" />
-                </button>
-              ) : (
-                <button
-                  onClick={handleStartSpeaking}
-                  className="group flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-black transition-transform active:scale-95"
-                  aria-label="Start speaking"
-                >
-                  <Mic className="h-5 w-5" />
-                </button>
-              )
-            ) : (
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-900 text-neutral-600">
-                <Pause className="h-4 w-4" />
-              </div>
-            )}
-            {/* Waveform — shows whenever the user is speaking, across ALL modes */}
-            {!analyzingPresentation && (
-              voice.isListening ? (
-                <WaveformBar amplitude={waveformAmplitude} />
-              ) : (
-                <span className="text-[10px] uppercase tracking-wider text-neutral-500 hidden sm:inline">
-                  {isUserTurn && !isProcessing
-                    ? isPresenting
-                      ? "Click to present"
-                      : "Click to speak"
-                    : isProcessing
-                    ? "Panel is responding"
-                    : audioPlaying
-                    ? "Panel is speaking"
-                    : "Wait for your turn"}
-                </span>
-              )
-            )}
-          </div>
+          {/* Center — engine-aware speak controls */}
+          <RoomControlDeck
+            isSupported={voice.isSupported}
+            connectionError={connectionError}
+            coachAnalysisOpen={coachAnalysis !== null}
+            analyzingPresentation={analyzingPresentation}
+            isPresenting={isPresenting}
+            drillRetry={drillRetry}
+            drillAttempts={drillAttempts}
+            isUserTurn={isUserTurn}
+            isProcessing={isProcessing}
+            isListening={voice.isListening}
+            audioPlaying={audioPlaying}
+            liveStatus={liveDeckStatus}
+            waveformAmplitude={waveformAmplitude}
+            onStartSpeaking={handleStartSpeaking}
+            onStopSpeaking={handleStopSpeaking}
+            onDonePresenting={handleDonePresenting}
+            onRetry={handleConnectionRetry}
+          />
 
           {/* Right — End session */}
           <Button
@@ -1341,6 +1281,254 @@ export function SparringRoom({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  );
+}
+
+// ─── Live engine UI helpers ─────────────────────────────────────────────
+// The engine ladder (gemini-live → cascade) lives in the hooks; the room
+// only maps its state onto the UI. `liveSessionActive` is the room's own
+// record that its one-activation Live session is running — the hook-level
+// status alone can read "live" after a stop() and must not drive the UI.
+
+export type EngineStatusLabel = "Live" | "Classic" | "Connecting";
+
+/** Quiet chip text naming the engine that owns the room right now. */
+export function engineStatusLabel(
+  liveSessionActive: boolean,
+  status: UseTurnControllerResult["liveEngineStatus"],
+): EngineStatusLabel {
+  // Not activated yet, stopped, or laddered down: the cascade owns the room.
+  if (!liveSessionActive || status === "fallback") return "Classic";
+  return status === "live" ? "Live" : "Connecting";
+}
+
+/** Whether the live engine's one-activation mic owns the room controls. */
+export function liveOwnsControls(
+  liveSessionActive: boolean,
+  status: UseTurnControllerResult["liveEngineStatus"],
+): boolean {
+  // The connecting window already counts: the user has activated once and
+  // must not be handed a second click flow mid-handshake.
+  return liveSessionActive && status !== "fallback";
+}
+
+/** Small quiet status chip: which voice engine is running the room. */
+export function EngineStatusChip({ label }: { label: EngineStatusLabel }) {
+  return (
+    <span
+      data-engine={label.toLowerCase()}
+      title={label === "Live" ? "Gemini Live voice engine" : "Classic voice engine"}
+      className={cn(
+        "flex-shrink-0 rounded border px-1.5 py-0.5 text-[9px] uppercase tracking-wider",
+        label === "Live"
+          ? "border-emerald-500/20 bg-emerald-500/[0.06] text-emerald-300/80"
+          : "border-[#2a2a2a] bg-[#171717] text-neutral-400",
+        label === "Connecting" && "animate-pulse",
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
+export interface RoomControlDeckProps {
+  isSupported: boolean;
+  connectionError: boolean;
+  coachAnalysisOpen: boolean;
+  analyzingPresentation: boolean;
+  isPresenting: boolean;
+  drillRetry: boolean;
+  drillAttempts: number;
+  isUserTurn: boolean;
+  isProcessing: boolean;
+  isListening: boolean;
+  audioPlaying: boolean;
+  /** "off" — the classic click flow owns the deck; otherwise the live engine does. */
+  liveStatus: "connecting" | "live" | "off";
+  waveformAmplitude: number;
+  onStartSpeaking: () => void;
+  onStopSpeaking: () => void;
+  onDonePresenting: () => void;
+  onRetry: () => void;
+}
+
+/**
+ * The room's speak-control deck. In live mode ("connecting"/"live") the
+ * per-turn Speak/Done buttons are hidden — one mic activation keeps the mic
+ * live and the server VAD owns turn-taking and barge-in. In every other
+ * state the existing click flow renders unchanged.
+ */
+export function RoomControlDeck({
+  isSupported,
+  connectionError,
+  coachAnalysisOpen,
+  analyzingPresentation,
+  isPresenting,
+  drillRetry,
+  drillAttempts,
+  isUserTurn,
+  isProcessing,
+  isListening,
+  audioPlaying,
+  liveStatus,
+  waveformAmplitude,
+  onStartSpeaking,
+  onStopSpeaking,
+  onDonePresenting,
+  onRetry,
+}: RoomControlDeckProps) {
+  return (
+    <div className="flex items-center gap-3">
+      {!isSupported ? (
+        <div className="text-center">
+          <p className="text-xs text-neutral-500">
+            Voice needs Chrome or Edge
+          </p>
+        </div>
+      ) : connectionError ? (
+        <button
+          onClick={onRetry}
+          className="flex items-center gap-2 px-4 h-10 rounded-md border border-[#3a3a3a] bg-[#171717] text-xs font-medium text-neutral-200 hover:bg-[#1a1a1a] transition-all"
+        >
+          <Loader2 className="h-3.5 w-3.5" />
+          Retry
+        </button>
+      ) : liveStatus !== "off" ? (
+        // Live engine owns the room: no per-turn controls, mic stays live.
+        liveStatus === "live" ? (
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-emerald-500/25 bg-emerald-500/[0.08]">
+              <Mic className="h-5 w-5 text-emerald-300" />
+            </div>
+            <span className="text-[10px] uppercase tracking-wider text-neutral-500 hidden sm:inline">
+              Mic live — just talk, interruption is instant
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <Loader2 className="h-5 w-5 animate-spin text-neutral-400" />
+            <span className="text-[10px] uppercase tracking-wider text-neutral-500 hidden sm:inline">
+              Connecting the live engine…
+            </span>
+          </div>
+        )
+      ) : coachAnalysisOpen ? (
+        // Coach analysis card is showing — hint the user to read it
+        // and click "Begin Q&A" in the card above
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#2a2a2a] bg-[#171717]">
+            <FileText className="h-4 w-4 text-neutral-400" />
+          </div>
+          <span className="text-[10px] uppercase tracking-wider text-neutral-500 hidden sm:inline">
+            Read the coach read above — then begin Q&amp;A
+          </span>
+        </div>
+      ) : analyzingPresentation ? (
+        <div className="flex items-center gap-3">
+          <Loader2 className="h-5 w-5 animate-spin text-neutral-400" />
+          <span className="text-[10px] uppercase tracking-wider text-neutral-500">
+            Panel is reviewing...
+          </span>
+        </div>
+      ) : isPresenting ? (
+        // Defense mode: mic + "Done Presenting" button
+        <div className="flex items-center gap-3">
+          {isListening ? (
+            <button
+              onClick={onDonePresenting}
+              className="flex items-center gap-2 px-4 h-10 rounded-md bg-neutral-100 text-black text-xs font-medium hover:bg-white transition-all"
+            >
+              <Square className="h-3.5 w-3.5 fill-current" />
+              Done Presenting
+            </button>
+          ) : (
+            <button
+              onClick={onStartSpeaking}
+              className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-black transition-transform active:scale-95"
+              aria-label="Start presenting"
+            >
+              <Mic className="h-5 w-5" />
+            </button>
+          )}
+          <span className="text-[10px] uppercase tracking-wider text-neutral-500 hidden sm:inline">
+            {isListening
+              ? "Presenting... click Done when finished"
+              : "Click to present"}
+          </span>
+        </div>
+      ) : drillRetry && isUserTurn && !isProcessing ? (
+        // Drill retry: show "Try again" with attempt count instead of
+        // the normal mic button. The user is re-answering after a
+        // deterministic correction. They must answer WITHOUT the
+        // drilled weakness to advance to the next question.
+        <div className="flex items-center gap-3">
+          {isListening ? (
+            <button
+              onClick={onStopSpeaking}
+              className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-black transition-transform active:scale-95"
+              aria-label="Stop speaking"
+            >
+              <Square className="h-4 w-4 fill-current" />
+            </button>
+          ) : (
+            <button
+              onClick={onStartSpeaking}
+              className="group flex items-center gap-2 px-4 h-10 rounded-md bg-neutral-100 text-black text-xs font-medium hover:bg-white transition-all"
+              aria-label="Try again"
+            >
+              <Mic className="h-3.5 w-3.5" />
+              Try again
+            </button>
+          )}
+          <span className="text-[10px] uppercase tracking-wider text-amber-400/70 hidden sm:inline">
+            {isListening
+              ? `Answering — attempt ${drillAttempts + 1}`
+              : `Attempt ${drillAttempts + 1} — answer without the weakness`}
+          </span>
+        </div>
+      ) : isUserTurn && !isProcessing ? (
+        isListening ? (
+          <button
+            onClick={onStopSpeaking}
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-black transition-transform active:scale-95"
+            aria-label="Stop speaking"
+          >
+            <Square className="h-4 w-4 fill-current" />
+          </button>
+        ) : (
+          <button
+            onClick={onStartSpeaking}
+            className="group flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-black transition-transform active:scale-95"
+            aria-label="Start speaking"
+          >
+            <Mic className="h-5 w-5" />
+          </button>
+        )
+      ) : (
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-900 text-neutral-600">
+          <Pause className="h-4 w-4" />
+        </div>
+      )}
+      {/* Waveform — shows whenever the user is speaking (classic modes;
+          the live deck carries its own quiet indicator above) */}
+      {!analyzingPresentation && liveStatus === "off" && (
+        isListening ? (
+          <WaveformBar amplitude={waveformAmplitude} />
+        ) : (
+          <span className="text-[10px] uppercase tracking-wider text-neutral-500 hidden sm:inline">
+            {isUserTurn && !isProcessing
+              ? isPresenting
+                ? "Click to present"
+                : "Click to speak"
+              : isProcessing
+              ? "Panel is responding"
+              : audioPlaying
+              ? "Panel is speaking"
+              : "Wait for your turn"}
+          </span>
+        )
+      )}
     </div>
   );
 }
