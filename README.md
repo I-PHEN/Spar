@@ -14,7 +14,7 @@ Spar is a voice-first practice environment where you defend ideas under live AI 
 
 - **Live AI panel** — 2-3 personas (Skeptic, Nitpicker, So-What, Timekeeper, Ally) with distinct lenses. They build agitation in real-time and interrupt when you show weakness.
 
-- **Voice-first** — Speak naturally. Live transcription via Deepgram Flux streaming STT (Web Speech backs it up). Persona responses stream from Groq and are spoken through Deepgram Aura-2 streaming TTS as phrases complete, so playback starts before the full reply is generated.
+- **Voice-first** — Speak naturally. With a Gemini API key configured, Q&A runs on the Gemini Live speech-to-speech engine: one mic activation, continuous listening, and instant interruption in both directions. Without it (and whenever Live cannot connect), the Deepgram → Groq → Aura-2 cascade serves the room: Flux streaming STT transcription, Groq persona responses spoken through Aura-2 streaming TTS as phrases complete.
 
 - **Coaching debrief** — After each session: The Moment, What You Did Well, The Pattern, One Thing to Practice, Telemetry insights. No scores — just development.
 
@@ -30,6 +30,7 @@ Spar is a voice-first practice environment where you defend ideas under live AI 
 - **Language:** TypeScript 5
 - **Styling:** Tailwind CSS 4 + shadcn/ui
 - **Database:** Prisma ORM (SQLite)
+- **Live engine:** Gemini 3.8 Live speech-to-speech (browser WebSocket to Google, short-lived ephemeral tokens) — primary for Q&A when `GEMINI_API_KEY` is set
 - **LLM:** Groq (gpt-oss-20b, primary) + OpenRouter (pre-speech fallback) for persona responses; z-ai SDK for debriefs
 - **STT:** Deepgram Flux streaming (browser WebSocket, short-lived tokens); Web Speech for presentations and fallback
 - **TTS:** Deepgram Aura-2 streaming (browser WebSocket); browser speech synthesis as fallback
@@ -45,6 +46,7 @@ Spar is a voice-first practice environment where you defend ideas under live AI 
 - A Groq API key
 - An OpenRouter API key
 - A Deepgram API key
+- A Google Gemini API key (optional — without it, rooms run on the fallback cascade)
 
 ### Installation
 
@@ -65,15 +67,21 @@ OPENROUTER_API_KEY="your-openrouter-key"
 DEEPGRAM_API_KEY="your-deepgram-key"
 # Optional: Deepgram region for STT/TTS sockets. Default is us.
 DEEPGRAM_REGION="us"
+# Optional: Gemini Live voice engine. Absent means rooms use the fallback cascade.
+GEMINI_API_KEY="your-gemini-key"
 ```
 
-All three provider keys stay server-side. The browser only ever receives short-lived Deepgram tokens minted by `POST /api/deepgram-token`; no durable key reaches client code, logs, or metrics. `DEEPGRAM_REGION` is the single region control: the token route returns it alongside each grant, so the browser's Flux STT and Aura-2 TTS sockets always connect to the same region the server uses and records in its turn metrics (there is no `NEXT_PUBLIC_` region override).
+All provider keys stay server-side. The browser only ever receives short-lived Deepgram tokens minted by `POST /api/deepgram-token`; no durable key reaches client code, logs, or metrics. `DEEPGRAM_REGION` is the single region control: the token route returns it alongside each grant, so the browser's Flux STT and Aura-2 TTS sockets always connect to the same region the server uses and records in its turn metrics (there is no `NEXT_PUBLIC_` region override).
 
 **Deepgram token troubleshooting.** If the console shows `Configured Deepgram API key needs permission to grant temporary tokens`, your key's scopes do not allow minting temporary tokens. In the Deepgram console, edit the API key and enable the permission to grant short-lived credentials, then reload the room.
+
+**Gemini Live voice engine.** `GEMINI_API_KEY` is optional. With it set, sparring-room Q&A runs on the Gemini 3.8 Live speech-to-speech engine; without it, rooms transparently use the Deepgram → Groq → Aura-2 cascade — there is no user-facing error either way. The key stays server-side: `GET /api/gemini-live-token` mints a short-lived ephemeral token (Google AI Studio keys work; create one at [aistudio.google.com](https://aistudio.google.com)) and the browser opens its Live WebSocket directly to Google with it. Live audio is billed by Google at **$0.005/min audio input + $0.018/min audio output**.
 
 ## Fallback Policy
 
 The voice pipeline degrades in bounded, labeled steps; a failure never produces a second spoken answer for one turn:
+
+- **Voice engine** — Gemini Live is primary when `GEMINI_API_KEY` is set. If the token route answers 503 (no key), the session setup is rejected (after one retry on the Kore voice), the socket dies after its reconnect budget, or the microphone fails, the room hands itself to the Deepgram → Groq → Aura-2 cascade mid-session. The engine chip in the room's top bar reads `Live` or `Classic`, so you always know which engine is speaking.
 
 - **STT** — Flux streaming STT is primary. On failure the room switches to Web Speech recognition, keeps accepting turns, and reconnects to Flux with backoff. A browser with neither path is blocked from entering the room.
 - **Generation** — Groq is primary. If Groq fails **before** a phrase has been spoken, the same turn restarts on OpenRouter and the phrase stream resets. After speech has started, the turn ends with an error instead of switching providers mid-answer.
@@ -109,6 +117,12 @@ Each persona has heuristic triggers (hedge words, vague quantifiers, over-explai
 ### Deterministic Corrections (Drill Mode)
 
 In Drill mode, correction phrases are fixed — no LLM call needed. This makes corrections instant (~1.7s TTS-only) and never paraphrased. The LLM only generates questions, never corrections.
+
+### The Live Voice Engine
+
+When `GEMINI_API_KEY` is configured, sparring-room Q&A runs on Gemini 3.8 Live — one speech-to-speech session voiced by the panel's lead panelist. A single click on the mic starts the session; from then on the mic stays live and the model owns turn-taking. It listens continuously (16 kHz PCM), applies a per-mode voice-activity contract (Boardroom's 1.2 s end-of-speech patience lets it cut in fast; Defense's 3 s holds questions; Open Spar and Drill run at 500 ms), and answers as streamed 24 kHz PCM audio. Interruption is native and instant in both directions: you can barge in mid-word, and the panelist can cut you off. Boardroom rooms use the extended-thinking Live model; the other experiences use the standard one.
+
+The persona's identity, spoken-response rules, and the mode's interaction contract are compiled into a single spoken system instruction — no JSON. Captions still stream while you speak and while the panelist answers, and each turn is attributed to the room's turn machine and measured (`firstLiveAudioMs`, interruption counts) alongside the cascade metrics. The presentation phase (Defense and Boardroom) still uses the classic recognizer; Live owns Q&A.
 
 ### Streaming Phrase Pipelining
 
@@ -172,6 +186,7 @@ src/
 │   └── ...
 ├── hooks/
 │   ├── use-turn-controller.ts   # Live turn lifecycle owner (reducer-driven)
+│   ├── use-live-voice.ts        # Gemini Live speech-to-speech session
 │   ├── use-streaming-voice.ts   # Flux STT + Aura-2 speech sessions
 │   ├── use-voice.ts             # Web Speech API wrapper (presentations, fallback)
 │   ├── use-audio-recorder.ts    # MediaRecorder for debrief playback
@@ -185,10 +200,10 @@ src/
 │   ├── voice.ts             # Legacy Deepgram REST TTS
 │   ├── triggers.ts          # Heuristic agitation triggers
 │   ├── audio-db.ts          # IndexedDB audio clip storage
-│   ├── spar/                # Live turn service (server SSE)
-│   ├── providers/           # Groq, OpenRouter, Deepgram STT/TTS clients
+│   ├── spar/                # Live turn service (server SSE), mode contracts, spoken Live instruction
+│   ├── providers/           # Groq, OpenRouter, Deepgram STT/TTS, Gemini Live clients
 │   ├── voice/               # Turn state, phrase chunker, PCM player, mic stream
-│   └── observability/       # Turn metrics (p50/p95, tokens, cost, fallbacks)
+│   └── observability/       # Turn metrics (p50/p95, tokens, cost, fallbacks, voice engines)
 └── prisma/
     └── schema.prisma         # User, Session, SessionMessage, PatternMemory, SkillSnapshot
 ```

@@ -17,6 +17,18 @@ test("models unsupported browsers as blocking current-room guidance", () => {
   });
 });
 
+test("the engine ladder falls back from Gemini Live to the cascade", () => {
+  const engineFallback = CURRENT_VOICE_FALLBACKS.find(
+    (fallback) => fallback.trigger === "live-engine-unavailable",
+  );
+
+  expect(engineFallback).toMatchObject({
+    mode: "current",
+    trigger: "live-engine-unavailable",
+    outcome: "falls-back-to-cascade",
+  });
+});
+
 test("streams fall back to Web Speech recognition while Flux reconnects", () => {
   const sttFallback = CURRENT_VOICE_FALLBACKS.find(
     (fallback) => fallback.trigger === "stt-unavailable",

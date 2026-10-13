@@ -5,7 +5,7 @@ import { useState } from "react";
 import { CURRENT_VOICE_FALLBACKS } from "@/architecture/voice-pipeline";
 import { cn } from "@/lib/utils";
 
-type PipelineMode = "current" | "legacy";
+type PipelineMode = "live" | "cascade" | "legacy";
 
 interface PipelineStage {
   name: string;
@@ -17,10 +17,48 @@ const PIPELINES: Record<
   PipelineMode,
   { status: string; description: string; stages: PipelineStage[]; edges: string[] }
 > = {
-  current: {
-    status: "Running today",
+  live: {
+    status: "Running today · primary voice engine",
     description:
-      "The browser streams microphone audio to Flux STT, one controller owns the turn, the server generates on Groq with a pre-speech OpenRouter fallback, and the browser speaks each phrase through Aura-2 as it arrives.",
+      "When GEMINI_API_KEY is configured, the room runs one speech-to-speech Gemini Live session with the lead panelist: a single mic activation starts continuous capture, the Live socket owns generation and turn-taking per the mode's VAD contract, and 24 kHz PCM answers stream back with native barge-in in both directions.",
+    stages: [
+      {
+        name: "Mic",
+        owner: "Browser · continuous capture",
+        detail: "One activation; 16 kHz PCM streams while the room is live",
+      },
+      {
+        name: "Token",
+        owner: "Server · ephemeral grant",
+        detail: "GET /api/gemini-live-token mints a short-lived token from the server-held key",
+      },
+      {
+        name: "Live socket",
+        owner: "Browser → Google · BidiGenerateContent",
+        detail: "Speech-to-speech; mode-routed model and VAD contract in the setup",
+      },
+      {
+        name: "Turn-taking",
+        owner: "Google · server VAD",
+        detail: "End-of-speech patience per mode; barge-in is native both ways",
+      },
+      {
+        name: "Playback",
+        owner: "Browser · 24 kHz PCM queue",
+        detail: "Frames enqueue in order; an interrupt discards them instantly",
+      },
+      {
+        name: "Captions",
+        owner: "Browser · live transcripts",
+        detail: "Interim user speech and the panelist's spoken answer as captions",
+      },
+    ],
+    edges: ["PCM base64", "access token", "audio + transcripts", "interrupt / turn-complete", "captions"],
+  },
+  cascade: {
+    status: "Automatic fallback · Deepgram → Groq → Aura-2",
+    description:
+      "The cascade the room falls back to whenever Gemini Live cannot run — and the only path when GEMINI_API_KEY is absent: the browser streams microphone audio to Flux STT, one controller owns the turn, the server generates on Groq with a pre-speech OpenRouter fallback, and the browser speaks each phrase through Aura-2 as it arrives.",
     stages: [
       {
         name: "STT",
@@ -147,7 +185,7 @@ function PipelineRail({ mode }: { mode: PipelineMode }) {
 }
 
 export function VoicePipeline() {
-  const [mode, setMode] = useState<PipelineMode>("current");
+  const [mode, setMode] = useState<PipelineMode>("live");
   const pipeline = PIPELINES[mode];
 
   return (
@@ -166,7 +204,7 @@ export function VoicePipeline() {
             className="inline-flex self-start rounded-lg border border-border bg-background/60 p-1"
             aria-label="Voice architecture version"
           >
-            {(["current", "legacy"] as const).map((option) => (
+            {(["live", "cascade", "legacy"] as const).map((option) => (
               <button
                 key={option}
                 type="button"
@@ -206,7 +244,14 @@ export function VoicePipeline() {
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
             Cancellation edge
           </p>
-          {mode === "current" ? (
+          {mode === "live" ? (
+            <div className="mt-4">
+              <p className="text-sm font-medium">Interruption is native and server-side.</p>
+              <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                The Live socket emits <code className="font-mono text-[10px] text-foreground/80">interrupted</code> the moment you barge in; the room discards queued playback immediately and cancels the turn. No user action and no teardown budget are involved — the model stops talking because it heard you.
+              </p>
+            </div>
+          ) : mode === "cascade" ? (
             <div className="mt-4">
               <p className="text-sm font-medium">One cancel signal fans out across the turn.</p>
               <p className="mt-2 text-xs leading-5 text-muted-foreground">
