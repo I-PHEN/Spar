@@ -84,6 +84,9 @@ function persistedRecord(overrides: Record<string, unknown> = {}) {
     fallbackReason: null,
     cancelled: false,
     orderingFailureCount: 0,
+    voiceEngine: null,
+    firstLiveAudioMs: null,
+    interruptions: null,
     createdAt: new Date("2026-09-13T00:00:00.000Z"),
     updatedAt: new Date("2026-09-13T00:00:01.000Z"),
     ...overrides,
@@ -129,6 +132,65 @@ describe("POST /api/turn-metrics", () => {
       traceId: "trace-1",
       selectedRegion: "eu",
     });
+  });
+
+  test("accepts a live-engine event with latency and interruption measurements", async () => {
+    const response = await POST(
+      metricRequest({
+        type: "live-engine",
+        turnId: "turn-1",
+        sessionId: "session-1",
+        voiceEngine: "gemini-live",
+        firstLiveAudioMs: 812,
+        interruptions: 1,
+      }),
+    );
+
+    expect(response.status).toBe(202);
+    expect(await response.json()).toEqual({ accepted: true });
+    expect(storedRecord).toMatchObject({
+      turnId: "turn-1",
+      sessionId: "session-1",
+      voiceEngine: "gemini-live",
+      firstLiveAudioMs: 812,
+      interruptions: 1,
+    });
+  });
+
+  test("accepts a live-engine event without optional measurements", async () => {
+    const response = await POST(
+      metricRequest({
+        type: "live-engine",
+        turnId: "turn-1",
+        sessionId: "session-1",
+        voiceEngine: "cascade",
+      }),
+    );
+
+    expect(response.status).toBe(202);
+    expect(storedRecord).toMatchObject({
+      voiceEngine: "cascade",
+      firstLiveAudioMs: null,
+      interruptions: null,
+    });
+  });
+
+  test("rejects unknown voice engine strings", async () => {
+    const response = await POST(
+      metricRequest({
+        type: "live-engine",
+        turnId: "turn-1",
+        sessionId: "session-1",
+        voiceEngine: "gpt-realtime",
+        firstLiveAudioMs: 812,
+        interruptions: 1,
+      }),
+    );
+    const body = await response.text();
+
+    expect(response.status).toBe(400);
+    expect(body).toBe('{"error":"Invalid metric event."}');
+    expect(db.$transaction).not.toHaveBeenCalled();
   });
 
   test("updates an existing turn without writing persistence metadata", async () => {
@@ -237,7 +299,7 @@ describe("GET /api/dev/metrics", () => {
     const response = await GET();
     const body = (await response.json()) as {
       turns: Array<{ turnId: string }>;
-      summary: Record<string, number | null>;
+      summary: Record<string, unknown>;
     };
 
     expect(response.status).toBe(200);
@@ -259,6 +321,7 @@ describe("GET /api/dev/metrics", () => {
       fallbackCount: 0,
       cancelledCount: 0,
       orderingFailureCount: 0,
+      voiceEngines: { "gemini-live": null, cascade: null, browser: null },
     });
   });
 

@@ -195,6 +195,12 @@ model TurnMetric {
   cancelled            Boolean @default(false)
   orderingFailureCount Int  @default(0)
 
+  // Which voice engine served the turn, plus Live-engine turn stats:
+  // finalized input transcript -> first audio out (same turn) + barge-ins.
+  voiceEngine      String? // 'gemini-live' | 'cascade' | 'browser'
+  firstLiveAudioMs Int?
+  interruptions    Int?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

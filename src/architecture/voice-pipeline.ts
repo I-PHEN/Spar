@@ -2,6 +2,7 @@ export interface CurrentVoiceFallback {
   mode: "current";
   trigger:
     | "voice-unsupported"
+    | "live-engine-unavailable"
     | "stt-unavailable"
     | "primary-generation-failed"
     | "generation-failed-after-speech"
@@ -9,6 +10,7 @@ export interface CurrentVoiceFallback {
     | "tts-failed-after-playback";
   outcome:
     | "blocks-room-entry"
+    | "falls-back-to-cascade"
     | "falls-back-to-web-speech"
     | "restarts-on-openrouter"
     | "ends-turn-without-a-second-answer"
@@ -21,6 +23,14 @@ export interface CurrentVoiceFallback {
 }
 
 export const CURRENT_VOICE_FALLBACKS: readonly CurrentVoiceFallback[] = [
+  {
+    mode: "current",
+    trigger: "live-engine-unavailable",
+    outcome: "falls-back-to-cascade",
+    label: "Gemini Live unavailable",
+    detail:
+      "Without GEMINI_API_KEY, or after a setup rejection (one retry on the Kore voice), socket exhaustion, or a microphone failure, the room hands itself to the Deepgram → Groq → Aura-2 cascade; the engine chip reads Classic and the per-turn click flow returns.",
+  },
   {
     mode: "current",
     trigger: "voice-unsupported",

@@ -10,6 +10,14 @@ const tokenCount = z.number().int().nonnegative();
 const providerName = z.string().min(1).max(64);
 const modelName = z.string().min(1).max(128);
 
+/** Voice engines that can serve a turn; persisted as TurnMetric.voiceEngine. */
+export const VOICE_ENGINES = ["gemini-live", "cascade", "browser"] as const;
+export type VoiceEngine = (typeof VOICE_ENGINES)[number];
+
+function isVoiceEngine(value: string): value is VoiceEngine {
+  return (VOICE_ENGINES as readonly string[]).includes(value);
+}
+
 export const turnMetricEventSchema = z.discriminatedUnion("type", [
   z
     .object({
@@ -99,6 +107,15 @@ export const turnMetricEventSchema = z.discriminatedUnion("type", [
       count: z.number().int().positive(),
     })
     .strict(),
+  z
+    .object({
+      ...eventIdentity,
+      type: z.literal("live-engine"),
+      voiceEngine: z.enum(VOICE_ENGINES),
+      firstLiveAudioMs: tokenCount.optional(),
+      interruptions: tokenCount.optional(),
+    })
+    .strict(),
 ]);
 
 export type TurnMetricEvent = z.infer<typeof turnMetricEventSchema>;
@@ -129,6 +146,17 @@ export interface TurnMetricRecord {
   fallbackReason: string | null;
   cancelled: boolean;
   orderingFailureCount: number;
+  voiceEngine: string | null;
+  firstLiveAudioMs: number | null;
+  interruptions: number | null;
+}
+
+/** Per-engine latency/interruption stats; null when the engine served no turns. */
+export interface VoiceEngineSummary {
+  turnCount: number;
+  p50FirstLiveAudioMs: number | null;
+  p95FirstLiveAudioMs: number | null;
+  interruptions: number;
 }
 
 export interface TurnMetricSummary {
@@ -141,6 +169,7 @@ export interface TurnMetricSummary {
   fallbackCount: number;
   cancelledCount: number;
   orderingFailureCount: number;
+  voiceEngines: Record<VoiceEngine, VoiceEngineSummary | null>;
 }
 
 function newRecord(event: TurnMetricEvent): TurnMetricRecord {
@@ -170,6 +199,9 @@ function newRecord(event: TurnMetricEvent): TurnMetricRecord {
     fallbackReason: null,
     cancelled: false,
     orderingFailureCount: 0,
+    voiceEngine: null,
+    firstLiveAudioMs: null,
+    interruptions: null,
   };
 }
 
@@ -258,6 +290,13 @@ export function applyMetricEvent(
         ...next,
         orderingFailureCount: Math.max(next.orderingFailureCount, event.count),
       };
+    case "live-engine":
+      return {
+        ...next,
+        voiceEngine: next.voiceEngine ?? event.voiceEngine,
+        firstLiveAudioMs: next.firstLiveAudioMs ?? event.firstLiveAudioMs ?? null,
+        interruptions: next.interruptions ?? event.interruptions ?? null,
+      };
   }
 }
 
@@ -282,10 +321,56 @@ function playbackDuration(record: TurnMetricRecord): number | null {
   return end - start;
 }
 
+/**
+ * Latency/interruption stats per voice engine. Turns attributed to an engine
+ * count only toward their engine (never toward the playback percentiles, which
+ * measure the text cascade pipeline); unmeasured latency renders null.
+ */
+function summarizeVoiceEngines(
+  records: readonly TurnMetricRecord[],
+): Record<VoiceEngine, VoiceEngineSummary | null> {
+  const summaries = {} as Record<VoiceEngine, VoiceEngineSummary | null>;
+  const measured = new Map<
+    VoiceEngine,
+    { turnCount: number; latencies: number[]; interruptions: number }
+  >();
+
+  for (const engine of VOICE_ENGINES) summaries[engine] = null;
+
+  for (const record of records) {
+    if (record.voiceEngine === null || !isVoiceEngine(record.voiceEngine)) {
+      continue;
+    }
+    const engine = measured.get(record.voiceEngine) ?? {
+      turnCount: 0,
+      latencies: [],
+      interruptions: 0,
+    };
+    engine.turnCount += 1;
+    if (record.firstLiveAudioMs !== null) {
+      engine.latencies.push(record.firstLiveAudioMs);
+    }
+    engine.interruptions += record.interruptions ?? 0;
+    measured.set(record.voiceEngine, engine);
+  }
+
+  for (const [engine, stats] of measured) {
+    summaries[engine] = {
+      turnCount: stats.turnCount,
+      p50FirstLiveAudioMs: percentile(stats.latencies, 0.5),
+      p95FirstLiveAudioMs: percentile(stats.latencies, 0.95),
+      interruptions: stats.interruptions,
+    };
+  }
+
+  return summaries;
+}
+
 export function summarizeTurnMetrics(
   records: readonly TurnMetricRecord[],
 ): TurnMetricSummary {
   const playbackDurations = records
+    .filter((record) => record.voiceEngine === null)
     .map(playbackDuration)
     .filter((duration): duration is number => duration !== null);
 
@@ -327,5 +412,6 @@ export function summarizeTurnMetrics(
       (total, record) => total + record.orderingFailureCount,
       0,
     ),
+    voiceEngines: summarizeVoiceEngines(records),
   };
 }

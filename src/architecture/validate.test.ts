@@ -125,48 +125,99 @@ describe("architecture manifest", () => {
     });
   });
 
-  test("shows the implemented streaming path as the current voice path, in order", () => {
+  test("shows the Gemini Live session as the primary voice path, in order", () => {
     expect(
       architectureManifest.edges.filter((edge) =>
-        edge.label.startsWith("current voice path:")
+        edge.label.startsWith("primary voice path:")
+      )
+    ).toEqual([
+      {
+        from: "sparring-room",
+        to: "gemini-live-voice",
+        label: "primary voice path: one activation hands Q&A to the Live engine",
+      },
+      {
+        from: "gemini-live-voice",
+        to: "gemini-live-token",
+        label: "primary voice path: fetches a short-lived ephemeral token",
+      },
+      {
+        from: "gemini-live-voice",
+        to: "live-turn-controller",
+        label:
+          "primary voice path: registers live turns, transcripts, and captions",
+      },
+      {
+        from: "gemini-live-voice",
+        to: "sparring-room",
+        label: "primary voice path: engine status and speech-to-speech playback",
+      },
+    ]);
+  });
+
+  test("keeps the streaming cascade as the fallback voice path, in order", () => {
+    expect(
+      architectureManifest.edges.filter((edge) =>
+        edge.label.startsWith("cascade voice path:")
       )
     ).toEqual([
       {
         from: "sparring-room",
         to: "flux-stt",
-        label: "current voice path: streams microphone PCM",
+        label: "cascade voice path: streams microphone PCM",
       },
       {
         from: "flux-stt",
         to: "live-turn-controller",
-        label: "current voice path: interim and finalized transcripts",
+        label: "cascade voice path: interim and finalized transcripts",
       },
       {
         from: "live-turn-controller",
         to: "session-api",
-        label: "current voice path: POST /spar-stream with a turn id",
+        label: "cascade voice path: POST /spar-stream with a turn id",
       },
       {
         from: "session-api",
         to: "groq-live-generation",
-        label: "current voice path: Groq streams the response",
+        label: "cascade voice path: Groq streams the response",
       },
       {
         from: "session-api",
         to: "live-turn-controller",
-        label: "current voice path: turn-tagged SSE events",
+        label: "cascade voice path: turn-tagged SSE events",
       },
       {
         from: "live-turn-controller",
         to: "aura-2-tts",
-        label: "current voice path: speaks each finalized phrase",
+        label: "cascade voice path: speaks each finalized phrase",
       },
       {
         from: "aura-2-tts",
         to: "sparring-room",
-        label: "current voice path: ordered PCM playback",
+        label: "cascade voice path: ordered PCM playback",
       },
     ]);
+  });
+
+  test("documents the Gemini Live engine and its token route", () => {
+    const nodeById = Object.fromEntries(
+      architectureManifest.nodes.map((node) => [node.id, node]),
+    );
+
+    expect(nodeById["gemini-live-voice"]).toMatchObject({
+      label: "Gemini Live voice engine",
+      layer: "browser",
+    });
+    expect(nodeById["gemini-live-voice"]?.files).toContain(
+      "src/hooks/use-live-voice.ts",
+    );
+    expect(nodeById["gemini-live-token"]).toMatchObject({
+      label: "Gemini Live token route",
+      layer: "api",
+    });
+    expect(nodeById["gemini-live-token"]?.files).toContain(
+      "src/app/api/gemini-live-token/route.ts",
+    );
   });
 
   test("keeps live generation behind the server API with its durable keys and fallback edges", () => {
@@ -193,6 +244,11 @@ describe("architecture manifest", () => {
     expect(
       architectureManifest.edges.filter((edge) => edge.label.startsWith("fallback:")),
     ).toEqual([
+      {
+        from: "gemini-live-voice",
+        to: "flux-stt",
+        label: "fallback: Live failure hands the room to the cascade",
+      },
       {
         from: "flux-stt",
         to: "web-speech-recognition",
@@ -277,9 +333,13 @@ describe("architecture manifest", () => {
     );
 
     // The persistence model must keep the live pipeline's telemetry entity
-    // alongside the other Prisma models, with its session cardinality.
+    // alongside the other Prisma models, with its session cardinality and
+    // the Live engine's attribution fields.
     expect(source).toContain('<EntityCard name="TurnMetric"');
     expect(source).toContain('["Session", "1 → many", "TurnMetric"');
     expect(source).toContain("turnId is unique");
+    expect(source).toContain("voiceEngine");
+    expect(source).toContain("firstLiveAudioMs");
+    expect(source).toContain("interruption count");
   });
 });

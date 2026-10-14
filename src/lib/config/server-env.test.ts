@@ -27,6 +27,30 @@ describe("getServerProviderConfig", () => {
       .toMatchObject({ deepgramRegion: region });
   });
 
+  test("treats a missing GEMINI_API_KEY as optional so boot stays healthy", () => {
+    const config = getServerProviderConfig({ ...validEnv });
+
+    expect(config.geminiApiKey).toBeUndefined();
+  });
+
+  test("returns a present GEMINI_API_KEY trimmed of surrounding whitespace", () => {
+    const config = getServerProviderConfig({
+      ...validEnv,
+      GEMINI_API_KEY: "  gemini-test-key  ",
+    });
+
+    expect(config.geminiApiKey).toBe("gemini-test-key");
+  });
+
+  test("treats a whitespace-only GEMINI_API_KEY as absent", () => {
+    const config = getServerProviderConfig({
+      ...validEnv,
+      GEMINI_API_KEY: "   ",
+    });
+
+    expect(config.geminiApiKey).toBeUndefined();
+  });
+
   test("rejects an unsupported Deepgram region", () => {
     expect(() =>
       getServerProviderConfig({ ...validEnv, DEEPGRAM_REGION: "ap" }),

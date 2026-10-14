@@ -219,8 +219,12 @@ const CORE_RESPONSE_RULES = `# RESPONSE RULES
 - Set claimRef to the challenged claim ID when relevant and choose the matching UI mood.
 - After a tight direct answer, briefly acknowledge it, then probe deeper or yield.`;
 
-/** Stable, cacheable instructions for one archetype and behavior style. */
-export function buildPersonaStablePrefix(params: PersonaPromptParams): string {
+/**
+ * Persona identity + behavior tone, with no response-format blocks.
+ * Shared by the text cascade prefix and the Live spoken instruction so both
+ * engines describe the same character.
+ */
+export function buildPersonaIdentityBlocks(params: PersonaPromptParams): string {
   const a = ARCHETYPES[params.archetype];
   const behavior = BEHAVIOR_STYLE_PROMPTS[params.behaviorStyle];
 
@@ -237,7 +241,12 @@ ${a.questionTemplates.map((question) => `- "${question}"`).join("\n")}
 Non-negotiable boundaries:
 ${a.forbidden.map((rule) => `- ${rule}`).join("\n")}
 
-${behavior}
+${behavior}`;
+}
+
+/** Stable, cacheable instructions for one archetype and behavior style. */
+export function buildPersonaStablePrefix(params: PersonaPromptParams): string {
+  return `${buildPersonaIdentityBlocks(params)}
 
 ${RESPONSE_FORMAT_PROMPT}
 

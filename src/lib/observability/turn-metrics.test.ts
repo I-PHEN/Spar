@@ -118,6 +118,9 @@ describe("applyMetricEvent", () => {
       fallbackReason: "groq-unavailable-before-speech",
       cancelled: true,
       orderingFailureCount: 2,
+      voiceEngine: null,
+      firstLiveAudioMs: null,
+      interruptions: null,
     });
   });
 
@@ -203,6 +206,45 @@ describe("applyMetricEvent", () => {
     expect(staleTurn).toBe(initial);
     expect(wrongSession).toBe(initial);
     expect(initial.firstPlaybackOffsetMs).toBeNull();
+  });
+
+  test("records live-engine attribution with first-writer-wins per field", () => {
+    const declared = applyEvents([
+      {
+        type: "live-engine",
+        turnId: "turn-1",
+        sessionId: "session-1",
+        voiceEngine: "gemini-live",
+      },
+    ]);
+
+    expect(declared.voiceEngine).toBe("gemini-live");
+    expect(declared.firstLiveAudioMs).toBeNull();
+    expect(declared.interruptions).toBeNull();
+
+    const measured = applyMetricEvent(declared, {
+      type: "live-engine",
+      turnId: "turn-1",
+      sessionId: "session-1",
+      voiceEngine: "cascade",
+      firstLiveAudioMs: 812,
+      interruptions: 1,
+    });
+
+    expect(measured.voiceEngine).toBe("gemini-live");
+    expect(measured.firstLiveAudioMs).toBe(812);
+    expect(measured.interruptions).toBe(1);
+
+    const duplicate = applyMetricEvent(measured, {
+      type: "live-engine",
+      turnId: "turn-1",
+      sessionId: "session-1",
+      voiceEngine: "browser",
+      firstLiveAudioMs: 999,
+      interruptions: 3,
+    });
+
+    expect(duplicate).toEqual(measured);
   });
 
   test("treats ordering failure counts as idempotent absolute totals", () => {
@@ -311,6 +353,7 @@ describe("summarizeTurnMetrics", () => {
       fallbackCount: 1,
       cancelledCount: 1,
       orderingFailureCount: 3,
+      voiceEngines: { "gemini-live": null, cascade: null, browser: null },
     });
   });
 
@@ -360,7 +403,140 @@ describe("summarizeTurnMetrics", () => {
       fallbackCount: 0,
       cancelledCount: 0,
       orderingFailureCount: 0,
+      voiceEngines: { "gemini-live": null, cascade: null, browser: null },
     });
+  });
+
+  test("labels firstLiveAudioMs percentiles and interruptions by engine and counts live turns only there", () => {
+    const liveFast = applyEvents([
+      {
+        type: "live-engine",
+        turnId: "turn-live-1",
+        sessionId: "session-1",
+        voiceEngine: "gemini-live",
+        firstLiveAudioMs: 812,
+        interruptions: 1,
+      },
+      // Pipeline events on a live turn must not leak into playback percentiles.
+      {
+        type: "transcript-finalized",
+        turnId: "turn-live-1",
+        sessionId: "session-1",
+        offsetMs: 100,
+        confidence: 0.9,
+      },
+      {
+        type: "first-playback",
+        turnId: "turn-live-1",
+        sessionId: "session-1",
+        offsetMs: 900,
+      },
+    ]);
+    const liveMiddle = applyEvents([
+      {
+        type: "live-engine",
+        turnId: "turn-live-2",
+        sessionId: "session-1",
+        voiceEngine: "gemini-live",
+        firstLiveAudioMs: 900,
+      },
+    ]);
+    const liveSlow = applyEvents([
+      {
+        type: "live-engine",
+        turnId: "turn-live-3",
+        sessionId: "session-1",
+        voiceEngine: "gemini-live",
+        firstLiveAudioMs: 1200,
+        interruptions: 2,
+      },
+    ]);
+    const cascadeTurn = applyEvents([
+      {
+        type: "live-engine",
+        turnId: "turn-cascade",
+        sessionId: "session-1",
+        voiceEngine: "cascade",
+        firstLiveAudioMs: 400,
+      },
+    ]);
+    const browserTurn = applyEvents([
+      {
+        type: "live-engine",
+        turnId: "turn-browser",
+        sessionId: "session-1",
+        voiceEngine: "browser",
+      },
+    ]);
+    const textTurn = applyEvents([
+      {
+        type: "transcript-finalized",
+        turnId: "turn-text",
+        sessionId: "session-1",
+        offsetMs: 200,
+        confidence: 0.9,
+      },
+      {
+        type: "first-playback",
+        turnId: "turn-text",
+        sessionId: "session-1",
+        offsetMs: 700,
+      },
+    ]);
+
+    const summary = summarizeTurnMetrics([
+      liveFast,
+      liveMiddle,
+      liveSlow,
+      cascadeTurn,
+      browserTurn,
+      textTurn,
+    ]);
+
+    expect(summary.p50PlaybackMs).toBe(500);
+    expect(summary.p95PlaybackMs).toBe(500);
+    expect(summary.voiceEngines).toEqual({
+      "gemini-live": {
+        turnCount: 3,
+        p50FirstLiveAudioMs: 900,
+        p95FirstLiveAudioMs: 1170,
+        interruptions: 3,
+      },
+      cascade: {
+        turnCount: 1,
+        p50FirstLiveAudioMs: 400,
+        p95FirstLiveAudioMs: 400,
+        interruptions: 0,
+      },
+      browser: {
+        turnCount: 1,
+        p50FirstLiveAudioMs: null,
+        p95FirstLiveAudioMs: null,
+        interruptions: 0,
+      },
+    });
+  });
+
+  test("renders unmeasured engine latency as null instead of zero", () => {
+    const liveTurn = applyEvents([
+      {
+        type: "live-engine",
+        turnId: "turn-live-1",
+        sessionId: "session-1",
+        voiceEngine: "browser",
+      },
+    ]);
+
+    const summary = summarizeTurnMetrics([liveTurn]);
+
+    expect(summary.voiceEngines.browser).toEqual({
+      turnCount: 1,
+      p50FirstLiveAudioMs: null,
+      p95FirstLiveAudioMs: null,
+      interruptions: 0,
+    });
+    expect(summary.voiceEngines["gemini-live"]).toBeNull();
+    expect(summary.voiceEngines.cascade).toBeNull();
   });
 
   test("uses only measured input/cache pairs when calculating the cache ratio", () => {

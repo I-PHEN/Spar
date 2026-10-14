@@ -54,6 +54,9 @@ function metricFields(record: TurnMetricRecord): TurnMetricRecord {
     fallbackReason: record.fallbackReason,
     cancelled: record.cancelled,
     orderingFailureCount: record.orderingFailureCount,
+    voiceEngine: record.voiceEngine,
+    firstLiveAudioMs: record.firstLiveAudioMs,
+    interruptions: record.interruptions,
   };
 }
 
