@@ -7,6 +7,7 @@ import {
   liveOwnsControls,
   liveUserInterimCaption,
   recordsTurnAudio,
+  startsRecorderOnFallback,
   type RoomControlDeckProps,
 } from "./sparring-room";
 
@@ -72,6 +73,54 @@ describe("live engine debrief recording", () => {
     // Once the engine ladders down, the cascade owns the room again and the
     // classic click flow records exactly as before.
     expect(recordsTurnAudio(false, true, "fallback")).toBe(true);
+  });
+
+  test("the fallback transition starts the recorder exactly once for the in-flight classic turn", () => {
+    // The regression this guards: a live activation clicks while the engine
+    // reads "connecting" (recordsTurnAudio false at click time), the token
+    // route then answers 503 and the cascade mic starts without a click —
+    // the transition itself must start the recorder or the first Q&A turn's
+    // debrief clip is lost.
+    expect(startsRecorderOnFallback({
+      liveConfigured: true, liveSessionActive: true, status: "fallback",
+      cascadeListening: true, recorderReady: true, alreadyStarted: false,
+    })).toBe(true);
+
+    // Idempotent: never twice per activation, never while already recording,
+    // never before the cascade mic is actually listening.
+    expect(startsRecorderOnFallback({
+      liveConfigured: true, liveSessionActive: true, status: "fallback",
+      cascadeListening: true, recorderReady: true, alreadyStarted: true,
+    })).toBe(false);
+    expect(startsRecorderOnFallback({
+      liveConfigured: true, liveSessionActive: true, status: "fallback",
+      cascadeListening: true, recorderReady: false, alreadyStarted: false,
+    })).toBe(false);
+    expect(startsRecorderOnFallback({
+      liveConfigured: true, liveSessionActive: true, status: "fallback",
+      cascadeListening: false, recorderReady: true, alreadyStarted: false,
+    })).toBe(false);
+
+    // Not the transition's job: classic rooms and presenting record at click
+    // time, and a live-owned room (connecting/live) must stay unrecorded.
+    expect(startsRecorderOnFallback({
+      liveConfigured: false, liveSessionActive: false, status: "fallback",
+      cascadeListening: true, recorderReady: true, alreadyStarted: false,
+    })).toBe(false);
+    expect(startsRecorderOnFallback({
+      liveConfigured: true, liveSessionActive: true, status: "live",
+      cascadeListening: true, recorderReady: true, alreadyStarted: false,
+    })).toBe(false);
+    expect(startsRecorderOnFallback({
+      liveConfigured: true, liveSessionActive: true, status: "connecting",
+      cascadeListening: true, recorderReady: true, alreadyStarted: false,
+    })).toBe(false);
+    // A room whose live session was never activated (or has ended) is not
+    // mid-handshake — the click flow owns recording.
+    expect(startsRecorderOnFallback({
+      liveConfigured: true, liveSessionActive: false, status: "fallback",
+      cascadeListening: true, recorderReady: true, alreadyStarted: false,
+    })).toBe(false);
   });
 });
 

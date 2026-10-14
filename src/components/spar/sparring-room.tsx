@@ -234,6 +234,10 @@ export function SparringRoom({
   const [liveSessionActive, setLiveSessionActive] = useState(false);
 
   const sparInFlight = useRef(false);
+  // Latch: the fallback transition starts the recorder at most once per
+  // live activation (see the effect below). Reset when a fresh live
+  // activation begins.
+  const fallbackRecorderStartedRef = useRef(false);
   // Stores the presentation transcript when handleDonePresenting runs, so
   // that if the present endpoint or spar-stream fails, the user can retry
   // without having to re-present from scratch.
@@ -301,6 +305,35 @@ export function SparringRoom({
       setCaptions((prev) => prev.filter((c) => !c.isLive));
     }
   }, [voice.interimTranscript, voice.isListening, liveInterim]);
+
+  // Live→cascade fallback mid-handshake: the click path skipped the recorder
+  // (recordsTurnAudio read "connecting" at click time), so the transition
+  // starts it for the in-flight classic turn — without this, every session on
+  // a no-key deployment loses the first Q&A turn's debrief clip. The latch
+  // keeps it idempotent; classic paths are unchanged.
+  useEffect(() => {
+    if (
+      !startsRecorderOnFallback({
+        liveConfigured: !!liveConfig,
+        liveSessionActive,
+        status: turnController.liveEngineStatus,
+        cascadeListening: turnController.isListening,
+        recorderReady: recorder.isSupported && !recorder.isRecording,
+        alreadyStarted: fallbackRecorderStartedRef.current,
+      })
+    ) {
+      return;
+    }
+    fallbackRecorderStartedRef.current = true;
+    recorder.start(sessionId, messageIndexRef.current);
+  }, [
+    liveConfig,
+    liveSessionActive,
+    turnController.liveEngineStatus,
+    turnController.isListening,
+    recorder,
+    sessionId,
+  ]);
 
   // Mirror controller-owned exact captions into the room without creating a
   // second generation, speech, or interruption state machine.
@@ -505,7 +538,11 @@ export function SparringRoom({
     if (!voice.isSupported) return;
     // One activation: in Q&A (not presenting) with Live configured, this
     // click hands the room to the Live engine and the mic stays live.
-    if (!isPresenting && liveConfig) setLiveSessionActive(true);
+    if (!isPresenting && liveConfig) {
+      setLiveSessionActive(true);
+      // A fresh live activation gets a fresh fallback-recorder latch.
+      fallbackRecorderStartedRef.current = false;
+    }
     voice.reset();
     voice.start();
     // Start audio recording alongside voice recognition — classic turns only.
@@ -1343,6 +1380,30 @@ export function recordsTurnAudio(
 ): boolean {
   if (isPresenting || !liveConfigured) return true;
   return status === "fallback";
+}
+
+/**
+ * Whether the live→cascade fallback transition should start the debrief
+ * recorder itself. A live activation clicks while the engine still reads
+ * "connecting", so recordsTurnAudio is false at click time; when the engine
+ * then ladders down (e.g. a 503 from the token route on a no-key
+ * deployment) the cascade mic starts without a click, and the first classic
+ * turn's clip would be lost. The transition starts the recorder — exactly
+ * once per activation (the alreadyStarted latch), never while the recorder
+ * is already running, and only while a live-configured room's activation
+ * still governs it. Classic rooms, presenting, and live-owned activations
+ * are unchanged: their click-time recordsTurnAudio path already decides.
+ */
+export function startsRecorderOnFallback(input: {
+  liveConfigured: boolean;
+  liveSessionActive: boolean;
+  status: UseTurnControllerResult["liveEngineStatus"];
+  cascadeListening: boolean;
+  recorderReady: boolean;
+  alreadyStarted: boolean;
+}): boolean {
+  if (!input.liveConfigured || !input.liveSessionActive || input.alreadyStarted) return false;
+  return input.status === "fallback" && input.cascadeListening && input.recorderReady;
 }
 
 /**
