@@ -45,6 +45,8 @@ interface SparLog {
   liveRealtimeSent: number;
   liveUrlConstrained: boolean | null;
   liveUrlHasToken: boolean | null;
+  // Fire-and-forget persistence of finalized live exchanges (bodies only).
+  liveExchangePosts: Array<{ at: number; body: { turnId?: string; userTranscripts?: string[]; assistantTranscript?: string } }>;
 }
 
 type SparPageState = { log: SparLog };
@@ -122,6 +124,7 @@ test.beforeEach(async ({ page }) => {
         liveRealtimeSent: 0,
         liveUrlConstrained: null,
         liveUrlHasToken: null,
+        liveExchangePosts: [],
       };
 
       // ─── Microphone and recorder doubles ─────────────────────────────
@@ -431,6 +434,18 @@ test.beforeEach(async ({ page }) => {
             }
           }
           return jsonResponse({ ok: true });
+        }
+        if (url.includes("/live-exchange")) {
+          // Fire-and-forget persistence per finalized live exchange; the
+          // body is transcript text + ids only, never a token.
+          if (body) {
+            try {
+              log.liveExchangePosts.push({ at: now(), body: JSON.parse(body) });
+            } catch {
+              /* ignore malformed bodies */
+            }
+          }
+          return jsonResponse({ accepted: true });
         }
         if (url.endsWith("/api/user")) return jsonResponse({ name: "Operator" });
         if (url.includes("/api/upcoming-moment")) return jsonResponse({ moment: null });
@@ -912,6 +927,50 @@ test("voice-loop live engine: one activation keeps the mic live with captions, b
     serverContent: { inputTranscription: { text: "Blended CAC is forty dollars." } },
   });
   await expect(page.getByText("Blended CAC is forty dollars.")).toBeVisible();
+
+  // ─── Persistence: nothing posted yet — the barge-in-interrupted turn
+  // never completed, and user finals alone never post ────────────────────
+  expect((await sparLog(page)).liveExchangePosts).toEqual([]);
+
+  // The panel's next answer completes cleanly: audio + caption + turnComplete.
+  const exchangeAudioBefore = (await sparLog(page)).playerStarted.length;
+  await sparControl(page, "liveFrame", {
+    serverContent: {
+      modelTurn: { parts: [{ inlineData: { mimeType: "audio/pcm;rate=24000", data: LIVE_PCM_BASE64 } }] },
+    },
+  });
+  await page.waitForFunction(
+    (count) => {
+      const spar = (window as unknown as { __spar?: SparPageState }).__spar;
+      return !!spar && spar.log.playerStarted.length > count;
+    },
+    exchangeAudioBefore,
+  );
+  await sparControl(page, "liveFrame", {
+    serverContent: { outputTranscription: { text: "Blended CAC is forty dollars. Payback is three months." } },
+  });
+  await expect(page.getByText("Blended CAC is forty dollars. Payback is three months.")).toBeVisible();
+  await sparControl(page, "liveFrame", { serverContent: { turnComplete: true } });
+
+  // Exactly one persistence POST for the completed exchange, carrying both
+  // user utterances (the interrupted exchange's answer is dropped) and the
+  // finalized assistant caption.
+  await page.waitForFunction(() => {
+    const spar = (window as unknown as { __spar?: SparPageState }).__spar;
+    return !!spar && spar.log.liveExchangePosts.length === 1;
+  });
+  const exchangeLog = await sparLog(page);
+  expect(exchangeLog.liveExchangePosts).toHaveLength(1);
+  expect(exchangeLog.liveExchangePosts[0].body).toEqual({
+    turnId: expect.stringMatching(/^sess-e2e-voice:/),
+    userTranscripts: ["Our churn is two percent.", "Blended CAC is forty dollars."],
+    assistantTranscript: "Blended CAC is forty dollars. Payback is three months.",
+  });
+  // A replayed turnComplete for the same (already finalized) turn must not
+  // produce a second POST.
+  await sparControl(page, "liveFrame", { serverContent: { turnComplete: true } });
+  await page.waitForTimeout(100);
+  expect((await sparLog(page)).liveExchangePosts).toHaveLength(1);
 
   // ─── No Groq/Deepgram request fired while live ───────────────────────
   const log = await sparLog(page);

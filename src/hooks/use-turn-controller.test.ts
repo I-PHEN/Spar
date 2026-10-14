@@ -288,20 +288,27 @@ describe("turn controller", () => {
   });
 });
 
+/** Live-engine controller harness: deterministic dependencies plus exchange-persistence recording. */
+function liveHarness(options: { persistError?: Error } = {}) {
+  const metrics: TurnMetricEvent[] = [];
+  const effects: string[] = [];
+  const exchanges: Array<{ turnId: string; userTranscripts: string[]; assistantTranscript: string }> = [];
+  const dependencies: TurnControllerDependencies = {
+    streamTurn: stream([]), beginSpeech: async () => {}, speakPhrase: () => {}, finishSpeech: () => {},
+    cancelGeneration: () => {}, invalidatePhraseQueue: () => {}, resetPhraseQueue: () => {}, stopAudio: () => {}, clearTts: () => {},
+    beginListening: turnId => { effects.push(`listen:${turnId}`); },
+    recordMetric: async metric => { metrics.push(metric); },
+    persistLiveExchange: async exchange => {
+      if (options.persistError) throw options.persistError;
+      exchanges.push(exchange);
+    },
+    now: () => 20,
+    createLifecycleId: () => "",
+  };
+  return { controller: createTurnController("room", "aura-2-thalia-en", dependencies), metrics, effects, exchanges };
+}
+
 describe("turn controller live engine wiring", () => {
-  function liveHarness() {
-    const metrics: TurnMetricEvent[] = [];
-    const effects: string[] = [];
-    const dependencies: TurnControllerDependencies = {
-      streamTurn: stream([]), beginSpeech: async () => {}, speakPhrase: () => {}, finishSpeech: () => {},
-      cancelGeneration: () => {}, invalidatePhraseQueue: () => {}, resetPhraseQueue: () => {}, stopAudio: () => {}, clearTts: () => {},
-      beginListening: turnId => { effects.push(`listen:${turnId}`); },
-      recordMetric: async metric => { metrics.push(metric); },
-      now: () => 20,
-      createLifecycleId: () => "",
-    };
-    return { controller: createTurnController("room", "aura-2-thalia-en", dependencies), metrics, effects };
-  }
 
   test("registerLiveTurn allocates a fresh machine turnId per AI utterance", () => {
     const h = liveHarness();
@@ -362,6 +369,128 @@ describe("turn controller live engine wiring", () => {
       { id: `user:${turnId}`, turnId, role: "user", content: "hello world" },
     ]);
     expect(h.controller.getSnapshot().transcriptPreview).toBe("hello world");
+  });
+});
+
+describe("turn controller live exchange persistence", () => {
+  test("a completed exchange posts exactly once with the paired halves", async () => {
+    const h = liveHarness();
+    h.controller.acceptLiveUserFinal("Our churn is two percent.");
+    const turnId = h.controller.registerLiveTurn();
+    h.controller.acceptLiveAssistantCaption(turnId, "Two percent is flat.");
+    h.controller.acceptLiveAssistantCaption(turnId, "Two percent is flat. What is the CAC?");
+    h.controller.completeLiveTurn(turnId);
+    h.controller.completeLiveTurn(turnId);
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+    expect(h.exchanges).toEqual([{
+      turnId,
+      userTranscripts: ["Our churn is two percent."],
+      assistantTranscript: "Two percent is flat. What is the CAC?",
+    }]);
+
+    // The next exchange pairs only its own user transcript — the previous
+    // one was consumed by its POST.
+    h.controller.acceptLiveUserFinal("Blended CAC is forty dollars.");
+    const next = h.controller.registerLiveTurn();
+    h.controller.acceptLiveAssistantCaption(next, "Payback is three months.");
+    h.controller.completeLiveTurn(next);
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+    expect(h.exchanges[1]).toEqual({
+      turnId: next,
+      userTranscripts: ["Blended CAC is forty dollars."],
+      assistantTranscript: "Payback is three months.",
+    });
+  });
+
+  test("an AI-only turn without a preceding user utterance posts nothing", async () => {
+    const h = liveHarness();
+    // The opening greeting: the model speaks first, no user final preceded it.
+    const turnId = h.controller.registerLiveTurn();
+    h.controller.acceptLiveAssistantCaption(turnId, "State your central claim.");
+    h.controller.completeLiveTurn(turnId);
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+    expect(h.exchanges).toEqual([]);
+  });
+
+  test("an audio-only answer posts nothing now and keeps the user utterance for the next exchange", async () => {
+    const h = liveHarness();
+    h.controller.acceptLiveUserFinal("the number");
+    const audioOnly = h.controller.registerLiveTurn();
+    h.controller.completeLiveTurn(audioOnly); // no output-transcript caption ever arrived
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+    expect(h.exchanges).toEqual([]);
+
+    h.controller.acceptLiveUserFinal("say it now");
+    const next = h.controller.registerLiveTurn();
+    h.controller.acceptLiveAssistantCaption(next, "Two percent.");
+    h.controller.completeLiveTurn(next);
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+    expect(h.exchanges).toEqual([{
+      turnId: next,
+      userTranscripts: ["the number", "say it now"],
+      assistantTranscript: "Two percent.",
+    }]);
+  });
+
+  test("an interrupted assistant turn posts nothing; the next completed exchange posts once with the unpaired utterances", async () => {
+    const h = liveHarness();
+    h.controller.acceptLiveUserFinal("Our churn is two percent.");
+    const interrupted = h.controller.registerLiveTurn();
+    h.controller.acceptLiveAssistantCaption(interrupted, "Two percent is fla");
+    h.controller.cancelLiveTurn(interrupted); // barge-in mid-answer
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+    expect(h.exchanges).toEqual([]);
+
+    // A turnComplete for the already-interrupted turn is ignored by the
+    // session (turnFinished); the controller stays deduped regardless.
+    h.controller.completeLiveTurn(interrupted);
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+    expect(h.exchanges).toEqual([]);
+
+    h.controller.acceptLiveUserFinal("Blended CAC is forty dollars.");
+    const completed = h.controller.registerLiveTurn();
+    h.controller.acceptLiveAssistantCaption(completed, "Forty dollars.");
+    h.controller.completeLiveTurn(completed);
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+    expect(h.exchanges).toEqual([{
+      turnId: completed,
+      userTranscripts: ["Our churn is two percent.", "Blended CAC is forty dollars."],
+      assistantTranscript: "Forty dollars.",
+    }]);
+  });
+
+  test("persistence failures are swallowed and never break the next exchange", async () => {
+    const h = liveHarness({ persistError: new Error("route down") });
+    h.controller.acceptLiveUserFinal("first question");
+    const turnId = h.controller.registerLiveTurn();
+    h.controller.acceptLiveAssistantCaption(turnId, "first answer");
+    h.controller.completeLiveTurn(turnId);
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+    expect(h.exchanges).toEqual([]);
+
+    const second = liveHarness();
+    second.controller.acceptLiveUserFinal("second question");
+    const next = second.controller.registerLiveTurn();
+    second.controller.acceptLiveAssistantCaption(next, "second answer");
+    second.controller.completeLiveTurn(next);
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+    expect(second.exchanges).toEqual([{
+      turnId: next,
+      userTranscripts: ["second question"],
+      assistantTranscript: "second answer",
+    }]);
+  });
+
+  test("stale completion events for a retired live turn never post", async () => {
+    const h = liveHarness();
+    h.controller.acceptLiveUserFinal("question");
+    const stale = h.controller.registerLiveTurn();
+    h.controller.acceptLiveAssistantCaption(stale, "answer");
+    const current = h.controller.registerLiveTurn(); // the machine moved on
+    h.controller.completeLiveTurn(stale); // stale turnId: ignored
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+    expect(h.exchanges).toEqual([]);
   });
 });
 
@@ -586,6 +715,71 @@ describe("turn controller composed live engine", () => {
       expect(micStops).toBe(1);
       updated = host.render(() => useTurnControllerForTest(options));
       expect(updated.isListening).toBe(false);
+
+      host.unmount();
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("a finalized live exchange posts fire-and-forget to the session live-exchange route", async () => {
+    const host = turnControllerHookHost();
+    const fallbackVoice: UseVoiceRecognitionResult = {
+      isSupported: true, isListening: false, interimTranscript: "", finalTranscript: "",
+      error: null, start() {}, stop() {}, reset() {},
+    };
+    const live = liveHookDouble();
+    const useTurnControllerForTest = createTurnControllerHook(
+      host.runtime,
+      createStreamingVoiceHook(host.runtime, () => fallbackVoice),
+      live.hook,
+    );
+    const postedExchanges: Array<{ url: string; body: unknown }> = [];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/live-exchange")) {
+        postedExchanges.push({ url, body: typeof init?.body === "string" ? JSON.parse(init.body) : null });
+        return Response.json({ accepted: true });
+      }
+      return Response.json({ ok: true });
+    }) as typeof fetch;
+
+    try {
+      const options = {
+        sessionId: "live-persist-room",
+        voiceModel: "aura-2-zeus-en",
+        voiceDependencies: {
+          createSttClient: () => ({ connect: () => Promise.resolve(), sendAudio: () => false, close() {} }),
+          createMicrophoneStream: () => ({ start: () => Promise.resolve(), stop() {} }),
+          setTimer: () => ({}),
+          clearTimer: () => {},
+        },
+        live: {
+          mode: "open_spar" as const,
+          persona: { archetype: "skeptic" as const, behaviorStyle: "moderate" as const },
+          scenarioLabel: "Seed round defense",
+          claims: [],
+          otherPanelists: [],
+        },
+      };
+      host.render(() => useTurnControllerForTest(options));
+      const wiring = live.wired();
+
+      wiring?.onUserFinal?.("Our churn is two percent.");
+      const turnId = wiring?.onRegisterTurn?.() ?? "";
+      wiring?.onAssistantCaption?.(turnId, "Two percent is flat. What is the CAC?");
+      wiring?.onCompleteTurn?.(turnId);
+      await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+      expect(postedExchanges).toEqual([{
+        url: "/api/sessions/live-persist-room/live-exchange",
+        body: {
+          turnId,
+          userTranscripts: ["Our churn is two percent."],
+          assistantTranscript: "Two percent is flat. What is the CAC?",
+        },
+      }]);
 
       host.unmount();
     } finally {

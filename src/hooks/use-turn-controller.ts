@@ -32,6 +32,18 @@ export interface TurnControllerSnapshot {
   assistantMetadata: TurnControllerMessage["metadata"] | null;
 }
 
+/**
+ * One finalized Gemini Live exchange, persisted fire-and-forget: the user
+ * transcript(s) finalized since the last exchange (interruptions mid-exchange
+ * can leave more than one unpaired utterance) and the assistant caption
+ * finalized on turn-complete.
+ */
+export interface LiveTurnExchange {
+  turnId: string;
+  userTranscripts: string[];
+  assistantTranscript: string;
+}
+
 export interface TurnControllerDependencies {
   streamTurn(request: LiveTurnRequest, signal: AbortSignal): AsyncIterable<LiveTurnEvent>;
   beginSpeech(turnId: string, model: string): Promise<void>;
@@ -44,6 +56,8 @@ export interface TurnControllerDependencies {
   clearTts(turnId: string): void;
   beginListening(turnId: string): void;
   recordMetric(metric: TurnMetricEvent): Promise<void>;
+  /** Fire-and-forget persistence of one finalized live exchange; failures are logged, never thrown. */
+  persistLiveExchange?(exchange: LiveTurnExchange): Promise<void>;
   now(): number;
   createLifecycleId?(): string;
 }
@@ -74,7 +88,17 @@ export class LiveTurnController {
   private cancelledTurns = new Set<string>();
   /** Live turns that received turn-complete; cleanup must not mark them cancelled. */
   private liveFinalizedTurns = new Set<string>();
+  /** Live turns cancelled by barge-in; an interrupted turn never persists. */
+  private cancelledLiveTurns = new Set<string>();
+  /** Live turns whose exchange was already handed to persistLiveExchange. */
+  private persistedLiveTurns = new Set<string>();
+  /** Finalized live user transcripts not yet carried by an exchange POST. */
+  private unpairedLiveUsers: Array<{ turnId: string; content: string }> = [];
+  /** The accumulated live caption, attributed to the turn it belongs to. */
+  private liveCaption: { turnId: string; text: string } | null = null;
   private metricWrites = Promise.resolve();
+  /** Serializes exchange POSTs so their messages persist in transcript order. */
+  private liveExchangeWrites = Promise.resolve();
 
   constructor(
     private readonly sessionId: string,
@@ -245,6 +269,9 @@ export class LiveTurnController {
 
   cancelLiveTurn(turnId: string): void {
     if (this.disposed || turnId !== this.turn.turnId) return;
+    // Barge-in ends the exchange: even a stray late turn-complete for this
+    // turn must never persist the partial caption.
+    this.cancelledLiveTurns.add(turnId);
     void this.dispatch({ type: "Cancel", turnId });
   }
 
@@ -252,6 +279,7 @@ export class LiveTurnController {
   completeLiveTurn(turnId: string): void {
     if (this.disposed || turnId !== this.turn.turnId) return;
     this.liveFinalizedTurns.add(turnId);
+    this.persistLiveExchange(turnId);
   }
 
   acceptLiveUserInterim(text: string): void {
@@ -263,6 +291,7 @@ export class LiveTurnController {
     if (this.disposed || !text.trim()) return;
     const turnId = this.turn.turnId;
     if (this.snapshot.messages.some(message => message.id === `user:${turnId}`)) return;
+    this.unpairedLiveUsers.push({ turnId, content: text.trim() });
     this.publish({ transcriptPreview: text, messages: [...this.snapshot.messages, {
       id: `user:${turnId}`, turnId, role: "user", content: text,
     }] });
@@ -270,7 +299,37 @@ export class LiveTurnController {
 
   acceptLiveAssistantCaption(turnId: string, text: string): void {
     if (this.disposed || turnId !== this.turn.turnId) return;
+    this.liveCaption = { turnId, text };
     this.publish({ assistantCaption: text });
+  }
+
+  /**
+   * Live rooms never POST /spar-stream (the Live socket owns generation), so
+   * the client — which holds both halves at finalize time — persists each
+   * finalized exchange fire-and-forget: exactly one POST per completed
+   * assistant turn, never awaited by the voice loop, failures logged and
+   * swallowed. AI-only turns (the opening greeting, continuations without
+   * user speech) have no preceding user utterance and post nothing, and a
+   * caption-less (audio-only) turn waits for the next exchange. An
+   * interrupted assistant turn never persists — the session drops its
+   * turn-complete after barge-in and a stray late one is discarded here —
+   * so its partial caption is dropped and the next exchange's single POST
+   * carries the unpaired user utterances alongside the completed answer.
+   */
+  private persistLiveExchange(turnId: string): void {
+    if (this.persistedLiveTurns.has(turnId) || this.cancelledLiveTurns.has(turnId)) return;
+    const caption = this.liveCaption;
+    if (!caption || caption.turnId !== turnId || !caption.text.trim()) return;
+    const userTranscripts = this.unpairedLiveUsers.slice(-8).map(entry => entry.content).filter(content => content.trim());
+    if (userTranscripts.length === 0) return;
+    const exchange: LiveTurnExchange = { turnId, userTranscripts, assistantTranscript: caption.text.trim() };
+    this.persistedLiveTurns.add(turnId);
+    this.unpairedLiveUsers = [];
+    const persist = this.dependencies.persistLiveExchange;
+    if (!persist) return;
+    this.liveExchangeWrites = this.liveExchangeWrites
+      .then(() => persist(exchange))
+      .catch(error => { console.warn("[turn-controller] live exchange persistence failed:", error); });
   }
 
   /** Live-engine metrics ride the same queueMetric path as browser milestones. */
@@ -543,6 +602,15 @@ export function createTurnControllerHook(
         clearTts: turnId => voiceRef.current.clearSpeechTts(turnId),
         beginListening: () => {},
         recordMetric: async metric => { await fetch("/api/turn-metrics", { method: "POST", credentials: "same-origin", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify(metric), keepalive: true }); },
+        // Fire-and-forget live exchange persistence: the controller swallows
+        // failures, so this only translates the exchange into a POST.
+        persistLiveExchange: async exchange => {
+          const response = await fetch(`/api/sessions/${encodeURIComponent(options.sessionId)}/live-exchange`, {
+            method: "POST", credentials: "same-origin", cache: "no-store",
+            headers: { "Content-Type": "application/json" }, body: JSON.stringify(exchange), keepalive: true,
+          });
+          if (!response.ok) throw new Error(`live-exchange responded ${response.status}`);
+        },
         now: () => performance.now(),
         createLifecycleId: () => crypto.randomUUID(),
       });
