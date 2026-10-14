@@ -71,7 +71,7 @@ DEEPGRAM_REGION="us"
 GEMINI_API_KEY="your-gemini-key"
 ```
 
-All provider keys stay server-side. The browser only ever receives short-lived Deepgram tokens minted by `POST /api/deepgram-token`; no durable key reaches client code, logs, or metrics. `DEEPGRAM_REGION` is the single region control: the token route returns it alongside each grant, so the browser's Flux STT and Aura-2 TTS sockets always connect to the same region the server uses and records in its turn metrics (there is no `NEXT_PUBLIC_` region override).
+All provider keys stay server-side. The browser only ever receives short-lived provider tokens — Deepgram tokens minted by `POST /api/deepgram-token` and a Gemini ephemeral token minted by `GET /api/gemini-live-token`; no durable key reaches client code, logs, or metrics. `DEEPGRAM_REGION` is the single region control: the token route returns it alongside each grant, so the browser's Flux STT and Aura-2 TTS sockets always connect to the same region the server uses and records in its turn metrics (there is no `NEXT_PUBLIC_` region override).
 
 **Deepgram token troubleshooting.** If the console shows `Configured Deepgram API key needs permission to grant temporary tokens`, your key's scopes do not allow minting temporary tokens. In the Deepgram console, edit the API key and enable the permission to grant short-lived credentials, then reload the room.
 

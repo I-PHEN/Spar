@@ -1149,3 +1149,16 @@ Stage Summary:
 - **Fallback behavior:** the ladder is gemini-live → cascade → (within the cascade) Web Speech / OpenRouter / browser speech synthesis as before. A 503 token route, a setup rejection (after the one Kore retry), socket exhaustion after 3 reconnects, or a mic failure hands the room to the cascade mid-session — `start()` never throws and no error surfaces to the user.
 - **Deferred (explicit):** Live tool calling (`mark_mood`, `challenge_claim`, `request_handoff`, `flag_interrupt`) — v2 after the engine proves itself; per-persona voice swapping across multi-panelist rooms (one socket = one voice); real-device Live latency benchmark (`firstLiveAudioMs` p50/p95) — opt-in, needs a real key and a speaking user.
 - Full verification green: `bun test`, `bun run test:e2e`, `bun run typecheck`, `bun run lint`, `bun run build`, `git diff --check`; secret scan clean.
+
+---
+Task ID: gemini-live-voice (final review fix wave)
+Agent: fix-wave implementer
+Task: Whole-branch review fixes — live exchange persistence, README token-claim correction, fallback-transition recorder
+
+Work Log:
+- Live exchange persistence: live rooms previously bypassed server-side persistence entirely (submitTurn → /spar-stream is unreachable in live mode), so the end-of-session debrief ran on an empty transcript. New `POST /api/sessions/[id]/live-exchange` appends each finalized exchange — the user transcript(s) since the last exchange plus the assistant caption finalized on `turn-complete` — using the exact /spar-stream message shapes (user 5 000 / persona 2 000, roles "user"/"persona", assistant attributed to the lead lowest-seat panelist derived server-side). The turn controller fires it fire-and-forget, once per completed assistant turn, serialized so messages land in transcript order; AI-only turns and caption-less (audio-only) turns post nothing, and a barge-in-interrupted turn never persists — its user utterance rides the next completed exchange's single POST. Failures are logged and swallowed; the voice loop never awaits them.
+- Fallback-transition recorder: `recordsTurnAudio` is evaluated at click time, when a live activation still reads "connecting" — on a 503 → fallback the cascade mic started with no recorder and every no-key deployment lost the first Q&A turn's clip. A room effect now starts the recorder when the engine transitions to "fallback" while the cascade mic listens (idempotent latch per activation; classic and presenting paths unchanged).
+- README: the security-claim line now names both short-lived browser tokens (Deepgram + Gemini ephemeral); the Live engine section documents per-exchange persistence.
+
+Stage Summary:
+- Live Q&A now reaches the debrief, drill stats, and pattern memory; no-key deployments keep the first turn's clip; the token security claim is accurate for both engines. Verification: `bun test`, `bun run test:e2e`, `bun run typecheck`, `bun run lint` all green.
