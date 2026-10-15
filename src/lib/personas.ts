@@ -6,7 +6,8 @@
 // spec (section 8.1 Persona Character Sheet Template).
 //
 // IMPORTANT: Per the brief's "Not Toyish" rules:
-//   - Default names are archetype names ("The Skeptic"), not whimsical ("Professor Aris")
+//   - Default names are locked FIRST names (Ada, Victor, Chiara, Marcus, Priya) —
+//     real-feeling people, still not whimsical titles ("Professor Aris")
 //   - No anime/cartoon avatars — we use initials + muted accent hues
 //   - Forbidden behaviors are enforced in the system prompt
 
@@ -39,7 +40,7 @@ export interface ArchetypeDefinition {
 export const ARCHETYPES: Record<ArchetypeKey, ArchetypeDefinition> = {
   skeptic: {
     key: "skeptic",
-    defaultName: "The Skeptic",
+    defaultName: "Ada",
     tagline: "Questions your core assumptions",
     lens: "Challenges the foundational premise of your argument",
     triggers: [
@@ -60,15 +61,15 @@ export const ARCHETYPES: Record<ArchetypeKey, ArchetypeDefinition> = {
       "If the user recovers well, acknowledge briefly then move on.",
       "Never accept a vague answer. Always push for specificity.",
     ],
-    initials: "SK",
+    initials: "A",
     accentHue: "oklch(0.68 0.13 250)", // primary blue family
     accentBorder: "border-l-blue-400",
     icon: "search",
   },
   nitpicker: {
     key: "nitpicker",
-    defaultName: "The Nitpicker",
-    tagline: "Dives into methodology and details",
+    defaultName: "Victor",
+    tagline: "Digs into your methods and details",
     lens: "Probes the rigor of your methods, sample sizes, and definitions",
     triggers: [
       "Methodology claims without specifics",
@@ -88,14 +89,14 @@ export const ARCHETYPES: Record<ArchetypeKey, ArchetypeDefinition> = {
       "If the user admits they don't know, accept it once, then move on.",
       "Never ask about impact or strategy — that's not your lane.",
     ],
-    initials: "NP",
+    initials: "V",
     accentHue: "oklch(0.70 0.10 60)", // muted amber
     accentBorder: "border-l-red-400",
     icon: "microscope",
   },
   so_what: {
     key: "so_what",
-    defaultName: "The So-What",
+    defaultName: "Chiara",
     tagline: "Challenges your impact and relevance",
     lens: "Questions whether any of this matters",
     triggers: [
@@ -116,15 +117,15 @@ export const ARCHETYPES: Record<ArchetypeKey, ArchetypeDefinition> = {
       "If the user gives a concrete stakeholder + concrete consequence, acknowledge and move on.",
       "Never probe methodology — that's the Nitpicker's lane.",
     ],
-    initials: "SW",
+    initials: "C",
     accentHue: "oklch(0.65 0.08 180)", // muted teal
     accentBorder: "border-l-amber-400",
     icon: "target",
   },
   timekeeper: {
     key: "timekeeper",
-    defaultName: "The Timekeeper",
-    tagline: "Cuts you off, forces concision",
+    defaultName: "Marcus",
+    tagline: "Pushes you to be concise",
     lens: "Forces brevity. Calls out rambling and hedging.",
     triggers: [
       "Responses longer than 60 words without a clear point",
@@ -144,15 +145,15 @@ export const ARCHETYPES: Record<ArchetypeKey, ArchetypeDefinition> = {
       "If the user gives a tight, direct answer, acknowledge ('Good. Next.') and move on.",
       "Never probe methodology or impact — your only job is concision.",
     ],
-    initials: "TK",
+    initials: "M",
     accentHue: "oklch(0.62 0.10 145)", // muted sage
     accentBorder: "border-l-emerald-400",
     icon: "timer",
   },
   ally: {
     key: "ally",
-    defaultName: "The Ally",
-    tagline: "Seems supportive but probes for weakness",
+    defaultName: "Priya",
+    tagline: "Supports, then finds the weak spot",
     lens: "Validates first, then challenges — catches you off guard",
     triggers: [
       "Confident claims the user seems proud of",
@@ -172,7 +173,7 @@ export const ARCHETYPES: Record<ArchetypeKey, ArchetypeDefinition> = {
       "If the user gives a strong defense, acknowledge it genuinely — then ask the next hard question.",
       "Never be sarcastic or fake-warm. Be direct in your support.",
     ],
-    initials: "AL",
+    initials: "P",
     accentHue: "oklch(0.65 0.12 15)", // muted rose
     accentBorder: "border-l-violet-400",
     icon: "handshake",
