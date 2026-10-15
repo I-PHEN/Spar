@@ -823,7 +823,7 @@ export function SparringRoom({
 
   // For Boardroom: the agitation engine runs DURING presenting (interrupts mid-speech).
   // For Defense: the agitation engine does NOT run during presenting (no interruptions).
-  // For Open Spar/Drill: runs during normal Q&A turns.
+  // For Q&A/Drill: runs during normal Q&A turns.
   const isBoardroomPresenting =
     experience === "boardroom" && isPresenting && !isProcessing;
   const agitationActive =
@@ -982,10 +982,8 @@ export function SparringRoom({
                 <PersonaCard
                   archetype={p.archetype}
                   name={p.name}
-                  behaviorStyle={p.behaviorStyle}
                   state={personaStates[p.id] || "idle"}
                   mood={personaMoods[p.id] || "neutral"}
-                  agitation={agitation[p.id] || 0}
                   variant="compact"
                 />
               </div>
@@ -1219,10 +1217,8 @@ export function SparringRoom({
               key={p.id}
               archetype={p.archetype}
               name={p.name}
-              behaviorStyle={p.behaviorStyle}
               state={personaStates[p.id] || "idle"}
               mood={personaMoods[p.id] || "neutral"}
-              agitation={agitation[p.id] || 0}
               variant="sidebar"
             />
           ))}

@@ -29,8 +29,7 @@ import {
 } from "@/components/ui/dialog";
 import { ARCHETYPE_LIST, ARCHETYPES } from "@/lib/personas";
 import {
-  EXPERIENCE_LIST,
-  EXPERIENCES,
+  VISIBLE_EXPERIENCE_LIST,
   DRILL_TARGETS,
   type ExperienceKey,
   type DrillTarget,
@@ -41,6 +40,12 @@ import type {
   PersonaConfig,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import {
+  addSeat,
+  defaultSeatsFor,
+  MAX_SEATS,
+  type PanelSeat,
+} from "./panel-seats";
 
 interface PracticeViewProps {
   onSessionCreated: (
@@ -54,13 +59,6 @@ interface PracticeViewProps {
 }
 
 // ─── Types ──────────────────────────────────────────────────────────────
-
-interface PanelSeat {
-  archetype: ArchetypeKey;
-  name: string;
-  intensity: 1 | 2 | 3;
-  filled: boolean;
-}
 
 const STEP_LABELS = ["Defend", "Experience", "Panel"];
 
@@ -90,7 +88,7 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
   const [hasMaterial, setHasMaterial] = useState(true);
 
   // Step 2 — Experience + Coaching
-  const [experience, setExperience] = useState<ExperienceKey>("defense");
+  const [experience, setExperience] = useState<ExperienceKey>("open_spar");
   const [drillTarget, setDrillTarget] = useState<DrillTarget>("hedging");
   const [customRoom, setCustomRoom] = useState("");
   const [coachingEnabled, setCoachingEnabled] = useState(true);
@@ -98,7 +96,7 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
 
   // Step 3 — Panel (derived from experience, user can override)
   const [seats, setSeats] = useState<PanelSeat[]>(
-    defaultSeatsForExperience("defense")
+    defaultSeatsFor("open_spar")
   );
   const [editingSeat, setEditingSeat] = useState<number | null>(null);
 
@@ -108,7 +106,7 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
   // When experience changes, reset the panel to the experience's default
   function selectExperience(key: ExperienceKey) {
     setExperience(key);
-    setSeats(defaultSeatsForExperience(key));
+    setSeats(defaultSeatsFor(key));
     // Clear custom room when switching (each experience has its own default)
     setCustomRoom("");
   }
@@ -581,7 +579,7 @@ function Step2Experience({
 
       {/* Experience cards */}
       <div className="space-y-2">
-        {EXPERIENCE_LIST.map((exp) => {
+        {VISIBLE_EXPERIENCE_LIST.map((exp) => {
           const isSelected = experience === exp.key;
           return (
             <div key={exp.key}>
@@ -761,6 +759,17 @@ function Step3Panel({
               onClick={() => onEditSeat(i)}
             />
           ))}
+          {seats.length < MAX_SEATS && (
+            <button
+              onClick={() => setSeats(addSeat(seats))}
+              className="flex w-[140px] sm:w-[160px] flex-col items-center justify-center rounded-md border border-dashed border-[#252525] py-8 transition-all hover:border-[#3a3a3a] hover:bg-[#0f0f0f]"
+            >
+              <span className="text-[10px] uppercase tracking-wider text-neutral-600 mb-1">
+                Add panelist
+              </span>
+              <span className="text-xs text-neutral-500">Up to {MAX_SEATS}</span>
+            </button>
+          )}
         </div>
 
         <p className="mt-4 text-center text-[11px] text-neutral-600">
@@ -922,7 +931,7 @@ function SeatEditor({
                       <Icon className="h-4 w-4 text-neutral-300" />
                     </div>
                     <p className="text-[11px] font-medium text-white leading-tight">
-                      {arch.defaultName.replace("The ", "")}
+                      {arch.defaultName}
                     </p>
                   </button>
                 );
@@ -1034,17 +1043,3 @@ function intensityToBehavior(intensity: 1 | 2 | 3): BehaviorStyle {
   return intensity === 1 ? "gentle" : intensity === 2 ? "moderate" : "aggressive";
 }
 
-function defaultSeatsForExperience(experience: ExperienceKey): PanelSeat[] {
-  const exp = EXPERIENCES[experience];
-  return exp.defaultPanel.map((p) => ({
-    archetype: p.archetype,
-    name: ARCHETYPES[p.archetype].defaultName,
-    intensity:
-      p.behaviorStyle === "gentle"
-        ? 1
-        : p.behaviorStyle === "moderate"
-        ? 2
-        : 3,
-    filled: true,
-  }));
-}

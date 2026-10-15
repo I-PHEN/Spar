@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getDefaultUserId } from "@/lib/user";
 import { extractClaims } from "@/lib/llm";
+import { ARCHETYPES } from "@/lib/personas";
 import type { ArchetypeKey, BehaviorStyle, ScenarioKey } from "@/lib/types";
 
 interface QuickSparBody {
@@ -28,8 +29,8 @@ const DEFAULT_QUICK_PANEL: Array<{
   name: string;
   behaviorStyle: BehaviorStyle;
 }> = [
-  { archetype: "skeptic", name: "The Skeptic", behaviorStyle: "moderate" },
-  { archetype: "so_what", name: "The So-What", behaviorStyle: "moderate" },
+  { archetype: "skeptic", name: ARCHETYPES.skeptic.defaultName, behaviorStyle: "moderate" },
+  { archetype: "so_what", name: ARCHETYPES.so_what.defaultName, behaviorStyle: "moderate" },
 ];
 
 export async function POST(req: NextRequest) {

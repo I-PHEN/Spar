@@ -330,7 +330,7 @@ export const architectureManifest: ArchitectureManifest = {
       id: "open_spar",
       summary: "The panel opens immediately and the user practices direct back-and-forth responses.",
       steps: [
-        { id: "configure", label: "Configure Open Spar", kind: "user" },
+        { id: "configure", label: "Configure Q&A", kind: "user" },
         { id: "panel-opens", label: "Panel opens the exchange", kind: "ai" },
         { id: "answer", label: "Answer the challenge", kind: "user" },
         { id: "challenge", label: "Receive the next challenge", kind: "ai" },
