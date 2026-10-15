@@ -1162,3 +1162,23 @@ Work Log:
 
 Stage Summary:
 - Live Q&A now reaches the debrief, drill stats, and pattern memory; no-key deployments keep the first turn's clip; the token security claim is accurate for both engines. Verification: `bun test`, `bun run test:e2e`, `bun run typecheck`, `bun run lint` all green.
+
+---
+Task ID: project2-mode-focus
+Agent: project 2 implementer (subagent-driven, tasks 1-6)
+Task: Project 2 — mode focus (Q&A + Drill visible), persona simplification (first names, one-line cards), panelist default 1 selectable up to 3
+
+Work Log:
+- Allowlist: `VISIBLE_EXPERIENCES` / `VISIBLE_EXPERIENCE_LIST` in src/lib/experiences.ts is the single source of truth for which modes the product UI lists (open_spar + drill, Q&A first). open_spar keeps its key but reads "Q&A" with the locked line "They ask. You answer. They push back." Defense/Boardroom definitions, contracts, prompts, and tests are untouched — hidden, not deleted; old sessions in those modes still open and debrief normally (no routing guard was added anywhere).
+- Practice screen: the picker filters through the allowlist; Q&A is the default selection; new pure module src/components/spar/panel-seats.ts (MAX_SEATS=3, defaultSeatsFor = the experience's lead panelist as the one filled seat, addSeat appends an unfilled seat up to the cap) replaces the old whole-defaultPanel seeding; Step 3 gains an "Add panelist" dashed card hidden at the cap; src/app/page.tsx defaults and the onboarding preparingMap land every choice on Q&A while Defense/Boardroom are hidden.
+- Personas: defaultNames Ada/Victor/Chiara/Marcus/Priya with initials A/V/C/M/P and the five locked one-liners (skeptic "Questions your core assumptions", nitpicker "Digs into your methods and details", so_what "Challenges your impact and relevance", timekeeper "Pushes you to be concise", ally "Supports, then finds the weak spot"); keys/lens/triggers/templates/forbidden unchanged; system prompts inherit the first names ("You are Ada, a Spar panelist."); the quick-session route derives panelist names from ARCHETYPES instead of hardcoding old display names.
+- Persona cards: name + one line + quiet status (Listening/Thinking/Speaking); behavior badge and 5-dot interrupt meter deleted from persona-card and its two sparring-room call sites; the agitation ENGINE still runs (interrupt firing + Boardroom live-pressure banner untouched); marketing mockup names updated to the first names.
+- Explorer + e2e: /architecture still documents all four experiences; only the open_spar display label synced to "Q&A" (experience-flows label map, manifest "Configure Q&A" step); e2e pins updated (architecture spec const, voice-loop picker click /^Q&A/i).
+- Tests: new pinning suites experiences.test.ts (allowlist + locked copy + hidden modes intact), panel-seats.test.ts (1 default, 3 max, lead panelist), practice-view.test.tsx (wiring), personas.test.ts (names/taglines/initials + prompt identity), persona-card.test.tsx (name + one line, no badge/meter).
+
+Stage Summary:
+- The product now shows exactly two modes — Q&A (primary) and Drill — with calm first-name persona cards and a one-panelist default (the lead, Ada) expandable to three; Defense/Boardroom are hidden from the picker but fully retained in code, and existing sessions in those modes open and debrief unchanged.
+- How to try it: start the dev server (`bun run dev`, port 3000) → practice screen: the picker shows Q&A (selected by default) and Drill; Step 3 shows one filled seat (Ada) and an "Add panelist" card up to three; personas show first names and one-liners with no meters.
+- Panelist selection persists via the existing SessionPersona rows (unchanged schema); multi-panelist prompt blocks and handoffs behave as before; single-panelist rooms omit them (already conditional).
+- Deferred (explicit): coupling the default drill panelist to DRILL_TARGETS.leadArchetype; re-introducing Defense/Boardroom; room/practice/home visual redesign (Projects 3-4).
+- Full verification green: bun test (509), test:e2e (3), typecheck, lint, build, git diff --check.
