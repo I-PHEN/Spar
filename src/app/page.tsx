@@ -23,7 +23,7 @@ export default function Page() {
   const [scenarioLabel, setScenarioLabel] = useState<string | undefined>();
   const [userName, setUserName] = useState<string>("there");
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
-  const [experience, setExperience] = useState<ExperienceKey>("defense");
+  const [experience, setExperience] = useState<ExperienceKey>("open_spar");
   const [drillTarget, setDrillTarget] = useState<DrillTarget | null>(null);
   const [coachingEnabled, setCoachingEnabled] = useState(true);
   const [coachingFocus, setCoachingFocus] = useState("");
@@ -136,13 +136,14 @@ export default function Page() {
     setUserName(data.name);
     setHasCompletedOnboarding(true);
 
-    // Map onboarding choices to experience defaults
+    // Map onboarding choices to experience defaults.
+    // Hidden Defense/Boardroom experiences map onto Q&A until they return to the UI.
     const preparingMap: Record<string, ExperienceKey> = {
-      thesis: "defense",
-      pitch: "defense",
-      board: "boardroom",
+      thesis: "open_spar",
+      pitch: "open_spar",
+      board: "open_spar",
       interview: "open_spar",
-      conference: "defense",
+      conference: "open_spar",
       custom: "open_spar",
     };
     const exp = preparingMap[data.preparingFor] || "open_spar";
