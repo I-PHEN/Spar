@@ -25,8 +25,6 @@ export default function Page() {
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [experience, setExperience] = useState<ExperienceKey>("open_spar");
   const [drillTarget, setDrillTarget] = useState<DrillTarget | null>(null);
-  const [coachingEnabled, setCoachingEnabled] = useState(true);
-  const [coachingFocus, setCoachingFocus] = useState("");
 
   // Load user name (for the dashboard after they enter)
   useEffect(() => {
@@ -86,15 +84,11 @@ export default function Page() {
   function handleSessionCreated(
     sessionId: string,
     exp: ExperienceKey,
-    target: DrillTarget | null,
-    coaching: boolean,
-    focus: string
+    target: DrillTarget | null
   ) {
     setActiveSessionId(sessionId);
     setExperience(exp);
     setDrillTarget(target);
-    setCoachingEnabled(coaching);
-    setCoachingFocus(focus);
     setView("sparring");
   }
 
@@ -149,17 +143,6 @@ export default function Page() {
     const exp = preparingMap[data.preparingFor] || "open_spar";
     setExperience(exp);
 
-    // Map focus area to coaching focus
-    const focusMap: Record<string, string> = {
-      confidence: "Building confidence under pressure",
-      hedging: "Reducing hedge words and qualifiers",
-      concision: "Being more concise and direct",
-      evidence: "Grounding claims in specific evidence",
-      recovery: "Improving recovery speed after interruptions",
-      unsure: "",
-    };
-    setCoachingFocus(focusMap[data.focusArea] || "");
-
     // After onboarding, go to Home (the dashboard)
     setView("home");
   }
@@ -173,8 +156,6 @@ export default function Page() {
         onExit={handleBackHome}
         experience={experience}
         drillTarget={drillTarget}
-        coachingEnabled={coachingEnabled}
-        coachingFocus={coachingFocus}
       />
     );
   }

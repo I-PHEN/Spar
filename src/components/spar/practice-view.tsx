@@ -51,9 +51,7 @@ interface PracticeViewProps {
   onSessionCreated: (
     sessionId: string,
     experience: ExperienceKey,
-    drillTarget: DrillTarget | null,
-    coachingEnabled: boolean,
-    coachingFocus: string
+    drillTarget: DrillTarget | null
   ) => void;
   onCancel: () => void;
 }
@@ -87,12 +85,10 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
   const [topic, setTopic] = useState("");
   const [hasMaterial, setHasMaterial] = useState(true);
 
-  // Step 2 — Experience + Coaching
+  // Step 2 — Experience
   const [experience, setExperience] = useState<ExperienceKey>("open_spar");
   const [drillTarget, setDrillTarget] = useState<DrillTarget>("hedging");
   const [customRoom, setCustomRoom] = useState("");
-  const [coachingEnabled, setCoachingEnabled] = useState(true);
-  const [coachingFocus, setCoachingFocus] = useState("");
 
   // Step 3 — Panel (derived from experience, user can override)
   const [seats, setSeats] = useState<PanelSeat[]>(
@@ -173,8 +169,6 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
       const body = {
         experience,
         drillTarget: experience === "drill" ? drillTarget : null,
-        coachingEnabled,
-        coachingFocus: coachingFocus.trim() || null,
         mode: hasMaterial ? "with_material" : "without_material",
         rawMaterial: hasMaterial ? material.trim() : topic.trim() || undefined,
         materialTitle: hasMaterial
@@ -197,9 +191,7 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
       onSessionCreated(
         data.session.id,
         experience,
-        experience === "drill" ? drillTarget : null,
-        coachingEnabled,
-        coachingFocus.trim()
+        experience === "drill" ? drillTarget : null
       );
     } catch (e) {
       setError(String(e));
@@ -296,10 +288,6 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
             setDrillTarget={setDrillTarget}
             customRoom={customRoom}
             setCustomRoom={setCustomRoom}
-            coachingEnabled={coachingEnabled}
-            setCoachingEnabled={setCoachingEnabled}
-            coachingFocus={coachingFocus}
-            setCoachingFocus={setCoachingFocus}
           />
         )}
         {currentStep === 2 && (
@@ -548,7 +536,7 @@ function Step1Material({
   );
 }
 
-// ─── Step 2: Experience + Coaching ──────────────────────────────────────
+// ─── Step 2: Experience ─────────────────────────────────────────────────
 
 function Step2Experience({
   experience,
@@ -557,10 +545,6 @@ function Step2Experience({
   setDrillTarget,
   customRoom,
   setCustomRoom,
-  coachingEnabled,
-  setCoachingEnabled,
-  coachingFocus,
-  setCoachingFocus,
 }: {
   experience: ExperienceKey;
   selectExperience: (key: ExperienceKey) => void;
@@ -568,10 +552,6 @@ function Step2Experience({
   setDrillTarget: (t: DrillTarget) => void;
   customRoom: string;
   setCustomRoom: (s: string) => void;
-  coachingEnabled: boolean;
-  setCoachingEnabled: (v: boolean) => void;
-  coachingFocus: string;
-  setCoachingFocus: (s: string) => void;
 }) {
   return (
     <div>
@@ -667,54 +647,6 @@ function Step2Experience({
         />
       </div>
 
-      {/* Coaching toggle */}
-      <div className="mt-6 rounded-md border border-[#1a1a1a] bg-[#0f0f0f] p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <p className="text-sm font-medium text-white">Real-time coaching</p>
-            <p className="text-[11px] text-neutral-500 mt-0.5">
-              Your coach is present in the room and gives you a read before Q&A.
-            </p>
-          </div>
-          <button
-            onClick={() => setCoachingEnabled(!coachingEnabled)}
-            className={cn(
-              "relative h-6 w-11 rounded-full transition-colors flex-shrink-0",
-              coachingEnabled ? "bg-neutral-100" : "bg-neutral-700"
-            )}
-            aria-label="Toggle coaching"
-          >
-            <span
-              className={cn(
-                "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-[#0a0a0a] transition-transform",
-                coachingEnabled && "translate-x-5"
-              )}
-            />
-          </button>
-        </div>
-
-        {/* Coaching focus — only when coaching is enabled */}
-        {coachingEnabled && (
-          <div className="mt-3 space-y-1.5">
-            <Label
-              htmlFor="coaching-focus"
-              className="text-[10px] uppercase tracking-wider text-neutral-500"
-            >
-              Focus (optional)
-            </Label>
-            <Input
-              id="coaching-focus"
-              value={coachingFocus}
-              onChange={(e) => setCoachingFocus(e.target.value)}
-              placeholder="e.g., I'm working on not hedging when challenged on financials."
-              className="bg-[#0a0a0a] border-[#202020] text-white placeholder:text-neutral-600 focus:border-[#3a3a3a] focus-visible:ring-0 rounded-md text-sm"
-            />
-            <p className="text-[10px] text-neutral-600">
-              The coach prioritizes this focus during the session and debrief.
-            </p>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

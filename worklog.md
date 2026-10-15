@@ -1182,3 +1182,17 @@ Stage Summary:
 - Panelist selection persists via the existing SessionPersona rows (unchanged schema); multi-panelist prompt blocks and handoffs behave as before; single-panelist rooms omit them (already conditional).
 - Deferred (explicit): coupling the default drill panelist to DRILL_TARGETS.leadArchetype; re-introducing Defense/Boardroom; room/practice/home visual redesign (Projects 3-4).
 - Full verification green: bun test (509), test:e2e (3), typecheck, lint, build, git diff --check.
+
+---
+Task ID: coaching-toggle-removal
+Agent: main (direct pre-Project 3 cleanup)
+Task: Remove the no-op coaching toggle + focus input from the practice screen
+
+Work Log:
+- Finding: with Q&A + Drill the only visible modes, `coachingEnabled` gated nothing a user could perceive — the presentation-phase coach analysis it controls only runs in hidden Defense/Boardroom sessions; the session-cache copy had no reader; the SparringRoom prop was never used; the debrief generates unconditionally. The Focus input promised debrief prioritization, but `coachingFocus` never reached `generateDebrief` for visible modes.
+- Removed from the UI: the "Real-time coaching" toggle card + Focus input (practice-view Step 2), the coachingEnabled/coachingFocus state and onSessionCreated params (practice-view + page.tsx), the dead SparringRoom props, and page.tsx's onboarding focus-to-coachingFocus mapping. Session creation POSTs without the fields; the API keeps defaulting coachingEnabled=true so hidden-mode presentation analysis still works when Defense/Boardroom return.
+- Untouched: schema columns, API routes, /present coach analysis, debrief generation, the room's "I need a moment" coach whisper (room-side coach presence is a Project 3 design decision), hidden-mode behavior.
+- Focus returns properly in Project 5 (course lessons launch rooms with a focus); the plumbing needed then is passing session.coachingFocus into generateDebrief.
+
+Stage Summary:
+- Configure screen Step 2 is now just the experience picker + drill target + optional room description — no placebo controls. Verification: bun test (509), test:e2e (3), typecheck, scoped lint all green.

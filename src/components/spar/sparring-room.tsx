@@ -76,8 +76,6 @@ interface SparringRoomProps {
   onExit: () => void;
   experience?: ExperienceKey;
   drillTarget?: DrillTarget | null;
-  coachingEnabled?: boolean;
-  coachingFocus?: string;
 }
 
 interface SessionPersona {
@@ -134,8 +132,6 @@ export function SparringRoom({
   onExit,
   experience = "open_spar",
   drillTarget = null,
-  coachingEnabled = true,
-  coachingFocus = "",
 }: SparringRoomProps) {
   const [personas, setPersonas] = useState<SessionPersona[]>([]);
   const [claims, setClaims] = useState<ExtractedClaim[]>([]);
