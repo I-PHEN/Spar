@@ -10,6 +10,9 @@
 //   boardroom  — Present with mid-speech interruption (hostile rooms)
 //   open_spar  — Instant back-and-forth, no presentation (interviews, topic exploration)
 //   drill      — Targeted weakness, immediate interrupts (breaking a habit)
+//
+// Defense and Boardroom are hidden from the product UI (see VISIBLE_EXPERIENCES)
+// but retained in code: existing sessions in those modes still open.
 
 import type { ArchetypeKey, BehaviorStyle } from "./types";
 
@@ -73,10 +76,9 @@ export const EXPERIENCES: Record<ExperienceKey, ExperienceDefinition> = {
   },
   open_spar: {
     key: "open_spar",
-    label: "Open Spar",
-    tagline: "Instant back-and-forth. No presentation.",
-    description:
-      "The panel asks, you answer, back and forth. No presentation phase. For topic exploration, interview prep, practicing arguments.",
+    label: "Q&A",
+    tagline: "They ask. You answer. They push back.",
+    description: "They ask. You answer. They push back.",
     openingPrompt: "The panel is ready. They'll open.",
     roomContext:
       "An open sparring session. The panel asks questions and the user answers. No presentation phase — direct back-and-forth.",
@@ -104,6 +106,16 @@ export const EXPERIENCES: Record<ExperienceKey, ExperienceDefinition> = {
 };
 
 export const EXPERIENCE_LIST = Object.values(EXPERIENCES);
+
+/** Modes reachable in the product UI, in display order (Q&A is primary). */
+export const VISIBLE_EXPERIENCES: readonly ExperienceKey[] = [
+  "open_spar",
+  "drill",
+];
+
+export const VISIBLE_EXPERIENCE_LIST = VISIBLE_EXPERIENCES.map(
+  (key) => EXPERIENCES[key],
+);
 
 export const DRILL_TARGETS: Array<{
   id: DrillTarget;

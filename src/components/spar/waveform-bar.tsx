@@ -4,7 +4,7 @@
  * Subtle waveform bar — thin bars that move with voice amplitude.
  *
  * Shows alongside a "Listening" indicator in the bottom bar.
- * Works across ALL modes (Defense, Boardroom, Open Spar, Drill).
+ * Works across ALL modes (Defense, Boardroom, Q&A, Drill).
  */
 export function WaveformBar({ amplitude }: { amplitude: number }) {
   // 14 bars for a fuller waveform feel

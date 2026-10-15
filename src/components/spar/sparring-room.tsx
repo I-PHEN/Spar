@@ -823,7 +823,7 @@ export function SparringRoom({
 
   // For Boardroom: the agitation engine runs DURING presenting (interrupts mid-speech).
   // For Defense: the agitation engine does NOT run during presenting (no interruptions).
-  // For Open Spar/Drill: runs during normal Q&A turns.
+  // For Q&A/Drill: runs during normal Q&A turns.
   const isBoardroomPresenting =
     experience === "boardroom" && isPresenting && !isProcessing;
   const agitationActive =
