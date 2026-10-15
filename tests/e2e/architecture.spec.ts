@@ -20,7 +20,7 @@ const TABS = [
 const EXPERIENCES = [
   { label: "Defense", id: "defense" },
   { label: "Boardroom", id: "boardroom" },
-  { label: "Open Spar", id: "open_spar" },
+  { label: "Q&A", id: "open_spar" },
   { label: "Drill", id: "drill" },
 ] as const;
 

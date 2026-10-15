@@ -16,7 +16,7 @@ const SHARED_LIFECYCLE = [
 const EXPERIENCE_LABELS: Record<ExperienceFlow["id"], string> = {
   defense: "Defense",
   boardroom: "Boardroom",
-  open_spar: "Open Spar",
+  open_spar: "Q&A",
   drill: "Drill",
 };
 
