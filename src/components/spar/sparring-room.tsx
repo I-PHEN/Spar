@@ -982,10 +982,8 @@ export function SparringRoom({
                 <PersonaCard
                   archetype={p.archetype}
                   name={p.name}
-                  behaviorStyle={p.behaviorStyle}
                   state={personaStates[p.id] || "idle"}
                   mood={personaMoods[p.id] || "neutral"}
-                  agitation={agitation[p.id] || 0}
                   variant="compact"
                 />
               </div>
@@ -1219,10 +1217,8 @@ export function SparringRoom({
               key={p.id}
               archetype={p.archetype}
               name={p.name}
-              behaviorStyle={p.behaviorStyle}
               state={personaStates[p.id] || "idle"}
               mood={personaMoods[p.id] || "neutral"}
-              agitation={agitation[p.id] || 0}
               variant="sidebar"
             />
           ))}

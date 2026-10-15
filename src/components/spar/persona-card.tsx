@@ -1,18 +1,15 @@
 "use client";
 
 import { ARCHETYPES } from "@/lib/personas";
-import type { ArchetypeKey, BehaviorStyle, PersonaMood } from "@/lib/types";
+import type { ArchetypeKey, PersonaMood } from "@/lib/types";
 import { PersonaAvatar } from "./persona-avatar";
 import { cn } from "@/lib/utils";
 
 interface PersonaCardProps {
   archetype: ArchetypeKey;
   name: string;
-  behaviorStyle: BehaviorStyle;
   state: "idle" | "listening" | "thinking" | "speaking" | "about-to-interrupt";
   mood: PersonaMood;
-  /** Agitation score (0-100). Higher = closer to interrupting. */
-  agitation?: number;
   /** Sidebar mode (vertical, full) vs compact (mobile horizontal) */
   variant?: "sidebar" | "compact";
 }
@@ -29,12 +26,6 @@ const MOOD_LABELS: Record<PersonaMood, { label: string }> = {
   frustrated: { label: "Pressing harder" },
 };
 
-const BEHAVIOR_LABELS: Record<BehaviorStyle, string> = {
-  gentle: "Gentle",
-  moderate: "Moderate",
-  aggressive: "Aggressive",
-};
-
 /**
  * Persona card — redesigned for the sidebar layout.
  *
@@ -42,16 +33,13 @@ const BEHAVIOR_LABELS: Record<BehaviorStyle, string> = {
  *   - Full names (no truncation — allow wrap)
  *   - Accent left border when speaking (per archetype: blue/amber/red/emerald/violet)
  *   - Card scales up slightly when active
- *   - Interrupt meter (5 dots that fill as the user speaks)
  *   - Status dot: listening=gray, thinking=amber+pulse, speaking=white+glow
  */
 export function PersonaCard({
   archetype,
   name,
-  behaviorStyle,
   state,
   mood,
-  agitation = 0,
   variant = "sidebar",
 }: PersonaCardProps) {
   const def = ARCHETYPES[archetype];
@@ -95,9 +83,6 @@ export function PersonaCard({
             )}
           </div>
         </div>
-        <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border border-white/10 text-neutral-400 flex-shrink-0">
-          {BEHAVIOR_LABELS[behaviorStyle]}
-        </span>
       </div>
 
       {/* Status line */}
@@ -127,30 +112,6 @@ export function PersonaCard({
         )}
       </div>
 
-      {/* Interrupt meter — 5 dots, fills as agitation builds toward 100 */}
-      {!isCompact && (
-        <div className="flex gap-1 mt-3">
-          {[0, 1, 2, 3, 4].map((i) => {
-            // Each dot = 20 agitation points. 5 dots = 100 = interrupt.
-            const dotThreshold = (i + 1) * 20;
-            const filled = agitation >= dotThreshold;
-            const warning = filled && agitation >= 80;
-            return (
-              <div
-                key={i}
-                className={cn(
-                  "h-1 flex-1 rounded-full transition-colors duration-500",
-                  filled
-                    ? warning
-                      ? "bg-amber-400"
-                      : "bg-white"
-                    : "bg-neutral-800"
-                )}
-              />
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }

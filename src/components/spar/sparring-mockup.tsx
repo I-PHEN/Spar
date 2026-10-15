@@ -167,7 +167,7 @@ export function SparringMockup() {
             <div className="flex-1">
               <div className="mb-1 flex items-center gap-1.5">
                 <span className="text-[10px] font-medium text-neutral-300">
-                  The Skeptic
+                  Ada
                 </span>
                 {phase >= PHASES.SKEPTIC_SPEAKING && (
                   <span className="flex items-center gap-0.5 text-[8px] uppercase tracking-wider text-neutral-400">
@@ -231,17 +231,17 @@ export function SparringMockup() {
           <div className="space-y-2">
             <MockupPersonaCard
               icon={<Search className="h-3 w-3" />}
-              name="Skeptic"
+              name="Ada"
               state={skepticState}
             />
             <MockupPersonaCard
               icon={<Microscope className="h-3 w-3" />}
-              name="Nitpicker"
+              name="Victor"
               state={nitpickerState}
             />
             <MockupPersonaCard
               icon={<Target className="h-3 w-3" />}
-              name="So-What"
+              name="Chiara"
               state={sowhatState}
             />
           </div>
