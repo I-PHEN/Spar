@@ -26,6 +26,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { PersonaCard } from "./persona-card";
 import { WaveformBar } from "./waveform-bar";
+import {
+  engineStatusLabel,
+  liveOwnsControls,
+  recordsTurnAudio,
+  startsRecorderOnFallback,
+  liveUserInterimCaption,
+  type EngineStatusLabel,
+} from "./room-state";
 import { useVoiceRecognition, playBase64Audio } from "@/hooks/use-voice";
 import { useTurnController, type UseTurnControllerResult } from "@/hooks/use-turn-controller";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
@@ -1301,81 +1309,16 @@ export function SparringRoom({
 // record that its one-activation Live session is running — the hook-level
 // status alone can read "live" after a stop() and must not drive the UI.
 
-export type EngineStatusLabel = "Live" | "Classic" | "Connecting";
-
-/** Quiet chip text naming the engine that owns the room right now. */
-export function engineStatusLabel(
-  liveSessionActive: boolean,
-  status: UseTurnControllerResult["liveEngineStatus"],
-): EngineStatusLabel {
-  // Not activated yet, stopped, or laddered down: the cascade owns the room.
-  if (!liveSessionActive || status === "fallback") return "Classic";
-  return status === "live" ? "Live" : "Connecting";
-}
-
-/** Whether the live engine's one-activation mic owns the room controls. */
-export function liveOwnsControls(
-  liveSessionActive: boolean,
-  status: UseTurnControllerResult["liveEngineStatus"],
-): boolean {
-  // The connecting window already counts: the user has activated once and
-  // must not be handed a second click flow mid-handshake.
-  return liveSessionActive && status !== "fallback";
-}
-
-/**
- * Whether this mic activation should record a debrief audio clip. The
- * debrief segments per classic turn; a live-engine session is one
- * continuous capture it cannot segment, so those activations are skipped.
- * Presenting (classic recognizer) and post-fallback activations record
- * exactly as before.
- */
-export function recordsTurnAudio(
-  isPresenting: boolean,
-  liveConfigured: boolean,
-  status: UseTurnControllerResult["liveEngineStatus"],
-): boolean {
-  if (isPresenting || !liveConfigured) return true;
-  return status === "fallback";
-}
-
-/**
- * Whether the live→cascade fallback transition should start the debrief
- * recorder itself. A live activation clicks while the engine still reads
- * "connecting", so recordsTurnAudio is false at click time; when the engine
- * then ladders down (e.g. a 503 from the token route on a no-key
- * deployment) the cascade mic starts without a click, and the first classic
- * turn's clip would be lost. The transition starts the recorder — exactly
- * once per activation (the alreadyStarted latch), never while the recorder
- * is already running, and only while a live-configured room's activation
- * still governs it. Classic rooms, presenting, and live-owned activations
- * are unchanged: their click-time recordsTurnAudio path already decides.
- */
-export function startsRecorderOnFallback(input: {
-  liveConfigured: boolean;
-  liveSessionActive: boolean;
-  status: UseTurnControllerResult["liveEngineStatus"];
-  cascadeListening: boolean;
-  recorderReady: boolean;
-  alreadyStarted: boolean;
-}): boolean {
-  if (!input.liveConfigured || !input.liveSessionActive || input.alreadyStarted) return false;
-  return input.status === "fallback" && input.cascadeListening && input.recorderReady;
-}
-
-/**
- * The interim user speech to show as the live "Speaking…" caption. The live
- * engine publishes it as the controller's transcript preview; classic rooms
- * never read it (their interim caption comes from the recognizer), and a
- * leftover preview must not bleed into a room the cascade owns.
- */
-export function liveUserInterimCaption(
-  liveSessionActive: boolean,
-  status: UseTurnControllerResult["liveEngineStatus"],
-  transcriptPreview: string,
-): string {
-  return liveOwnsControls(liveSessionActive, status) ? transcriptPreview : "";
-}
+// The engine helpers (engineStatusLabel, liveOwnsControls, recordsTurnAudio,
+// startsRecorderOnFallback, liveUserInterimCaption) now live in ./room-state
+// and are re-exported here for the pinned test surface.
+export {
+  engineStatusLabel,
+  liveOwnsControls,
+  recordsTurnAudio,
+  startsRecorderOnFallback,
+  liveUserInterimCaption,
+} from "./room-state";
 
 /** Small quiet status chip: which voice engine is running the room. */
 export function EngineStatusChip({ label }: { label: EngineStatusLabel }) {
