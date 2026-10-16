@@ -247,7 +247,7 @@ export const architectureManifest: ArchitectureManifest = {
       purpose: "Derives communication signals from each user turn and aggregates them for live and post-session coaching.",
       inputs: ["User transcript text", "Response timing", "Question context"],
       outputs: ["Turn telemetry", "Aggregate telemetry snapshot"],
-      files: ["src/lib/telemetry.ts", "src/components/spar/telemetry-bar.tsx"],
+      files: ["src/lib/telemetry.ts"],
       failure: "Coaching metrics are missing or inaccurate, while the basic conversation can still continue.",
     },
     {

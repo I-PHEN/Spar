@@ -184,35 +184,12 @@
 .spar-thinking-dot:nth-child(2) { animation-delay: 0.2s; }
 .spar-thinking-dot:nth-child(3) { animation-delay: 0.4s; }
 
-@keyframes spar-interrupt {
-  0% { transform: translateX(-12px); opacity: 0; }
-  100% { transform: translateX(0); opacity: 1; }
-}
-.spar-interrupt-in {
-  animation: spar-interrupt 0.35s ease-out;
-}
-
 @keyframes spar-fade-up {
   0% { transform: translateY(6px); opacity: 0; }
   100% { transform: translateY(0); opacity: 1; }
 }
 .spar-fade-up {
   animation: spar-fade-up 0.3s ease-out;
-}
-
-@keyframes spar-caret {
-  0%, 50% { opacity: 1; }
-  50.01%, 100% { opacity: 0; }
-}
-.spar-caret::after {
-  content: '';
-  display: inline-block;
-  width: 0.5em;
-  height: 1.1em;
-  background: oklch(0.97 0 0);
-  margin-left: 2px;
-  vertical-align: text-bottom;
-  animation: spar-caret 1s steps(1) infinite;
 }
 
 /* (spar-ready-glow removed — buttons should just be white, no breathing animation) */

@@ -6,7 +6,6 @@ import {
   Mic,
   Square,
   Loader2,
-  ChevronLeft,
   Clock,
   AlertCircle,
   Hand,
@@ -26,7 +25,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { PersonaCard } from "./persona-card";
-import { TelemetryBar } from "./telemetry-bar";
 import { WaveformBar } from "./waveform-bar";
 import { useVoiceRecognition, playBase64Audio } from "@/hooks/use-voice";
 import { useTurnController, type UseTurnControllerResult } from "@/hooks/use-turn-controller";
@@ -34,8 +32,7 @@ import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { useAgitationEngine, type CoachingMode, type DrillTarget } from "@/hooks/use-agitation";
 import { playActivationClick, useWaveformAmplitude } from "@/hooks/use-sound";
 import { SCENARIOS } from "@/lib/scenarios";
-import { EXPERIENCES, type ExperienceKey } from "@/lib/experiences";
-import { quickStats } from "@/lib/telemetry";
+import type { ExperienceKey } from "@/lib/experiences";
 import type {
   ArchetypeKey,
   BehaviorStyle,
@@ -107,25 +104,6 @@ interface CaptionEntry {
   createdAt: number;
 }
 
-interface SparResponse {
-  isUserTurn: boolean;
-  nextPersonaId: string | null;
-  personaResponse: {
-    id: string;
-    personaId: string;
-    personaName: string;
-    archetype: ArchetypeKey;
-    behaviorStyle: BehaviorStyle;
-    seatOrder: number;
-    content: string;
-    type: MessageType;
-    claimRef: number | null;
-    mood: PersonaMood;
-    audio: string | null;
-    createdAt: string;
-  } | null;
-}
-
 export function SparringRoom({
   sessionId,
   onSessionEnded,
@@ -176,7 +154,6 @@ export function SparringRoom({
   const [ending, setEnding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showEndDialog, setShowEndDialog] = useState(false);
-  const [showClaimsPanel, setShowClaimsPanel] = useState(false);
   const [sessionStart] = useState(Date.now());
   const [elapsedSec, setElapsedSec] = useState(0);
 
@@ -218,9 +195,6 @@ export function SparringRoom({
   const messageIndexRef = useRef(0);
   const [isUserTurn, setIsUserTurn] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [liveWords, setLiveWords] = useState(0);
-  const [liveHedges, setLiveHedges] = useState(0);
-  const [liveHasEvidence, setLiveHasEvidence] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
 
   // Live engine (Gemini Live): the room tracks whether its one-activation mic
@@ -253,15 +227,6 @@ export function SparringRoom({
   useEffect(() => {
     captionsEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [captions]);
-
-  // Live telemetry as user speaks
-  useEffect(() => {
-    const fullText = voice.finalTranscript + voice.interimTranscript;
-    const s = quickStats(fullText);
-    setLiveWords(s.words);
-    setLiveHedges(s.hedges);
-    setLiveHasEvidence(s.hasEvidence);
-  }, [voice.finalTranscript, voice.interimTranscript]);
 
   // Show live interim transcript as a caption. Whichever engine owns the
   // room drives it: the classic recognizer's interim transcript while it
