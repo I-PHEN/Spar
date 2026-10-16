@@ -24,7 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { PersonaCard } from "./persona-card";
+import { PanelistPresence } from "./panelist-presence";
 import { WaveformBar } from "./waveform-bar";
 import {
   engineStatusLabel,
@@ -33,7 +33,9 @@ import {
   startsRecorderOnFallback,
   liveUserInterimCaption,
   type EngineStatusLabel,
+  type PresenceState,
 } from "./room-state";
+import { ARCHETYPES } from "@/lib/personas";
 import { useVoiceRecognition, playBase64Audio } from "@/hooks/use-voice";
 import { useTurnController, type UseTurnControllerResult } from "@/hooks/use-turn-controller";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
@@ -157,7 +159,6 @@ export function SparringRoom({
   const [drillAttempts, setDrillAttempts] = useState(0);
   const [connectionError, setConnectionError] = useState(false);
   const [personaStates, setPersonaStates] = useState<Record<string, PersonaState>>({});
-  const [personaMoods, setPersonaMoods] = useState<Record<string, PersonaMood>>({});
   const [loading, setLoading] = useState(true);
   const [ending, setEnding] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -358,9 +359,6 @@ export function SparringRoom({
     }
     const personaId = turnController.activePersona?.id;
     if (personaId) setPersonaStates((previous) => ({ ...previous, [personaId]: turnController.turn.status === "speaking" ? "speaking" : busy ? "thinking" : "listening" }));
-    if (personaId && turnController.assistantMetadata?.mood) {
-      setPersonaMoods((previous) => ({ ...previous, [personaId]: turnController.assistantMetadata!.mood as PersonaMood }));
-    }
   }, [isPresenting, turnController.turn.status, turnController.error, turnController.activePersona, turnController.assistantMetadata]);
 
   // Initial load: fetch session + open
@@ -391,13 +389,10 @@ export function SparringRoom({
         setRoomContext(roomContext);
 
         const states: Record<string, PersonaState> = {};
-        const moods: Record<string, PersonaMood> = {};
         for (const p of session.personas) {
           states[p.id] = "listening";
-          moods[p.id] = "listening";
         }
         setPersonaStates(states);
-        setPersonaMoods(moods);
 
         // Open the session — panel speaks first
         const oRes = await fetch(`/api/sessions/${sessionId}/open`, {
@@ -443,7 +438,6 @@ export function SparringRoom({
           const m = oData.message;
           // Mark the speaking persona
           setPersonaStates((prev) => ({ ...prev, [m.personaId]: "speaking" }));
-          setPersonaMoods((prev) => ({ ...prev, [m.personaId]: m.mood }));
 
           setCaptions([
             {
@@ -938,26 +932,19 @@ export function SparringRoom({
 
       {/* Body — stacked on mobile, 2-column on desktop */}
       <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
-        {/* Mobile panel — horizontal scroll (below lg, stacks on top) */}
+        {/* Mobile panel — presence strip (below lg, stacks on top) */}
         <div
           className="lg:hidden flex-shrink-0 border-b border-white/[0.06] overflow-x-auto px-4 py-3"
           style={{
             background: "rgba(10, 10, 10, 0.4)",
           }}
         >
-          <div className="flex gap-2.5">
-            {personas.map((p) => (
-              <div key={p.id} className="flex-shrink-0 w-[200px]">
-                <PersonaCard
-                  archetype={p.archetype}
-                  name={p.name}
-                  state={personaStates[p.id] || "idle"}
-                  mood={personaMoods[p.id] || "neutral"}
-                  variant="compact"
-                />
-              </div>
-            ))}
-          </div>
+          <PresenceRail
+            personas={personas}
+            states={personaStates}
+            agitation={agitation}
+            layout="strip"
+          />
         </div>
 
         {/* Main area — content + conversation */}
@@ -1173,24 +1160,20 @@ export function SparringRoom({
           </div>
         </div>
 
-        {/* Right sidebar — Panel (desktop only, lg+) */}
+        {/* Right rail — panelist presence (desktop only, lg+) */}
         <aside
-          className="hidden lg:flex flex-col border-l border-white/[0.05] bg-[#0a0a0a] overflow-y-auto px-3 py-4"
+          className="hidden lg:flex flex-col border-l border-white/[0.05] bg-[#0a0a0a] overflow-y-auto px-5 py-5"
           style={{ width: "380px", minWidth: "320px", maxWidth: "420px" }}
         >
-          <p className="text-[10px] uppercase tracking-[0.18em] text-neutral-600 px-1 mb-3">
+          <p className="text-[10px] uppercase tracking-[0.18em] text-neutral-600 mb-4">
             The Panel
           </p>
-          {personas.map((p) => (
-            <PersonaCard
-              key={p.id}
-              archetype={p.archetype}
-              name={p.name}
-              state={personaStates[p.id] || "idle"}
-              mood={personaMoods[p.id] || "neutral"}
-              variant="sidebar"
-            />
-          ))}
+          <PresenceRail
+            personas={personas}
+            states={personaStates}
+            agitation={agitation}
+            layout="rail"
+          />
         </aside>
       </div>
 
@@ -1541,7 +1524,85 @@ export function RoomControlDeck({
 }
 
 /** A single caption row — user or persona. */
-function CaptionRow({ entry }: { entry: CaptionEntry }) {
+/**
+ * The panelist presence rail — the room's signature element. The lead
+ * panelist (lowest seat — the room's voice) is the portrait; the rest are
+ * compact rows. The strip layout (mobile) is rows only. Persona states map
+ * onto the room's state language (thinking → gathering), and agitation at
+ * 80+ pulses the avatar — the interrupt tell, finally wired.
+ */
+export function PresenceRail({
+  personas,
+  states,
+  agitation,
+  layout = "rail",
+}: {
+  personas: SessionPersona[];
+  states: Record<string, "idle" | "listening" | "thinking" | "speaking" | "about-to-interrupt">;
+  agitation: Record<string, number>;
+  layout?: "rail" | "strip";
+}) {
+  const ordered = [...personas].sort((a, b) => a.seatOrder - b.seatOrder);
+
+  const presenceFor = (id: string): PresenceState => {
+    const s = states[id];
+    if (s === "speaking") return "speaking";
+    if (s === "thinking" || s === "about-to-interrupt") return "gathering";
+    return "listening";
+  };
+
+  if (layout === "strip") {
+    return (
+      <div className="flex gap-4">
+        {ordered.map((p) => (
+          <div key={p.id} className="flex-shrink-0">
+            <PanelistPresence
+              archetype={p.archetype}
+              name={p.name}
+              status={presenceFor(p.id)}
+              variant="row"
+              aboutToInterrupt={(agitation[p.id] ?? 0) >= 80}
+            />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const [lead, ...rest] = ordered;
+  if (!lead) return null;
+
+  return (
+    <div className="flex flex-col">
+      <PanelistPresence
+        archetype={lead.archetype}
+        name={lead.name}
+        status={presenceFor(lead.id)}
+        variant="portrait"
+        aboutToInterrupt={(agitation[lead.id] ?? 0) >= 80}
+      />
+      {rest.length > 0 && (
+        <>
+          <div className="my-5 h-px bg-white/[0.05]" />
+          <div className="flex flex-col gap-4">
+            {rest.map((p) => (
+              <PanelistPresence
+                key={p.id}
+                archetype={p.archetype}
+                name={p.name}
+                status={presenceFor(p.id)}
+                variant="row"
+                aboutToInterrupt={(agitation[p.id] ?? 0) >= 80}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+export function CaptionRow({ entry }: { entry: CaptionEntry }) {
   const isUser = entry.role === "user";
   const isCoach = entry.type === "coach_whisper";
   const isInterruption = entry.type === "interruption";
@@ -1607,10 +1668,20 @@ function CaptionRow({ entry }: { entry: CaptionEntry }) {
         <div
           className={cn(
             "rounded-md rounded-bl-sm border px-4 py-2.5 text-sm text-neutral-200",
+            entry.archetype && "spar-caption-accent",
             isInterruption
               ? "border-[#2a2a2a] bg-[#141414] ml-2"
               : "border-[#1a1a1a] bg-[#0f0f0f]"
           )}
+          style={
+            entry.archetype
+              ? {
+                  borderLeft: `2px solid color-mix(in oklab, ${
+                    ARCHETYPES[entry.archetype].accentHue
+                  } 45%, transparent)`,
+                }
+              : undefined
+          }
         >
           {entry.content}
         </div>

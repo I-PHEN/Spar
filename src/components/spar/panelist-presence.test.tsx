@@ -52,6 +52,13 @@ describe("PanelistPresence (states)", () => {
     );
     expect(m).toContain("spar-presence-flicker");
   });
+
+  test("about-to-interrupt pulses the avatar (agitation tell)", () => {
+    const m = renderToStaticMarkup(
+      <PanelistPresence archetype="skeptic" name="Ada" status="listening" aboutToInterrupt />,
+    );
+    expect(m).toContain("spar-pulse");
+  });
 });
 
 describe("PanelistPresence (row variant)", () => {

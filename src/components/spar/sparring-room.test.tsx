@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
+  CaptionRow,
   EngineStatusChip,
+  PresenceRail,
   RoomControlDeck,
   engineStatusLabel,
   liveOwnsControls,
@@ -190,5 +192,80 @@ describe("engine status chip", () => {
   test("carries a stable engine attribute for UI tests", () => {
     expect(renderToStaticMarkup(<EngineStatusChip label="Live" />)).toContain('data-engine="live"');
     expect(renderToStaticMarkup(<EngineStatusChip label="Classic" />)).toContain('data-engine="classic"');
+  });
+});
+
+describe("presence rail", () => {
+  const personas = [
+    { id: "p2", archetype: "so_what", name: "Chiara", behaviorStyle: "moderate", seatOrder: 1 },
+    { id: "p1", archetype: "skeptic", name: "Ada", behaviorStyle: "moderate", seatOrder: 0 },
+  ] as const;
+
+  test("lead panelist (lowest seat) is the portrait; others are rows", () => {
+    const m = renderToStaticMarkup(
+      <PresenceRail
+        personas={[...personas]}
+        states={{}}
+        agitation={{}}
+      />,
+    );
+    // Portrait carries the lead's one-liner; the row omits it.
+    expect(m).toContain("Questions your core assumptions");
+    expect(m).not.toContain("Challenges your impact and relevance");
+    expect(m).toContain("Ada");
+    expect(m).toContain("Chiara");
+  });
+
+  test("thinking maps to the gathering state language", () => {
+    const m = renderToStaticMarkup(
+      <PresenceRail personas={[...personas]} states={{ p1: "thinking" }} agitation={{}} />,
+    );
+    expect(m).toContain("Gathering…");
+  });
+
+  test("agitation at 80+ pulses that panelist (the wired interrupt tell)", () => {
+    const m = renderToStaticMarkup(
+      <PresenceRail personas={[...personas]} states={{}} agitation={{ p1: 85 }} />,
+    );
+    expect(m).toContain("spar-pulse");
+  });
+
+  test("strip layout renders rows for every panelist (mobile)", () => {
+    const m = renderToStaticMarkup(
+      <PresenceRail personas={[...personas]} states={{}} agitation={{}} layout="strip" />,
+    );
+    expect(m).toContain("Ada");
+    expect(m).toContain("Chiara");
+    // strip is compact: no portrait one-liners
+    expect(m).not.toContain("Questions your core assumptions");
+  });
+});
+
+describe("caption rows", () => {
+  test("persona captions carry the speaker's accent edge", () => {
+    const m = renderToStaticMarkup(
+      <CaptionRow
+        entry={{
+          id: "c1",
+          role: "persona",
+          personaName: "Ada",
+          archetype: "skeptic",
+          content: "What evidence supports that?",
+          type: "normal",
+          createdAt: 0,
+        }}
+      />,
+    );
+    expect(m).toContain("spar-caption-accent");
+    expect(m).toContain("oklch(0.68 0.13 250");
+  });
+
+  test("user captions stay neutral (no accent edge)", () => {
+    const m = renderToStaticMarkup(
+      <CaptionRow
+        entry={{ id: "c2", role: "user", content: "Our market is large.", type: "normal", createdAt: 0 }}
+      />,
+    );
+    expect(m).not.toContain("spar-caption-accent");
   });
 });

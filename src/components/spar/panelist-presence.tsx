@@ -14,6 +14,8 @@ interface PanelistPresenceProps {
   variant?: "portrait" | "row";
   /** One-beat barge-in acknowledgment (live mode's "you cut in" tell). */
   interrupted?: boolean;
+  /** Agitation tell — the avatar pulses just before an interruption. */
+  aboutToInterrupt?: boolean;
 }
 
 const STATUS_WORD: Record<PresenceState, string> = {
@@ -38,6 +40,7 @@ export function PanelistPresence({
   status,
   variant = "portrait",
   interrupted = false,
+  aboutToInterrupt = false,
 }: PanelistPresenceProps) {
   const def = ARCHETYPES[archetype];
   const accent = def.accentHue;
@@ -60,6 +63,7 @@ export function PanelistPresence({
     isPortrait ? "h-36 w-36 text-2xl sm:h-44 sm:w-44 sm:text-3xl" : "h-9 w-9 rounded-lg text-xs",
     status === "listening" && "spar-presence-breathe",
     status === "speaking" && "spar-presence-speaking",
+    aboutToInterrupt && "spar-pulse",
     interrupted && "spar-presence-flicker",
   );
 
