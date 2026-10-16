@@ -1525,11 +1525,12 @@ export function RoomControlDeck({
 
 /** A single caption row — user or persona. */
 /**
- * The panelist presence rail — the room's signature element. The lead
- * panelist (lowest seat — the room's voice) is the portrait; the rest are
- * compact rows. The strip layout (mobile) is rows only. Persona states map
- * onto the room's state language (thinking → gathering), and agitation at
- * 80+ pulses the avatar — the interrupt tell, finally wired.
+ * The panelist presence rail — the room's signature element. Every panelist
+ * is an EQUAL-SIZE circular presence (user-locked: no panelist towers over
+ * another — the room is a peer panel, not a hierarchy). The rail (desktop)
+ * stacks full entries with one-liners; the strip (mobile) is compact rows.
+ * Persona states map onto the room's state language (thinking → gathering),
+ * and agitation at 80+ pulses the avatar — the interrupt tell, finally wired.
  */
 export function PresenceRail({
   personas,
@@ -1553,7 +1554,7 @@ export function PresenceRail({
 
   if (layout === "strip") {
     return (
-      <div className="flex gap-4">
+      <div className="flex items-center gap-6">
         {ordered.map((p) => (
           <div key={p.id} className="flex-shrink-0">
             <PanelistPresence
@@ -1569,35 +1570,18 @@ export function PresenceRail({
     );
   }
 
-  const [lead, ...rest] = ordered;
-  if (!lead) return null;
-
   return (
-    <div className="flex flex-col">
-      <PanelistPresence
-        archetype={lead.archetype}
-        name={lead.name}
-        status={presenceFor(lead.id)}
-        variant="portrait"
-        aboutToInterrupt={(agitation[lead.id] ?? 0) >= 80}
-      />
-      {rest.length > 0 && (
-        <>
-          <div className="my-5 h-px bg-white/[0.05]" />
-          <div className="flex flex-col gap-4">
-            {rest.map((p) => (
-              <PanelistPresence
-                key={p.id}
-                archetype={p.archetype}
-                name={p.name}
-                status={presenceFor(p.id)}
-                variant="row"
-                aboutToInterrupt={(agitation[p.id] ?? 0) >= 80}
-              />
-            ))}
-          </div>
-        </>
-      )}
+    <div className="flex flex-col gap-7">
+      {ordered.map((p) => (
+        <PanelistPresence
+          key={p.id}
+          archetype={p.archetype}
+          name={p.name}
+          status={presenceFor(p.id)}
+          variant="portrait"
+          aboutToInterrupt={(agitation[p.id] ?? 0) >= 80}
+        />
+      ))}
     </div>
   );
 }

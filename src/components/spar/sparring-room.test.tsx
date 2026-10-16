@@ -201,7 +201,7 @@ describe("presence rail", () => {
     { id: "p1", archetype: "skeptic", name: "Ada", behaviorStyle: "moderate", seatOrder: 0 },
   ] as const;
 
-  test("lead panelist (lowest seat) is the portrait; others are rows", () => {
+  test("every panelist is an equal-size circular presence with their one-liner", () => {
     const m = renderToStaticMarkup(
       <PresenceRail
         personas={[...personas]}
@@ -209,11 +209,15 @@ describe("presence rail", () => {
         agitation={{}}
       />,
     );
-    // Portrait carries the lead's one-liner; the row omits it.
+    // Both panelists get their one-liner in the rail.
     expect(m).toContain("Questions your core assumptions");
-    expect(m).not.toContain("Challenges your impact and relevance");
+    expect(m).toContain("Challenges your impact and relevance");
     expect(m).toContain("Ada");
     expect(m).toContain("Chiara");
+    // Equal size: the avatar size class appears exactly once per panelist.
+    expect(m.match(/h-24 w-24/g)?.length).toBe(2);
+    // Circular avatars, not tiles.
+    expect(m).toContain("rounded-full");
   });
 
   test("thinking maps to the gathering state language", () => {

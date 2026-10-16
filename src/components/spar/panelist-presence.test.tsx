@@ -17,6 +17,16 @@ describe("PanelistPresence (portrait)", () => {
     expect(markup).toContain("oklch(0.68 0.13 250");
   });
 
+  test("avatar is a circle, equal in every variant (user-locked)", () => {
+    expect(markup).toContain("rounded-full");
+    const row = renderToStaticMarkup(
+      <PanelistPresence archetype="skeptic" name="Ada" status="listening" variant="row" />,
+    );
+    // Same size class in both variants — no panelist towers over another.
+    expect(row).toContain("h-24 w-24");
+    expect(row).toContain("rounded-full");
+  });
+
   test("shows the listening status word", () => {
     expect(markup).toContain("Listening");
   });

@@ -10,7 +10,11 @@ interface PanelistPresenceProps {
   name: string;
   /** The room's state language — listening / gathering / speaking. */
   status: PresenceState;
-  /** portrait = the lead panelist's focal block; row = compact extra panelist. */
+  /**
+   * portrait = rail entry (avatar, name, one line, status); row = compact
+   * strip entry (avatar, name, status — no one line). Avatars are EQUAL SIZE
+   * circles in both variants (user-locked: no panelist towers over another).
+   */
   variant?: "portrait" | "row";
   /** One-beat barge-in acknowledgment (live mode's "you cut in" tell). */
   interrupted?: boolean;
@@ -59,8 +63,8 @@ export function PanelistPresence({
   };
 
   const avatarClass = cn(
-    "spar-presence-avatar relative inline-flex select-none items-center justify-center rounded-2xl font-semibold tracking-wide",
-    isPortrait ? "h-36 w-36 text-2xl sm:h-44 sm:w-44 sm:text-3xl" : "h-9 w-9 rounded-lg text-xs",
+    "spar-presence-avatar relative inline-flex select-none items-center justify-center rounded-full font-semibold tracking-wide",
+    "h-24 w-24 text-xl sm:h-28 sm:w-28 sm:text-2xl",
     status === "listening" && "spar-presence-breathe",
     status === "speaking" && "spar-presence-speaking",
     aboutToInterrupt && "spar-pulse",
