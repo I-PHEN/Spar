@@ -108,3 +108,17 @@ describe("shouldStickToBottom", () => {
     expect(shouldStickToBottom(600)).toBe(false);
   });
 });
+
+describe("distanceFromBottom", () => {
+  test("measures how far the user has scrolled up", async () => {
+    const { distanceFromBottom } = await import("./room-state");
+    const el = { scrollHeight: 1000, scrollTop: 200, clientHeight: 600 } as HTMLElement;
+    expect(distanceFromBottom(el)).toBe(200);
+  });
+
+  test("zero when pinned to the bottom", async () => {
+    const { distanceFromBottom } = await import("./room-state");
+    const el = { scrollHeight: 1000, scrollTop: 400, clientHeight: 600 } as HTMLElement;
+    expect(distanceFromBottom(el)).toBe(0);
+  });
+});

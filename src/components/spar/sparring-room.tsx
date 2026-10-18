@@ -32,6 +32,8 @@ import {
   recordsTurnAudio,
   startsRecorderOnFallback,
   liveUserInterimCaption,
+  distanceFromBottom,
+  shouldStickToBottom,
   type EngineStatusLabel,
   type PresenceState,
 } from "./room-state";
@@ -225,6 +227,10 @@ export function SparringRoom({
   // beginQA (not submitPresentation). Cleared on successful retry.
   const qaFailedRef = useRef(false);
   const captionsEndRef = useRef<HTMLDivElement>(null);
+  // Sticky-to-bottom: the feed auto-scrolls only while the user is at (or
+  // near) the bottom. Scrolling up to read releases the stick.
+  const feedRef = useRef<HTMLDivElement>(null);
+  const stickRef = useRef(true);
 
   // Timer
   useEffect(() => {
@@ -232,10 +238,19 @@ export function SparringRoom({
     return () => clearInterval(t);
   }, [sessionStart]);
 
-  // Auto-scroll captions
+  // Auto-scroll captions — only while stuck to the bottom. The user
+  // scrolling up to read releases the stick; being back at the bottom
+  // restores it (handled by the feed's onScroll below).
   useEffect(() => {
-    captionsEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    if (stickRef.current) {
+      captionsEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
   }, [captions]);
+
+  const handleFeedScroll = useCallback(() => {
+    const el = feedRef.current;
+    if (el) stickRef.current = shouldStickToBottom(distanceFromBottom(el));
+  }, []);
 
   // Show live interim transcript as a caption. Whichever engine owns the
   // room drives it: the classic recognizer's interim transcript while it
@@ -987,7 +1002,7 @@ export function SparringRoom({
                     const danger = score >= 80;
                     return (
                       <div key={p.id} className="flex items-center gap-1 flex-shrink-0">
-                        <span className="text-[9px] uppercase tracking-wider text-neutral-600 hidden sm:inline">
+                        <span className="text-[9px] uppercase tracking-wider text-neutral-600">
                           {p.name.replace("The ", "")}
                         </span>
                         <div className="flex gap-0.5">
@@ -1014,7 +1029,12 @@ export function SparringRoom({
           )}
 
           {/* Conversation feed — scrollable */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 lg:px-6">
+          <div
+            ref={feedRef}
+            onScroll={handleFeedScroll}
+            aria-live="polite"
+            className="flex-1 overflow-y-auto px-4 py-4 lg:px-6"
+          >
             <div className="mx-auto max-w-2xl space-y-3">
               {/* Presenting prompt (Defense & Boardroom) */}
               {isPresenting && captions.length === 0 && (
@@ -1197,8 +1217,8 @@ export function SparringRoom({
             disabled={!isUserTurn || isProcessing || audioPlaying}
             className="text-neutral-400 hover:text-white"
           >
-            <Hand className="h-4 w-4 sm:mr-1.5" />
-            <span className="hidden sm:inline">I need a moment</span>
+            <Hand className="h-4 w-4 mr-1.5" />
+            <span>I need a moment</span>
           </Button>
 
           {/* Center — engine-aware speak controls */}
@@ -1254,18 +1274,10 @@ export function SparringRoom({
       )}
 
       {/* Mic permission error */}
-      {voice.error && (
-        <div className="fixed bottom-20 left-4 right-4 z-40 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-          {voice.error}
-        </div>
-      )}
+      {voice.error && <RoomToast>{voice.error}</RoomToast>}
 
       {/* Error toast */}
-      {error && captions.length > 0 && (
-        <div className="fixed bottom-20 left-4 right-4 z-40 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-          {error}
-        </div>
-      )}
+      {error && captions.length > 0 && <RoomToast>{error}</RoomToast>}
 
       {/* End session dialog */}
       <AlertDialog open={showEndDialog} onOpenChange={setShowEndDialog}>
@@ -1302,6 +1314,18 @@ export {
   startsRecorderOnFallback,
   liveUserInterimCaption,
 } from "./room-state";
+
+/** Quiet announcement toast — screen readers hear it the moment it lands. */
+export function RoomToast({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      role="alert"
+      className="fixed bottom-20 left-4 right-4 z-40 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400"
+    >
+      {children}
+    </div>
+  );
+}
 
 /** Small quiet status chip: which voice engine is running the room. */
 export function EngineStatusChip({ label }: { label: EngineStatusLabel }) {
@@ -1391,14 +1415,14 @@ export function RoomControlDeck({
             <div className="flex h-12 w-12 items-center justify-center rounded-full border border-emerald-500/25 bg-emerald-500/[0.08]">
               <Mic className="h-5 w-5 text-emerald-300" />
             </div>
-            <span className="text-[10px] uppercase tracking-wider text-neutral-500 hidden sm:inline">
+            <span className="text-[10px] uppercase tracking-wider text-neutral-500">
               Mic live — just talk, interruption is instant
             </span>
           </div>
         ) : (
           <div className="flex items-center gap-3">
             <Loader2 className="h-5 w-5 animate-spin text-neutral-400" />
-            <span className="text-[10px] uppercase tracking-wider text-neutral-500 hidden sm:inline">
+            <span className="text-[10px] uppercase tracking-wider text-neutral-500">
               Connecting the live engine…
             </span>
           </div>
@@ -1410,7 +1434,7 @@ export function RoomControlDeck({
           <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#2a2a2a] bg-[#171717]">
             <FileText className="h-4 w-4 text-neutral-400" />
           </div>
-          <span className="text-[10px] uppercase tracking-wider text-neutral-500 hidden sm:inline">
+          <span className="text-[10px] uppercase tracking-wider text-neutral-500">
             Read the coach read above — then begin Q&amp;A
           </span>
         </div>
@@ -1441,7 +1465,7 @@ export function RoomControlDeck({
               <Mic className="h-5 w-5" />
             </button>
           )}
-          <span className="text-[10px] uppercase tracking-wider text-neutral-500 hidden sm:inline">
+          <span className="text-[10px] uppercase tracking-wider text-neutral-500">
             {isListening
               ? "Presenting... click Done when finished"
               : "Click to present"}
@@ -1471,7 +1495,7 @@ export function RoomControlDeck({
               Try again
             </button>
           )}
-          <span className="text-[10px] uppercase tracking-wider text-amber-400/70 hidden sm:inline">
+          <span className="text-[10px] uppercase tracking-wider text-amber-400/70">
             {isListening
               ? `Answering — attempt ${drillAttempts + 1}`
               : `Attempt ${drillAttempts + 1} — answer without the weakness`}
@@ -1506,7 +1530,7 @@ export function RoomControlDeck({
         isListening ? (
           <WaveformBar amplitude={waveformAmplitude} />
         ) : (
-          <span className="text-[10px] uppercase tracking-wider text-neutral-500 hidden sm:inline">
+          <span className="text-[10px] uppercase tracking-wider text-neutral-500">
             {isUserTurn && !isProcessing
               ? isPresenting
                 ? "Click to present"

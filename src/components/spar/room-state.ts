@@ -107,6 +107,11 @@ export function shouldStickToBottom(distanceFromBottom: number): boolean {
   return distanceFromBottom < 80;
 }
 
+/** How far a scroll container's bottom is above the viewport, in px. */
+export function distanceFromBottom(el: HTMLElement): number {
+  return el.scrollHeight - el.scrollTop - el.clientHeight;
+}
+
 // ─── Pinned engine helpers ──────────────────────────────────────────────
 // Moved here from sparring-room.tsx (which re-exports them); behavior and
 // signatures are pinned by sparring-room.test.tsx and the e2e suite.

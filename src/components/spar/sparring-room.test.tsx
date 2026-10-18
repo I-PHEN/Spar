@@ -5,6 +5,7 @@ import {
   EngineStatusChip,
   PresenceRail,
   RoomControlDeck,
+  RoomToast,
   engineStatusLabel,
   liveOwnsControls,
   liveUserInterimCaption,
@@ -271,5 +272,19 @@ describe("caption rows", () => {
       />,
     );
     expect(m).not.toContain("spar-caption-accent");
+  });
+});
+
+describe("room accessibility", () => {
+  test("error toasts announce themselves", () => {
+    const m = renderToStaticMarkup(<RoomToast>Microphone access denied.</RoomToast>);
+    expect(m).toContain('role="alert"');
+    expect(m).toContain("Microphone access denied.");
+  });
+
+  test("deck state text is visible on mobile (no hidden sm:inline)", () => {
+    const m = renderToStaticMarkup(<RoomControlDeck {...classicDeck} />);
+    expect(m).toContain("Start speaking");
+    expect(m).not.toContain("hidden sm:inline");
   });
 });
