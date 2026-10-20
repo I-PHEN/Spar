@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
+  CaptionRow,
   EngineStatusChip,
+  PresenceRail,
   RoomControlDeck,
+  RoomToast,
   engineStatusLabel,
   liveOwnsControls,
   liveUserInterimCaption,
@@ -190,5 +193,120 @@ describe("engine status chip", () => {
   test("carries a stable engine attribute for UI tests", () => {
     expect(renderToStaticMarkup(<EngineStatusChip label="Live" />)).toContain('data-engine="live"');
     expect(renderToStaticMarkup(<EngineStatusChip label="Classic" />)).toContain('data-engine="classic"');
+  });
+});
+
+describe("presence rail", () => {
+  const personas = [
+    { id: "p2", archetype: "so_what", name: "Chiara", behaviorStyle: "moderate", seatOrder: 1 },
+    { id: "p1", archetype: "skeptic", name: "Ada", behaviorStyle: "moderate", seatOrder: 0 },
+  ] as const;
+
+  test("every panelist is an equal-size circular presence, no taglines", () => {
+    const m = renderToStaticMarkup(
+      <PresenceRail
+        personas={[...personas]}
+        states={{}}
+        agitation={{}}
+      />,
+    );
+    // Names, no one-liners — the rail stays quiet (user-locked).
+    expect(m).toContain("Ada");
+    expect(m).toContain("Chiara");
+    expect(m).not.toContain("Questions your core assumptions");
+    expect(m).not.toContain("Challenges your impact and relevance");
+    // Equal size: the avatar size class appears exactly once per panelist.
+    expect(m.match(/h-20 w-20/g)?.length).toBe(2);
+    // Circular avatars, not tiles.
+    expect(m).toContain("rounded-full");
+  });
+
+  test("thinking maps to the gathering state language", () => {
+    const m = renderToStaticMarkup(
+      <PresenceRail personas={[...personas]} states={{ p1: "thinking" }} agitation={{}} />,
+    );
+    expect(m).toContain("Gathering…");
+  });
+
+  test("agitation at 80+ pulses that panelist (the wired interrupt tell)", () => {
+    const m = renderToStaticMarkup(
+      <PresenceRail personas={[...personas]} states={{}} agitation={{ p1: 85 }} />,
+    );
+    expect(m).toContain("spar-pulse");
+  });
+
+  test("strip layout renders rows for every panelist (mobile)", () => {
+    const m = renderToStaticMarkup(
+      <PresenceRail personas={[...personas]} states={{}} agitation={{}} layout="strip" />,
+    );
+    expect(m).toContain("Ada");
+    expect(m).toContain("Chiara");
+    // strip is compact: no portrait one-liners
+    expect(m).not.toContain("Questions your core assumptions");
+  });
+});
+
+describe("caption rows", () => {
+  test("persona captions carry the speaker's accent edge", () => {
+    const m = renderToStaticMarkup(
+      <CaptionRow
+        entry={{
+          id: "c1",
+          role: "persona",
+          personaName: "Ada",
+          archetype: "skeptic",
+          content: "What evidence supports that?",
+          type: "normal",
+          createdAt: 0,
+        }}
+      />,
+    );
+    expect(m).toContain("spar-caption-accent");
+    expect(m).toContain("oklch(0.68 0.13 250");
+  });
+
+  test("user captions stay neutral (no accent edge)", () => {
+    const m = renderToStaticMarkup(
+      <CaptionRow
+        entry={{ id: "c2", role: "user", content: "Our market is large.", type: "normal", createdAt: 0 }}
+      />,
+    );
+    expect(m).not.toContain("spar-caption-accent");
+  });
+});
+
+describe("room accessibility", () => {
+  test("error toasts announce themselves", () => {
+    const m = renderToStaticMarkup(<RoomToast>Microphone access denied.</RoomToast>);
+    expect(m).toContain('role="alert"');
+    expect(m).toContain("Microphone access denied.");
+  });
+
+  test("deck state text is visible on mobile (no hidden sm:inline)", () => {
+    const m = renderToStaticMarkup(<RoomControlDeck {...classicDeck} />);
+    expect(m).toContain("Start speaking");
+    expect(m).not.toContain("hidden sm:inline");
+  });
+});
+
+describe("drill framing and barge-in", () => {
+  test("attempt counter appears only during a drill retry", () => {
+    const idle = renderToStaticMarkup(<RoomControlDeck {...classicDeck} drillRetry={false} drillAttempts={2} />);
+    expect(idle).not.toContain("Attempt");
+
+    const retry = renderToStaticMarkup(<RoomControlDeck {...classicDeck} drillRetry drillAttempts={2} />);
+    expect(retry).toContain("Attempt 3");
+    expect(retry).toContain("Try again");
+  });
+
+  test("a barge-in flickers only the interrupted panelist's presence", () => {
+    const personas = [
+      { id: "p1", archetype: "skeptic", name: "Ada", behaviorStyle: "moderate", seatOrder: 0 },
+      { id: "p2", archetype: "so_what", name: "Chiara", behaviorStyle: "moderate", seatOrder: 1 },
+    ] as const;
+    const m = renderToStaticMarkup(
+      <PresenceRail personas={[...personas]} states={{}} agitation={{}} interruptedPersonaId="p1" />,
+    );
+    expect(m).toContain("spar-presence-flicker");
   });
 });

@@ -184,14 +184,6 @@
 .spar-thinking-dot:nth-child(2) { animation-delay: 0.2s; }
 .spar-thinking-dot:nth-child(3) { animation-delay: 0.4s; }
 
-@keyframes spar-interrupt {
-  0% { transform: translateX(-12px); opacity: 0; }
-  100% { transform: translateX(0); opacity: 1; }
-}
-.spar-interrupt-in {
-  animation: spar-interrupt 0.35s ease-out;
-}
-
 @keyframes spar-fade-up {
   0% { transform: translateY(6px); opacity: 0; }
   100% { transform: translateY(0); opacity: 1; }
@@ -200,19 +192,45 @@
   animation: spar-fade-up 0.3s ease-out;
 }
 
-@keyframes spar-caret {
-  0%, 50% { opacity: 1; }
-  50.01%, 100% { opacity: 0; }
+/* ─── Panelist presence — the room's signature element ─────────────────── */
+
+/* Listening: the presence breathes — one slow, calm cycle. */
+@keyframes spar-presence-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.015); }
 }
-.spar-caret::after {
-  content: '';
-  display: inline-block;
-  width: 0.5em;
-  height: 1.1em;
-  background: oklch(0.97 0 0);
-  margin-left: 2px;
-  vertical-align: text-bottom;
-  animation: spar-caret 1s steps(1) infinite;
+.spar-presence-breathe {
+  animation: spar-presence-breathe 4.5s ease-in-out infinite;
+}
+
+/* Speaking: the circle expands and contracts — a visible voice pulse
+   (ChatGPT-orb style: unmistakable from across the room, still calm). */
+@keyframes spar-presence-speak {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+.spar-presence-speaking {
+  animation: spar-presence-speak 1.8s ease-in-out infinite;
+}
+
+/* Barge-in: one quick flicker — "you cut in". */
+@keyframes spar-presence-flicker {
+  0% { opacity: 1; }
+  20% { opacity: 0.35; }
+  45% { opacity: 0.85; }
+  70% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+.spar-presence-flicker {
+  animation: spar-presence-flicker 0.45s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spar-presence-breathe,
+  .spar-presence-speaking,
+  .spar-presence-flicker {
+    animation: none;
+  }
 }
 
 /* (spar-ready-glow removed — buttons should just be white, no breathing animation) */

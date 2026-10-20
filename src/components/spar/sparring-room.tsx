@@ -6,7 +6,6 @@ import {
   Mic,
   Square,
   Loader2,
-  ChevronLeft,
   Clock,
   AlertCircle,
   Hand,
@@ -25,17 +24,28 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { PersonaCard } from "./persona-card";
-import { TelemetryBar } from "./telemetry-bar";
+import { PanelistPresence } from "./panelist-presence";
 import { WaveformBar } from "./waveform-bar";
+import {
+  engineStatusLabel,
+  liveOwnsControls,
+  recordsTurnAudio,
+  startsRecorderOnFallback,
+  liveUserInterimCaption,
+  distanceFromBottom,
+  shouldStickToBottom,
+  canPauseForMoment,
+  type EngineStatusLabel,
+  type PresenceState,
+} from "./room-state";
+import { ARCHETYPES } from "@/lib/personas";
 import { useVoiceRecognition, playBase64Audio } from "@/hooks/use-voice";
 import { useTurnController, type UseTurnControllerResult } from "@/hooks/use-turn-controller";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { useAgitationEngine, type CoachingMode, type DrillTarget } from "@/hooks/use-agitation";
 import { playActivationClick, useWaveformAmplitude } from "@/hooks/use-sound";
 import { SCENARIOS } from "@/lib/scenarios";
-import { EXPERIENCES, type ExperienceKey } from "@/lib/experiences";
-import { quickStats } from "@/lib/telemetry";
+import type { ExperienceKey } from "@/lib/experiences";
 import type {
   ArchetypeKey,
   BehaviorStyle,
@@ -107,25 +117,6 @@ interface CaptionEntry {
   createdAt: number;
 }
 
-interface SparResponse {
-  isUserTurn: boolean;
-  nextPersonaId: string | null;
-  personaResponse: {
-    id: string;
-    personaId: string;
-    personaName: string;
-    archetype: ArchetypeKey;
-    behaviorStyle: BehaviorStyle;
-    seatOrder: number;
-    content: string;
-    type: MessageType;
-    claimRef: number | null;
-    mood: PersonaMood;
-    audio: string | null;
-    createdAt: string;
-  } | null;
-}
-
 export function SparringRoom({
   sessionId,
   onSessionEnded,
@@ -171,12 +162,12 @@ export function SparringRoom({
   const [drillAttempts, setDrillAttempts] = useState(0);
   const [connectionError, setConnectionError] = useState(false);
   const [personaStates, setPersonaStates] = useState<Record<string, PersonaState>>({});
-  const [personaMoods, setPersonaMoods] = useState<Record<string, PersonaMood>>({});
   const [loading, setLoading] = useState(true);
+  // Quiet "taking their seats" beat while /open generates the opening line.
+  const [opening, setOpening] = useState(true);
   const [ending, setEnding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showEndDialog, setShowEndDialog] = useState(false);
-  const [showClaimsPanel, setShowClaimsPanel] = useState(false);
   const [sessionStart] = useState(Date.now());
   const [elapsedSec, setElapsedSec] = useState(0);
 
@@ -210,6 +201,13 @@ export function SparringRoom({
     sessionId,
     voiceModel: "aura-2-zeus-en",
     live: liveConfig,
+    onLiveInterrupted: () => {
+      // Barge-in: flicker the lead panelist's presence (the live voice).
+      const lead = [...personas].sort((a, b) => a.seatOrder - b.seatOrder)[0];
+      if (!lead) return;
+      setInterruptedPersonaId(lead.id);
+      window.setTimeout(() => setInterruptedPersonaId(null), 650);
+    },
   });
   const voice = isPresenting ? presentationVoice : turnController;
   const recorder = useAudioRecorder();
@@ -218,10 +216,9 @@ export function SparringRoom({
   const messageIndexRef = useRef(0);
   const [isUserTurn, setIsUserTurn] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [liveWords, setLiveWords] = useState(0);
-  const [liveHedges, setLiveHedges] = useState(0);
-  const [liveHasEvidence, setLiveHasEvidence] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
+  // Barge-in acknowledgment: which panelist's presence flickers (live mode).
+  const [interruptedPersonaId, setInterruptedPersonaId] = useState<string | null>(null);
 
   // Live engine (Gemini Live): the room tracks whether its one-activation mic
   // session is running. The hook-level status can still read "live" after a
@@ -242,6 +239,10 @@ export function SparringRoom({
   // beginQA (not submitPresentation). Cleared on successful retry.
   const qaFailedRef = useRef(false);
   const captionsEndRef = useRef<HTMLDivElement>(null);
+  // Sticky-to-bottom: the feed auto-scrolls only while the user is at (or
+  // near) the bottom. Scrolling up to read releases the stick.
+  const feedRef = useRef<HTMLDivElement>(null);
+  const stickRef = useRef(true);
 
   // Timer
   useEffect(() => {
@@ -249,19 +250,19 @@ export function SparringRoom({
     return () => clearInterval(t);
   }, [sessionStart]);
 
-  // Auto-scroll captions
+  // Auto-scroll captions — only while stuck to the bottom. The user
+  // scrolling up to read releases the stick; being back at the bottom
+  // restores it (handled by the feed's onScroll below).
   useEffect(() => {
-    captionsEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    if (stickRef.current) {
+      captionsEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
   }, [captions]);
 
-  // Live telemetry as user speaks
-  useEffect(() => {
-    const fullText = voice.finalTranscript + voice.interimTranscript;
-    const s = quickStats(fullText);
-    setLiveWords(s.words);
-    setLiveHedges(s.hedges);
-    setLiveHasEvidence(s.hasEvidence);
-  }, [voice.finalTranscript, voice.interimTranscript]);
+  const handleFeedScroll = useCallback(() => {
+    const el = feedRef.current;
+    if (el) stickRef.current = shouldStickToBottom(distanceFromBottom(el));
+  }, []);
 
   // Show live interim transcript as a caption. Whichever engine owns the
   // room drives it: the classic recognizer's interim transcript while it
@@ -385,9 +386,6 @@ export function SparringRoom({
     }
     const personaId = turnController.activePersona?.id;
     if (personaId) setPersonaStates((previous) => ({ ...previous, [personaId]: turnController.turn.status === "speaking" ? "speaking" : busy ? "thinking" : "listening" }));
-    if (personaId && turnController.assistantMetadata?.mood) {
-      setPersonaMoods((previous) => ({ ...previous, [personaId]: turnController.assistantMetadata!.mood as PersonaMood }));
-    }
   }, [isPresenting, turnController.turn.status, turnController.error, turnController.activePersona, turnController.assistantMetadata]);
 
   // Initial load: fetch session + open
@@ -418,13 +416,15 @@ export function SparringRoom({
         setRoomContext(roomContext);
 
         const states: Record<string, PersonaState> = {};
-        const moods: Record<string, PersonaMood> = {};
         for (const p of session.personas) {
           states[p.id] = "listening";
-          moods[p.id] = "listening";
         }
         setPersonaStates(states);
-        setPersonaMoods(moods);
+
+        // Paint the room NOW — session data is enough for the presence rail,
+        // top bar, and feed. The opening line (an LLM call) lands in the feed
+        // when it's ready, with a quiet "taking their seats" beat in between.
+        if (mounted) setLoading(false);
 
         // Open the session — panel speaks first
         const oRes = await fetch(`/api/sessions/${sessionId}/open`, {
@@ -433,6 +433,7 @@ export function SparringRoom({
         if (!oRes.ok) throw new Error("Failed to open session");
         const oData = await oRes.json();
         if (!mounted) return;
+        setOpening(false);
 
         if (oData.alreadyStarted && Array.isArray(oData.messages)) {
           // Restoring — map stored messages to captions
@@ -470,7 +471,6 @@ export function SparringRoom({
           const m = oData.message;
           // Mark the speaking persona
           setPersonaStates((prev) => ({ ...prev, [m.personaId]: "speaking" }));
-          setPersonaMoods((prev) => ({ ...prev, [m.personaId]: m.mood }));
 
           setCaptions([
             {
@@ -965,26 +965,20 @@ export function SparringRoom({
 
       {/* Body — stacked on mobile, 2-column on desktop */}
       <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
-        {/* Mobile panel — horizontal scroll (below lg, stacks on top) */}
+        {/* Mobile panel — presence strip (below lg, stacks on top) */}
         <div
           className="lg:hidden flex-shrink-0 border-b border-white/[0.06] overflow-x-auto px-4 py-3"
           style={{
             background: "rgba(10, 10, 10, 0.4)",
           }}
         >
-          <div className="flex gap-2.5">
-            {personas.map((p) => (
-              <div key={p.id} className="flex-shrink-0 w-[200px]">
-                <PersonaCard
-                  archetype={p.archetype}
-                  name={p.name}
-                  state={personaStates[p.id] || "idle"}
-                  mood={personaMoods[p.id] || "neutral"}
-                  variant="compact"
-                />
-              </div>
-            ))}
-          </div>
+          <PresenceRail
+            personas={personas}
+            states={personaStates}
+            agitation={agitation}
+            layout="strip"
+            interruptedPersonaId={interruptedPersonaId}
+          />
         </div>
 
         {/* Main area — content + conversation */}
@@ -1027,7 +1021,7 @@ export function SparringRoom({
                     const danger = score >= 80;
                     return (
                       <div key={p.id} className="flex items-center gap-1 flex-shrink-0">
-                        <span className="text-[9px] uppercase tracking-wider text-neutral-600 hidden sm:inline">
+                        <span className="text-[9px] uppercase tracking-wider text-neutral-600">
                           {p.name.replace("The ", "")}
                         </span>
                         <div className="flex gap-0.5">
@@ -1054,8 +1048,26 @@ export function SparringRoom({
           )}
 
           {/* Conversation feed — scrollable */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 lg:px-6">
+          <div
+            ref={feedRef}
+            onScroll={handleFeedScroll}
+            aria-live="polite"
+            className="flex-1 overflow-y-auto px-4 py-4 lg:px-6"
+          >
             <div className="mx-auto max-w-2xl space-y-3">
+              {/* Opening beat — the room is up, the panel's first line is on
+                  its way. Quiet, in the state language (gathering). */}
+              {opening && captions.length === 0 && !isPresenting && (
+                <div className="flex items-center justify-center gap-2 py-10 text-xs text-neutral-500">
+                  <span className="flex gap-0.5">
+                    <span className="spar-thinking-dot inline-block h-1.5 w-1.5 rounded-full bg-neutral-400" />
+                    <span className="spar-thinking-dot inline-block h-1.5 w-1.5 rounded-full bg-neutral-400" />
+                    <span className="spar-thinking-dot inline-block h-1.5 w-1.5 rounded-full bg-neutral-400" />
+                  </span>
+                  The panel is taking their seats…
+                </div>
+              )}
+
               {/* Presenting prompt (Defense & Boardroom) */}
               {isPresenting && captions.length === 0 && (
                 <div className="spar-fade-up rounded-md border border-[#1a1a1a] bg-[#0f0f0f] px-5 py-6 text-center">
@@ -1200,24 +1212,21 @@ export function SparringRoom({
           </div>
         </div>
 
-        {/* Right sidebar — Panel (desktop only, lg+) */}
+        {/* Right rail — panelist presence (desktop only, lg+) */}
         <aside
-          className="hidden lg:flex flex-col border-l border-white/[0.05] bg-[#0a0a0a] overflow-y-auto px-3 py-4"
+          className="hidden lg:flex flex-col border-l border-white/[0.05] bg-[#0a0a0a] overflow-y-auto px-5 py-5"
           style={{ width: "380px", minWidth: "320px", maxWidth: "420px" }}
         >
-          <p className="text-[10px] uppercase tracking-[0.18em] text-neutral-600 px-1 mb-3">
+          <p className="text-[10px] uppercase tracking-[0.18em] text-neutral-600 mb-4">
             The Panel
           </p>
-          {personas.map((p) => (
-            <PersonaCard
-              key={p.id}
-              archetype={p.archetype}
-              name={p.name}
-              state={personaStates[p.id] || "idle"}
-              mood={personaMoods[p.id] || "neutral"}
-              variant="sidebar"
-            />
-          ))}
+          <PresenceRail
+            personas={personas}
+            states={personaStates}
+            agitation={agitation}
+            layout="rail"
+            interruptedPersonaId={interruptedPersonaId}
+          />
         </aside>
       </div>
 
@@ -1238,11 +1247,25 @@ export function SparringRoom({
             variant="ghost"
             size="sm"
             onClick={handleNeedMoment}
-            disabled={!isUserTurn || isProcessing || audioPlaying}
+            disabled={
+              !canPauseForMoment({
+                liveSessionActive,
+                liveStatus: turnController.liveEngineStatus,
+                isPresenting,
+                isUserTurn,
+                isListening: voice.isListening,
+                isProcessing,
+                audioPlaying,
+                analyzing: analyzingPresentation,
+                coachReadOpen: coachAnalysis !== null,
+                drillRetry,
+                ending,
+              })
+            }
             className="text-neutral-400 hover:text-white"
           >
-            <Hand className="h-4 w-4 sm:mr-1.5" />
-            <span className="hidden sm:inline">I need a moment</span>
+            <Hand className="h-4 w-4 mr-1.5" />
+            <span>I need a moment</span>
           </Button>
 
           {/* Center — engine-aware speak controls */}
@@ -1298,18 +1321,10 @@ export function SparringRoom({
       )}
 
       {/* Mic permission error */}
-      {voice.error && (
-        <div className="fixed bottom-20 left-4 right-4 z-40 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-          {voice.error}
-        </div>
-      )}
+      {voice.error && <RoomToast>{voice.error}</RoomToast>}
 
       {/* Error toast */}
-      {error && captions.length > 0 && (
-        <div className="fixed bottom-20 left-4 right-4 z-40 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-          {error}
-        </div>
-      )}
+      {error && captions.length > 0 && <RoomToast>{error}</RoomToast>}
 
       {/* End session dialog */}
       <AlertDialog open={showEndDialog} onOpenChange={setShowEndDialog}>
@@ -1336,80 +1351,27 @@ export function SparringRoom({
 // record that its one-activation Live session is running — the hook-level
 // status alone can read "live" after a stop() and must not drive the UI.
 
-export type EngineStatusLabel = "Live" | "Classic" | "Connecting";
+// The engine helpers (engineStatusLabel, liveOwnsControls, recordsTurnAudio,
+// startsRecorderOnFallback, liveUserInterimCaption) now live in ./room-state
+// and are re-exported here for the pinned test surface.
+export {
+  engineStatusLabel,
+  liveOwnsControls,
+  recordsTurnAudio,
+  startsRecorderOnFallback,
+  liveUserInterimCaption,
+} from "./room-state";
 
-/** Quiet chip text naming the engine that owns the room right now. */
-export function engineStatusLabel(
-  liveSessionActive: boolean,
-  status: UseTurnControllerResult["liveEngineStatus"],
-): EngineStatusLabel {
-  // Not activated yet, stopped, or laddered down: the cascade owns the room.
-  if (!liveSessionActive || status === "fallback") return "Classic";
-  return status === "live" ? "Live" : "Connecting";
-}
-
-/** Whether the live engine's one-activation mic owns the room controls. */
-export function liveOwnsControls(
-  liveSessionActive: boolean,
-  status: UseTurnControllerResult["liveEngineStatus"],
-): boolean {
-  // The connecting window already counts: the user has activated once and
-  // must not be handed a second click flow mid-handshake.
-  return liveSessionActive && status !== "fallback";
-}
-
-/**
- * Whether this mic activation should record a debrief audio clip. The
- * debrief segments per classic turn; a live-engine session is one
- * continuous capture it cannot segment, so those activations are skipped.
- * Presenting (classic recognizer) and post-fallback activations record
- * exactly as before.
- */
-export function recordsTurnAudio(
-  isPresenting: boolean,
-  liveConfigured: boolean,
-  status: UseTurnControllerResult["liveEngineStatus"],
-): boolean {
-  if (isPresenting || !liveConfigured) return true;
-  return status === "fallback";
-}
-
-/**
- * Whether the live→cascade fallback transition should start the debrief
- * recorder itself. A live activation clicks while the engine still reads
- * "connecting", so recordsTurnAudio is false at click time; when the engine
- * then ladders down (e.g. a 503 from the token route on a no-key
- * deployment) the cascade mic starts without a click, and the first classic
- * turn's clip would be lost. The transition starts the recorder — exactly
- * once per activation (the alreadyStarted latch), never while the recorder
- * is already running, and only while a live-configured room's activation
- * still governs it. Classic rooms, presenting, and live-owned activations
- * are unchanged: their click-time recordsTurnAudio path already decides.
- */
-export function startsRecorderOnFallback(input: {
-  liveConfigured: boolean;
-  liveSessionActive: boolean;
-  status: UseTurnControllerResult["liveEngineStatus"];
-  cascadeListening: boolean;
-  recorderReady: boolean;
-  alreadyStarted: boolean;
-}): boolean {
-  if (!input.liveConfigured || !input.liveSessionActive || input.alreadyStarted) return false;
-  return input.status === "fallback" && input.cascadeListening && input.recorderReady;
-}
-
-/**
- * The interim user speech to show as the live "Speaking…" caption. The live
- * engine publishes it as the controller's transcript preview; classic rooms
- * never read it (their interim caption comes from the recognizer), and a
- * leftover preview must not bleed into a room the cascade owns.
- */
-export function liveUserInterimCaption(
-  liveSessionActive: boolean,
-  status: UseTurnControllerResult["liveEngineStatus"],
-  transcriptPreview: string,
-): string {
-  return liveOwnsControls(liveSessionActive, status) ? transcriptPreview : "";
+/** Quiet announcement toast — screen readers hear it the moment it lands. */
+export function RoomToast({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      role="alert"
+      className="fixed bottom-20 left-4 right-4 z-40 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400"
+    >
+      {children}
+    </div>
+  );
 }
 
 /** Small quiet status chip: which voice engine is running the room. */
@@ -1500,14 +1462,14 @@ export function RoomControlDeck({
             <div className="flex h-12 w-12 items-center justify-center rounded-full border border-emerald-500/25 bg-emerald-500/[0.08]">
               <Mic className="h-5 w-5 text-emerald-300" />
             </div>
-            <span className="text-[10px] uppercase tracking-wider text-neutral-500 hidden sm:inline">
+            <span className="text-[10px] uppercase tracking-wider text-neutral-500">
               Mic live — just talk, interruption is instant
             </span>
           </div>
         ) : (
           <div className="flex items-center gap-3">
             <Loader2 className="h-5 w-5 animate-spin text-neutral-400" />
-            <span className="text-[10px] uppercase tracking-wider text-neutral-500 hidden sm:inline">
+            <span className="text-[10px] uppercase tracking-wider text-neutral-500">
               Connecting the live engine…
             </span>
           </div>
@@ -1519,7 +1481,7 @@ export function RoomControlDeck({
           <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#2a2a2a] bg-[#171717]">
             <FileText className="h-4 w-4 text-neutral-400" />
           </div>
-          <span className="text-[10px] uppercase tracking-wider text-neutral-500 hidden sm:inline">
+          <span className="text-[10px] uppercase tracking-wider text-neutral-500">
             Read the coach read above — then begin Q&amp;A
           </span>
         </div>
@@ -1550,7 +1512,7 @@ export function RoomControlDeck({
               <Mic className="h-5 w-5" />
             </button>
           )}
-          <span className="text-[10px] uppercase tracking-wider text-neutral-500 hidden sm:inline">
+          <span className="text-[10px] uppercase tracking-wider text-neutral-500">
             {isListening
               ? "Presenting... click Done when finished"
               : "Click to present"}
@@ -1580,7 +1542,7 @@ export function RoomControlDeck({
               Try again
             </button>
           )}
-          <span className="text-[10px] uppercase tracking-wider text-amber-400/70 hidden sm:inline">
+          <span className="text-[10px] uppercase tracking-wider text-amber-400/70">
             {isListening
               ? `Answering — attempt ${drillAttempts + 1}`
               : `Attempt ${drillAttempts + 1} — answer without the weakness`}
@@ -1615,7 +1577,7 @@ export function RoomControlDeck({
         isListening ? (
           <WaveformBar amplitude={waveformAmplitude} />
         ) : (
-          <span className="text-[10px] uppercase tracking-wider text-neutral-500 hidden sm:inline">
+          <span className="text-[10px] uppercase tracking-wider text-neutral-500">
             {isUserTurn && !isProcessing
               ? isPresenting
                 ? "Click to present"
@@ -1633,7 +1595,74 @@ export function RoomControlDeck({
 }
 
 /** A single caption row — user or persona. */
-function CaptionRow({ entry }: { entry: CaptionEntry }) {
+/**
+ * The panelist presence rail — the room's signature element. Every panelist
+ * is an EQUAL-SIZE circular presence (user-locked: no panelist towers over
+ * another — the room is a peer panel, not a hierarchy). The rail (desktop)
+ * stacks full entries with one-liners; the strip (mobile) is compact rows.
+ * Persona states map onto the room's state language (thinking → gathering),
+ * and agitation at 80+ pulses the avatar — the interrupt tell, finally wired.
+ */
+export function PresenceRail({
+  personas,
+  states,
+  agitation,
+  layout = "rail",
+  interruptedPersonaId,
+}: {
+  personas: SessionPersona[];
+  states: Record<string, "idle" | "listening" | "thinking" | "speaking" | "about-to-interrupt">;
+  agitation: Record<string, number>;
+  layout?: "rail" | "strip";
+  /** The panelist whose turn a live barge-in just cut off (flicker). */
+  interruptedPersonaId?: string | null;
+}) {
+  const ordered = [...personas].sort((a, b) => a.seatOrder - b.seatOrder);
+
+  const presenceFor = (id: string): PresenceState => {
+    const s = states[id];
+    if (s === "speaking") return "speaking";
+    if (s === "thinking" || s === "about-to-interrupt") return "gathering";
+    return "listening";
+  };
+
+  if (layout === "strip") {
+    return (
+      <div className="flex items-center gap-6">
+        {ordered.map((p) => (
+          <div key={p.id} className="flex-shrink-0">
+            <PanelistPresence
+              archetype={p.archetype}
+              name={p.name}
+              status={presenceFor(p.id)}
+              variant="row"
+              aboutToInterrupt={(agitation[p.id] ?? 0) >= 80}
+              interrupted={interruptedPersonaId === p.id}
+            />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+      {ordered.map((p) => (
+        <PanelistPresence
+          key={p.id}
+          archetype={p.archetype}
+          name={p.name}
+          status={presenceFor(p.id)}
+          variant="portrait"
+          aboutToInterrupt={(agitation[p.id] ?? 0) >= 80}
+          interrupted={interruptedPersonaId === p.id}
+        />
+      ))}
+    </div>
+  );
+}
+
+export function CaptionRow({ entry }: { entry: CaptionEntry }) {
   const isUser = entry.role === "user";
   const isCoach = entry.type === "coach_whisper";
   const isInterruption = entry.type === "interruption";
@@ -1699,10 +1728,20 @@ function CaptionRow({ entry }: { entry: CaptionEntry }) {
         <div
           className={cn(
             "rounded-md rounded-bl-sm border px-4 py-2.5 text-sm text-neutral-200",
+            entry.archetype && "spar-caption-accent",
             isInterruption
               ? "border-[#2a2a2a] bg-[#141414] ml-2"
               : "border-[#1a1a1a] bg-[#0f0f0f]"
           )}
+          style={
+            entry.archetype
+              ? {
+                  borderLeft: `2px solid color-mix(in oklab, ${
+                    ARCHETYPES[entry.archetype].accentHue
+                  } 45%, transparent)`,
+                }
+              : undefined
+          }
         >
           {entry.content}
         </div>
