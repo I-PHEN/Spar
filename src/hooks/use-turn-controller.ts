@@ -500,6 +500,8 @@ export interface UseTurnControllerOptions {
   speechDependencies?: StreamingSpeechDependencies;
   /** Engine selection: configure to try Gemini Live first; absent keeps the cascade primary. */
   live?: LiveVoiceConfig & { dependencies?: LiveVoiceDependencies };
+  /** Live barge-in: the user cut the AI utterance mid-word (UI acknowledgment). */
+  onLiveInterrupted?: () => void;
 }
 
 export interface UseTurnControllerResult extends TurnControllerSnapshot {
@@ -582,6 +584,7 @@ export function createTurnControllerHook(
       onAssistantCaption: (turnId, text) => controllerRef.current?.acceptLiveAssistantCaption(turnId, text),
       onRegisterTurn: () => controllerRef.current?.registerLiveTurn() ?? "",
       onCancelTurn: turnId => controllerRef.current?.cancelLiveTurn(turnId),
+      onInterrupted: () => options.onLiveInterrupted?.(),
       onCompleteTurn: turnId => controllerRef.current?.completeLiveTurn(turnId),
       onMetric: event => controllerRef.current?.recordLiveEngineEvent(event),
       onFallback: () => voiceRef.current.start(),

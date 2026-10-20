@@ -107,6 +107,17 @@ export function shouldStickToBottom(distanceFromBottom: number): boolean {
   return distanceFromBottom < 80;
 }
 
+/**
+ * Whether "I need a moment" is available. It works whenever the user holds
+ * the floor (classic idle, presenting, drill retry) — INCLUDING live mode,
+ * where the classic per-turn isUserTurn flag goes stale (the fix). It pauses
+ * while the panel gathers, speaks, or the room is ending/reading the coach.
+ */
+export function canPauseForMoment(input: RoomStateInput): boolean {
+  const { phase } = roomState(input);
+  return phase === "listening" || phase === "presenting" || phase === "drill-retry";
+}
+
 /** How far a scroll container's bottom is above the viewport, in px. */
 export function distanceFromBottom(el: HTMLElement): number {
   return el.scrollHeight - el.scrollTop - el.clientHeight;

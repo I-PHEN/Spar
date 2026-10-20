@@ -122,3 +122,28 @@ describe("distanceFromBottom", () => {
     expect(distanceFromBottom(el)).toBe(0);
   });
 });
+
+describe("canPauseForMoment", () => {
+  test("enabled on the user's floor — classic idle, presenting, drill retry", async () => {
+    const { canPauseForMoment } = await import("./room-state");
+    expect(canPauseForMoment(base())).toBe(true); // classic idle
+    expect(canPauseForMoment(base({ isPresenting: true }))).toBe(true);
+    expect(canPauseForMoment(base({ drillRetry: true }))).toBe(true);
+  });
+
+  test("enabled in live mode even when the per-turn flag is stale (THE fix)", async () => {
+    const { canPauseForMoment } = await import("./room-state");
+    // Live owns the room; isUserTurn kept an old false value — still allowed.
+    expect(
+      canPauseForMoment(base({ liveSessionActive: true, liveStatus: "live", isUserTurn: false })),
+    ).toBe(true);
+  });
+
+  test("disabled while gathering, speaking, reading the coach, or ending", async () => {
+    const { canPauseForMoment } = await import("./room-state");
+    expect(canPauseForMoment(base({ isUserTurn: false, isProcessing: true }))).toBe(false);
+    expect(canPauseForMoment(base({ isUserTurn: false, audioPlaying: true }))).toBe(false);
+    expect(canPauseForMoment(base({ coachReadOpen: true }))).toBe(false);
+    expect(canPauseForMoment(base({ ending: true }))).toBe(false);
+  });
+});

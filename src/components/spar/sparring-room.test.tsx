@@ -288,3 +288,25 @@ describe("room accessibility", () => {
     expect(m).not.toContain("hidden sm:inline");
   });
 });
+
+describe("drill framing and barge-in", () => {
+  test("attempt counter appears only during a drill retry", () => {
+    const idle = renderToStaticMarkup(<RoomControlDeck {...classicDeck} drillRetry={false} drillAttempts={2} />);
+    expect(idle).not.toContain("Attempt");
+
+    const retry = renderToStaticMarkup(<RoomControlDeck {...classicDeck} drillRetry drillAttempts={2} />);
+    expect(retry).toContain("Attempt 3");
+    expect(retry).toContain("Try again");
+  });
+
+  test("a barge-in flickers only the interrupted panelist's presence", () => {
+    const personas = [
+      { id: "p1", archetype: "skeptic", name: "Ada", behaviorStyle: "moderate", seatOrder: 0 },
+      { id: "p2", archetype: "so_what", name: "Chiara", behaviorStyle: "moderate", seatOrder: 1 },
+    ] as const;
+    const m = renderToStaticMarkup(
+      <PresenceRail personas={[...personas]} states={{}} agitation={{}} interruptedPersonaId="p1" />,
+    );
+    expect(m).toContain("spar-presence-flicker");
+  });
+});

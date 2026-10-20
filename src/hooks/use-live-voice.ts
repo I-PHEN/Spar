@@ -108,6 +108,8 @@ export interface LiveVoiceSessionOptions extends LiveVoiceConfig {
   onCancelTurn?(turnId: string): void;
   /** `turn-complete` for the registered turn: finalized cleanly, not cancelled. */
   onCompleteTurn?(turnId: string): void;
+  /** The user barged in: the AI utterance was cut mid-word. UI acknowledgment. */
+  onInterrupted?(): void;
   onMetric?(event: LiveEngineMetricEvent): void;
   /** The cascade takes over the room (fallback ladder rung 2). */
   onFallback?(): void;
@@ -375,6 +377,7 @@ export class LiveVoiceSession {
     this.cycleArmed = false;
     this.interruptions += 1;
     this.options.onMetric?.({ voiceEngine: "gemini-live", interruptions: this.interruptions });
+    this.options.onInterrupted?.();
     this.options.onCancelTurn?.(turnId);
   }
 

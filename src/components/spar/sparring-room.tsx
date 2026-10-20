@@ -34,6 +34,7 @@ import {
   liveUserInterimCaption,
   distanceFromBottom,
   shouldStickToBottom,
+  canPauseForMoment,
   type EngineStatusLabel,
   type PresenceState,
 } from "./room-state";
@@ -200,6 +201,13 @@ export function SparringRoom({
     sessionId,
     voiceModel: "aura-2-zeus-en",
     live: liveConfig,
+    onLiveInterrupted: () => {
+      // Barge-in: flicker the lead panelist's presence (the live voice).
+      const lead = [...personas].sort((a, b) => a.seatOrder - b.seatOrder)[0];
+      if (!lead) return;
+      setInterruptedPersonaId(lead.id);
+      window.setTimeout(() => setInterruptedPersonaId(null), 650);
+    },
   });
   const voice = isPresenting ? presentationVoice : turnController;
   const recorder = useAudioRecorder();
@@ -209,6 +217,8 @@ export function SparringRoom({
   const [isUserTurn, setIsUserTurn] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
+  // Barge-in acknowledgment: which panelist's presence flickers (live mode).
+  const [interruptedPersonaId, setInterruptedPersonaId] = useState<string | null>(null);
 
   // Live engine (Gemini Live): the room tracks whether its one-activation mic
   // session is running. The hook-level status can still read "live" after a
@@ -967,6 +977,7 @@ export function SparringRoom({
             states={personaStates}
             agitation={agitation}
             layout="strip"
+            interruptedPersonaId={interruptedPersonaId}
           />
         </div>
 
@@ -1214,6 +1225,7 @@ export function SparringRoom({
             states={personaStates}
             agitation={agitation}
             layout="rail"
+            interruptedPersonaId={interruptedPersonaId}
           />
         </aside>
       </div>
@@ -1235,7 +1247,21 @@ export function SparringRoom({
             variant="ghost"
             size="sm"
             onClick={handleNeedMoment}
-            disabled={!isUserTurn || isProcessing || audioPlaying}
+            disabled={
+              !canPauseForMoment({
+                liveSessionActive,
+                liveStatus: turnController.liveEngineStatus,
+                isPresenting,
+                isUserTurn,
+                isListening: voice.isListening,
+                isProcessing,
+                audioPlaying,
+                analyzing: analyzingPresentation,
+                coachReadOpen: coachAnalysis !== null,
+                drillRetry,
+                ending,
+              })
+            }
             className="text-neutral-400 hover:text-white"
           >
             <Hand className="h-4 w-4 mr-1.5" />
@@ -1582,11 +1608,14 @@ export function PresenceRail({
   states,
   agitation,
   layout = "rail",
+  interruptedPersonaId,
 }: {
   personas: SessionPersona[];
   states: Record<string, "idle" | "listening" | "thinking" | "speaking" | "about-to-interrupt">;
   agitation: Record<string, number>;
   layout?: "rail" | "strip";
+  /** The panelist whose turn a live barge-in just cut off (flicker). */
+  interruptedPersonaId?: string | null;
 }) {
   const ordered = [...personas].sort((a, b) => a.seatOrder - b.seatOrder);
 
@@ -1608,6 +1637,7 @@ export function PresenceRail({
               status={presenceFor(p.id)}
               variant="row"
               aboutToInterrupt={(agitation[p.id] ?? 0) >= 80}
+              interrupted={interruptedPersonaId === p.id}
             />
           </div>
         ))}
@@ -1625,6 +1655,7 @@ export function PresenceRail({
           status={presenceFor(p.id)}
           variant="portrait"
           aboutToInterrupt={(agitation[p.id] ?? 0) >= 80}
+          interrupted={interruptedPersonaId === p.id}
         />
       ))}
     </div>
