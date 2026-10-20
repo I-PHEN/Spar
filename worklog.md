@@ -1196,3 +1196,22 @@ Work Log:
 
 Stage Summary:
 - Configure screen Step 2 is now just the experience picker + drill target + optional room description — no placebo controls. Verification: bun test (509), test:e2e (3), typecheck, scoped lint all green.
+
+---
+Task ID: project3-room-redesign
+Agent: main (inline execution, tasks 1-7 + three user-review fix waves)
+Task: Project 3 — sparring room redesigned as a voice-first stage: presence rail, caption column, unified controls, live-mode fixes
+
+Work Log:
+- Dead weight cleared (Task 1): the never-rendered TelemetryBar, the orphaned Transcript component + its unreachable CSS, vestigial claims-panel state, unused live-telemetry computation and imports — minus 291 lines, zero behavior change; architecture manifest synced.
+- State language (Task 2): new pure module src/components/spar/room-state.ts resolves any room moment (engine x turn phase x presenting/coach/drill/ending) into one {phase, presence, statusLine} — listening / gathering / speaking with the deck's pinned strings — plus shouldStickToBottom/distanceFromBottom (scroll guard) and canPauseForMoment. The five pinned engine helpers moved in (re-exported from the room; their tests pass unchanged).
+- Presence (Tasks 3-4): PanelistPresence — equal-size circular avatars (user-locked twice: equal sizes, no hierarchy; circles not tiles), each tinted with the persona's accent hue, the room's only color. States: breathing (listening), amber dots (gathering), expand/contract pulse (speaking — glow removed on review), one-beat flicker (live barge-in), agitation pulse at 80+. The rail replaces the card sidebar (stacked, fits 3 without scrolling, no taglines — user-locked); mobile gets a strip. PersonaCard deleted (superseded); persona caption bubbles carry the speaker's accent edge; the never-fired about-to-interrupt tell is wired.
+- Transcript + a11y (Task 5): sticky-to-bottom auto-scroll (scroll up to read releases it), aria-live feed, role="alert" toasts (RoomToast), state text visible on mobile.
+- Controls + live fixes (Task 6): "I need a moment" now driven by room phase — works in live mode where the classic per-turn flag went stale; live barge-in acknowledgment plumbed from the Live adapter (onInterrupted) through the turn controller to a presence flicker; drill framing pinned (top-bar target chip, attempt counter only during retry).
+- User-review fix waves: debrief generation falls back to the telemetry heuristic instead of 500 when the LLM is unavailable (missing .z-ai-config — restore it for real coaching); the room paints the moment session data loads ("The panel is taking their seats…" beat while the opening line generates) instead of a full-screen spinner; speaking pulse is pure expand/contract, no glow.
+- Note: operator port — the dev server now runs on 3001 (3000 is occupied by another app on this machine).
+
+Stage Summary:
+- The room is rebuilt around the continuous conversation: equal circular presences carry the entire state language, captions are accent-edged and scroll-guarded, one control position serves both engines with no layout jump on fallback, and every live-mode gap found by the audit is closed (moment button, barge-in tell, browser-support wall aside). Old Defense/Boardroom sessions still open and debrief inside the new structure; all behavior contracts held (engine chip trio, deck strings, e2e flows).
+- How to try it: dev server (port 3001), practice screen → Q&A → Start Sparring. Watch a presence breathe while you speak, pulse when it speaks, flicker when you barge in (Gemini key set); scroll up mid-session — the feed waits; "I need a moment" is live even with the mic live.
+- Full verification green: bun test (545), test:e2e (3), typecheck, lint, build, git diff --check.

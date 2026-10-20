@@ -13,6 +13,7 @@ Spar is a voice-first practice environment where you defend ideas under live AI 
 Defense and Boardroom are currently hidden from the UI (code retained for later re-introduction).
 
 - **Live AI panel** — 1-3 panelists (Ada, Victor, Chiara, Marcus, Priya) with distinct lenses. They build agitation in real-time and interrupt when you show weakness.
+- **The room** — a voice-first stage, not a dashboard: equal circular presences (one per panelist, tinted with their accent) carry the whole state language (breathing = listening, dots = gathering, expand/contract pulse = speaking, flicker = you barged in); captions carry each speaker's accent edge; scrolling up to read pauses auto-scroll; the room paints the moment the session loads. No meters, no live stats — feedback lands in the debrief.
 
 - **Voice-first** — Speak naturally. With a Gemini API key configured, Q&A runs on the Gemini Live speech-to-speech engine: one mic activation, continuous listening, and instant interruption in both directions. Without it (and whenever Live cannot connect), the Deepgram → Groq → Aura-2 cascade serves the room: Flux streaming STT transcription, Groq persona responses spoken through Aura-2 streaming TTS as phrases complete.
 
