@@ -162,6 +162,8 @@ export function SparringRoom({
   const [connectionError, setConnectionError] = useState(false);
   const [personaStates, setPersonaStates] = useState<Record<string, PersonaState>>({});
   const [loading, setLoading] = useState(true);
+  // Quiet "taking their seats" beat while /open generates the opening line.
+  const [opening, setOpening] = useState(true);
   const [ending, setEnding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showEndDialog, setShowEndDialog] = useState(false);
@@ -409,6 +411,11 @@ export function SparringRoom({
         }
         setPersonaStates(states);
 
+        // Paint the room NOW — session data is enough for the presence rail,
+        // top bar, and feed. The opening line (an LLM call) lands in the feed
+        // when it's ready, with a quiet "taking their seats" beat in between.
+        if (mounted) setLoading(false);
+
         // Open the session — panel speaks first
         const oRes = await fetch(`/api/sessions/${sessionId}/open`, {
           method: "POST",
@@ -416,6 +423,7 @@ export function SparringRoom({
         if (!oRes.ok) throw new Error("Failed to open session");
         const oData = await oRes.json();
         if (!mounted) return;
+        setOpening(false);
 
         if (oData.alreadyStarted && Array.isArray(oData.messages)) {
           // Restoring — map stored messages to captions
@@ -1036,6 +1044,19 @@ export function SparringRoom({
             className="flex-1 overflow-y-auto px-4 py-4 lg:px-6"
           >
             <div className="mx-auto max-w-2xl space-y-3">
+              {/* Opening beat — the room is up, the panel's first line is on
+                  its way. Quiet, in the state language (gathering). */}
+              {opening && captions.length === 0 && !isPresenting && (
+                <div className="flex items-center justify-center gap-2 py-10 text-xs text-neutral-500">
+                  <span className="flex gap-0.5">
+                    <span className="spar-thinking-dot inline-block h-1.5 w-1.5 rounded-full bg-neutral-400" />
+                    <span className="spar-thinking-dot inline-block h-1.5 w-1.5 rounded-full bg-neutral-400" />
+                    <span className="spar-thinking-dot inline-block h-1.5 w-1.5 rounded-full bg-neutral-400" />
+                  </span>
+                  The panel is taking their seats…
+                </div>
+              )}
+
               {/* Presenting prompt (Defense & Boardroom) */}
               {isPresenting && captions.length === 0 && (
                 <div className="spar-fade-up rounded-md border border-[#1a1a1a] bg-[#0f0f0f] px-5 py-6 text-center">
@@ -1595,7 +1616,7 @@ export function PresenceRail({
   }
 
   return (
-    <div className="flex flex-col gap-7">
+    <div className="flex flex-col gap-5">
       {ordered.map((p) => (
         <PanelistPresence
           key={p.id}

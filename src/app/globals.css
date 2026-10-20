@@ -203,13 +203,14 @@
   animation: spar-presence-breathe 4.5s ease-in-out infinite;
 }
 
-/* Speaking: a gentle lift while the accent glow is lit. */
+/* Speaking: the circle expands and contracts — a visible voice pulse
+   (ChatGPT-orb style: unmistakable from across the room, still calm). */
 @keyframes spar-presence-speak {
   0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.025); }
+  50% { transform: scale(1.06); }
 }
 .spar-presence-speaking {
-  animation: spar-presence-speak 2.4s ease-in-out infinite;
+  animation: spar-presence-speak 1.8s ease-in-out infinite;
 }
 
 /* Barge-in: one quick flicker — "you cut in". */

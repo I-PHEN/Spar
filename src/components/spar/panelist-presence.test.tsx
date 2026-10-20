@@ -7,9 +7,9 @@ describe("PanelistPresence (portrait)", () => {
     <PanelistPresence archetype="skeptic" name="Ada" status="listening" />,
   );
 
-  test("renders the name and the one-line tagline", () => {
+  test("renders the name — no tagline (user-locked quiet rail)", () => {
     expect(markup).toContain("Ada");
-    expect(markup).toContain("Questions your core assumptions");
+    expect(markup).not.toContain("Questions your core assumptions");
   });
 
   test("carries the persona's accent hue", () => {
@@ -23,7 +23,7 @@ describe("PanelistPresence (portrait)", () => {
       <PanelistPresence archetype="skeptic" name="Ada" status="listening" variant="row" />,
     );
     // Same size class in both variants — no panelist towers over another.
-    expect(row).toContain("h-24 w-24");
+    expect(row).toContain("h-20 w-20");
     expect(row).toContain("rounded-full");
   });
 

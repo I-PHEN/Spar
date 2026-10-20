@@ -64,7 +64,8 @@ export function PanelistPresence({
 
   const avatarClass = cn(
     "spar-presence-avatar relative inline-flex select-none items-center justify-center rounded-full font-semibold tracking-wide",
-    "h-24 w-24 text-xl sm:h-28 sm:w-28 sm:text-2xl",
+    // Sized so three presences (the max) always fit the rail without scrolling.
+    "h-20 w-20 text-lg sm:h-24 sm:w-24 sm:text-xl",
     status === "listening" && "spar-presence-breathe",
     status === "speaking" && "spar-presence-speaking",
     aboutToInterrupt && "spar-pulse",
@@ -91,9 +92,6 @@ export function PanelistPresence({
         >
           {name}
         </p>
-        {isPortrait && (
-          <p className="mt-1 text-[11px] leading-relaxed text-neutral-500">{def.tagline}</p>
-        )}
 
         {/* One quiet status line — the room's whole state language. */}
         <div

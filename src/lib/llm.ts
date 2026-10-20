@@ -388,11 +388,8 @@ interface RawDebrief {
 export async function generateDebrief(
   params: GenerateDebriefParams
 ): Promise<DebriefPayload> {
-  const zai = await getZai();
-
   const hasPresentation = !!params.presentationSection;
   const hasDrill = !!params.drillSection;
-
   // Build the system prompt in parts to avoid nested template literal complexity
   const basePrompt = `You are Spar's coaching engine. After every sparring session, you write a debrief for the user.
 
@@ -488,15 +485,25 @@ ${telemetrySummary}
 
 Produce the JSON debrief now.`;
 
-  const completion = await zai.chat.completions.create({
-    messages: [
-      { role: "assistant", content: systemPrompt },
-      { role: "user", content: userPrompt },
-    ],
-    thinking: { type: "disabled" },
-  });
+  let raw = "";
+  try {
+    const zai = await getZai();
+    const completion = await zai.chat.completions.create({
+      messages: [
+        { role: "assistant", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      thinking: { type: "disabled" },
+    });
+    raw = completion.choices[0]?.message?.content ?? "";
+  } catch (err) {
+    // The LLM is unavailable (missing config, network, provider down). The
+    // debrief is the hero artifact — end-of-session must still produce one,
+    // so fall back to the telemetry-based heuristic debrief instead of 500.
+    console.warn("[llm] debrief generation failed, using heuristic fallback:", err);
+    return buildFallbackDebrief(params);
+  }
 
-  const raw = completion.choices[0]?.message?.content ?? "";
   const parsed = extractJson<RawDebrief>(raw);
 
   if (!parsed) {

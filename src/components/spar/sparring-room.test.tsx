@@ -202,7 +202,7 @@ describe("presence rail", () => {
     { id: "p1", archetype: "skeptic", name: "Ada", behaviorStyle: "moderate", seatOrder: 0 },
   ] as const;
 
-  test("every panelist is an equal-size circular presence with their one-liner", () => {
+  test("every panelist is an equal-size circular presence, no taglines", () => {
     const m = renderToStaticMarkup(
       <PresenceRail
         personas={[...personas]}
@@ -210,13 +210,13 @@ describe("presence rail", () => {
         agitation={{}}
       />,
     );
-    // Both panelists get their one-liner in the rail.
-    expect(m).toContain("Questions your core assumptions");
-    expect(m).toContain("Challenges your impact and relevance");
+    // Names, no one-liners — the rail stays quiet (user-locked).
     expect(m).toContain("Ada");
     expect(m).toContain("Chiara");
+    expect(m).not.toContain("Questions your core assumptions");
+    expect(m).not.toContain("Challenges your impact and relevance");
     // Equal size: the avatar size class appears exactly once per panelist.
-    expect(m.match(/h-24 w-24/g)?.length).toBe(2);
+    expect(m.match(/h-20 w-20/g)?.length).toBe(2);
     // Circular avatars, not tiles.
     expect(m).toContain("rounded-full");
   });
