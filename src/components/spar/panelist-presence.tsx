@@ -52,14 +52,12 @@ export function PanelistPresence({
   const isPortrait = variant === "portrait";
 
   // Avatar block: dark slate tinted with the persona's accent. The accent is
-  // the only color in the room — everything else stays neutral.
+  // the only color in the room — everything else stays neutral. Speaking is
+  // carried by the expand/contract pulse alone (user-locked: no glow).
   const avatarStyle = {
     background: `color-mix(in oklab, ${accent} 14%, oklch(0.16 0 0))`,
     color: `color-mix(in oklab, ${accent} 55%, oklch(0.92 0 0))`,
-    boxShadow:
-      status === "speaking"
-        ? `0 0 48px -12px ${accent}`
-        : `inset 0 0 0 1px color-mix(in oklab, ${accent} 22%, transparent)`,
+    boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${accent} 22%, transparent)`,
   };
 
   const avatarClass = cn(
