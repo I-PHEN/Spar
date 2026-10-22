@@ -71,7 +71,15 @@ export default function Page() {
     setView("auth");
   }
 
-  function handleAuthContinue() {
+  function handleAuthContinue(enteredName?: string) {
+    if (enteredName && enteredName.trim()) {
+      setUserName(enteredName.trim());
+      fetch("/api/user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: enteredName.trim() }),
+      }).catch(() => {});
+    }
     // After auth: ALWAYS go to onboarding
     // (We check hasCompletedOnboarding to skip onboarding for returning users)
     if (hasCompletedOnboarding) {
@@ -114,35 +122,12 @@ export default function Page() {
     setView("home");
   }
 
-  function handleOnboardingComplete(data: {
-    name: string;
-    preparingFor: string;
-    focusArea: string;
-  }) {
-    // Update the user's name
-    fetch("/api/user", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: data.name }),
-    }).catch(() => {});
-
-    setUserName(data.name);
+  function handleOnboardingComplete(data: { name: string }) {
+    if (data.name && data.name.trim()) {
+      setUserName(data.name.trim());
+    }
     setHasCompletedOnboarding(true);
-
-    // Map onboarding choices to experience defaults.
-    // Hidden Defense/Boardroom experiences map onto Q&A until they return to the UI.
-    const preparingMap: Record<string, ExperienceKey> = {
-      thesis: "open_spar",
-      pitch: "open_spar",
-      board: "open_spar",
-      interview: "open_spar",
-      conference: "open_spar",
-      custom: "open_spar",
-    };
-    const exp = preparingMap[data.preparingFor] || "open_spar";
-    setExperience(exp);
-
-    // After onboarding, go to Home (the dashboard)
+    setExperience("open_spar");
     setView("home");
   }
 
@@ -178,6 +163,7 @@ export default function Page() {
   if (view === "onboarding") {
     return (
       <OnboardingView
+        initialName={userName}
         onComplete={handleOnboardingComplete}
         onBack={() => setView("auth")}
       />
