@@ -192,6 +192,11 @@ export default function Page() {
           <HomeView
             userName={userName}
             onEnterSparringRoom={() => setView("practice")}
+            onOpenDebrief={(sessionId, label) => {
+              setActiveSessionId(sessionId);
+              setScenarioLabel(label);
+              setView("debrief");
+            }}
           />
         )}
         {view === "practice" && (

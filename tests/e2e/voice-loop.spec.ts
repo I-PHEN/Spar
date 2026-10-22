@@ -597,7 +597,7 @@ async function enterSparringRoom(page: Page): Promise<void> {
   await page.getByRole("button", { name: /Create Account/ }).click();
 
   // Dashboard → practice configuration.
-  await page.getByRole("button", { name: "Enter the Sparring Room" }).first().click();
+  await page.getByRole("button", { name: "New session" }).first().click();
 
   await page.getByRole("button", { name: "Topic only" }).click();
   await page.getByPlaceholder(/go-to-market strategy/).fill(

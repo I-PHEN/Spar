@@ -23,10 +23,12 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { sessionLabel } from "@/lib/session-label";
 
 interface HomeViewProps {
   userName: string;
   onEnterSparringRoom: () => void;
+  onOpenDebrief: (sessionId: string, label: string) => void;
 }
 
 interface UpcomingMoment {
@@ -34,6 +36,14 @@ interface UpcomingMoment {
   title: string;
   detail: string | null;
   date: string;
+}
+
+export interface SessionHistoryEntry {
+  id: string;
+  scenario: string;
+  createdAt: string;
+  personas: Array<{ name: string; archetype: string }>;
+  summary: { oneThingToPractice: string } | null;
 }
 
 interface Stats {
@@ -52,18 +62,77 @@ function greeting(): string {
   return "Good evening";
 }
 
-export function HomeView({ userName, onEnterSparringRoom }: HomeViewProps) {
+/** One past session: mode, panel, the coach's takeaway, and the debrief. */
+export function SessionHistoryCard({
+  session,
+  onOpenDebrief,
+}: {
+  session: SessionHistoryEntry;
+  onOpenDebrief: (sessionId: string, label: string) => void;
+}) {
+  const label = sessionLabel(session.scenario);
+  const date = new Date(session.createdAt).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+  const panel = session.personas.map((p) => p.name).join(" · ");
+
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-[#1e1e1e] bg-[#101010] px-4 py-3.5 transition-colors hover:border-[#2a2a2a]">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="rounded border border-[#2a2a2a] bg-[#171717] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-neutral-200">
+            {label}
+          </span>
+          <span className="text-xs text-neutral-500">{date}</span>
+          {panel && (
+            <span className="hidden truncate text-xs text-neutral-500 sm:inline">
+              {panel}
+            </span>
+          )}
+        </div>
+        {session.summary?.oneThingToPractice ? (
+          <p className="mt-1.5 truncate text-sm text-neutral-300">
+            <span className="text-neutral-600">Practice: </span>
+            {session.summary.oneThingToPractice}
+          </p>
+        ) : (
+          <p className="mt-1.5 truncate text-sm text-neutral-600">
+            No debrief — the session ended before coaching.
+          </p>
+        )}
+      </div>
+      {session.summary && (
+        <button
+          onClick={() => onOpenDebrief(session.id, label)}
+          className="flex-shrink-0 rounded-md border border-[#2a2a2a] bg-[#171717] px-3 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:border-[#3a3a3a] hover:text-white"
+        >
+          Read debrief
+        </button>
+      )}
+    </div>
+  );
+}
+
+export function HomeView({ userName, onEnterSparringRoom, onOpenDebrief }: HomeViewProps) {
   const [moment, setMoment] = useState<UpcomingMoment | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [sessions, setSessions] = useState<SessionHistoryEntry[] | null>(null);
   const [editingMoment, setEditingMoment] = useState(false);
 
   useEffect(() => {
-    Promise.all([fetch("/api/upcoming-moment"), fetch("/api/stats")])
-      .then(async ([mr, sr]) => {
+    Promise.all([
+      fetch("/api/upcoming-moment"),
+      fetch("/api/stats"),
+      fetch("/api/sessions"),
+    ])
+      .then(async ([mr, sr, hr]) => {
         const mData = await mr.json();
         const sData = await sr.json();
+        const hData = await hr.json();
         setMoment(mData.upcoming || null);
         setStats(sData);
+        setSessions(Array.isArray(hData.sessions) ? hData.sessions : []);
       })
       .catch(console.error);
   }, []);
@@ -100,11 +169,10 @@ export function HomeView({ userName, onEnterSparringRoom }: HomeViewProps) {
         )}
       </div>
 
-      {/* Primary CTA — clean, single action */}
+      {/* Primary CTA — clean, single action, honest label */}
       <button
         onClick={onEnterSparringRoom}
         className="group relative block w-full overflow-hidden rounded-md border border-[#202020] bg-[#101010] hover:bg-[#161616] hover:border-[#2a2a2a] p-6 text-left transition-all sm:p-8"
-        style={{ boxShadow: "0 0 0 3px rgba(255,255,255,0.0)" }}
       >
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -112,7 +180,7 @@ export function HomeView({ userName, onEnterSparringRoom }: HomeViewProps) {
               Start a session
             </p>
             <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-              Enter the Sparring Room
+              New session
             </h2>
             <p className="mt-1.5 text-sm text-neutral-400">
               Spar on a topic or bring material. Face the panel. Get coached.
@@ -157,7 +225,7 @@ export function HomeView({ userName, onEnterSparringRoom }: HomeViewProps) {
       )}
 
       {/* Quick Stats Row */}
-      <div className="mt-4 grid grid-cols-3 gap-3">
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard
           icon={<Sparkles className="h-3.5 w-3.5" />}
           label="Sessions this week"
@@ -173,6 +241,11 @@ export function HomeView({ userName, onEnterSparringRoom }: HomeViewProps) {
           label="Top skill"
           value={stats?.topSkill?.name ?? "—"}
           sub={stats?.topSkill ? `${stats.topSkill.score}` : undefined}
+        />
+        <StatCard
+          icon={<Swords className="h-3.5 w-3.5" />}
+          label="Total sessions"
+          value={stats?.totalSessions ?? "—"}
         />
       </div>
 
@@ -194,13 +267,41 @@ export function HomeView({ userName, onEnterSparringRoom }: HomeViewProps) {
         </div>
       )}
 
+      {/* Recent sessions — the user's real history */}
+      <div className="mt-8">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-neutral-500 mb-3">
+          Recent sessions
+        </p>
+        {sessions === null ? (
+          <p className="text-sm text-neutral-600">Loading…</p>
+        ) : sessions.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-[#252525] px-5 py-8 text-center">
+            <p className="text-sm text-neutral-300">No sessions yet.</p>
+            <p className="mt-1 text-xs text-neutral-500">
+              Your first spar takes about five minutes — the panel is ready when
+              you are.
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {sessions.slice(0, 5).map((s) => (
+              <SessionHistoryCard
+                key={s.id}
+                session={s}
+                onOpenDebrief={onOpenDebrief}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Mobile floating CTA */}
       <button
         onClick={onEnterSparringRoom}
         className="fixed bottom-20 left-4 right-4 z-40 flex items-center justify-center gap-2 rounded-xl bg-white py-3.5 px-6 text-sm font-semibold text-black shadow-lg transition-transform active:scale-95 md:hidden"
       >
         <Swords className="h-4 w-4" />
-        Enter the Sparring Room
+        New session
       </button>
 
       <UpcomingMomentDialog
