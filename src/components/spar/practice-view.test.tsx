@@ -68,3 +68,13 @@ describe("PracticeView single screen", () => {
     expect(source).toContain("sticky");
   });
 });
+
+describe("practice aesthetic contract", () => {
+  test("seat cards preview the room: the panelist's accent hue renders", () => {
+    const markup = renderToStaticMarkup(
+      <PracticeView onSessionCreated={() => {}} onCancel={() => {}} />,
+    );
+    // Ada (skeptic) is the default seat — her blue must be in the markup.
+    expect(markup).toContain("oklch(0.68 0.13 250");
+  });
+});

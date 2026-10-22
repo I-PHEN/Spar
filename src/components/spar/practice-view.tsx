@@ -174,13 +174,21 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 pt-6 sm:px-6 sm:pt-8">
-      {/* Header */}
-      <div className="mb-8">
+    <div className="relative mx-auto max-w-2xl px-4 pt-6 sm:px-6 sm:pt-8">
+      {/* Header — the antechamber. A whisper of light behind it for depth. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-64"
+        style={{
+          background:
+            "radial-gradient(60% 100% at 50% 0%, rgba(255,255,255,0.035), transparent 70%)",
+        }}
+      />
+      <div className="relative mb-8 spar-fade-up">
         <p className="text-[11px] uppercase tracking-[0.18em] text-neutral-600">
           Suit up
         </p>
-        <h1 className="mt-1.5 text-2xl font-semibold tracking-tight text-white sm:text-[28px]">
+        <h1 className="mt-1.5 text-[26px] font-semibold tracking-tight text-white sm:text-3xl">
           Configure the room
         </h1>
         <p className="mt-1.5 text-sm text-neutral-500">
@@ -188,32 +196,36 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
         </p>
       </div>
 
-      {/* 01 — Defend: material or topic (the main focus) */}
-      <DefendSection
-        hasMaterial={hasMaterial}
-        setHasMaterial={setHasMaterial}
-        material={material}
-        setMaterial={setMaterial}
-        materialTitle={materialTitle}
-        setMaterialTitle={setMaterialTitle}
-        topic={topic}
-        setTopic={setTopic}
-      />
+      {/* One orchestrated entrance: the sections take their seats in turn. */}
+      <div className="spar-fade-up" style={{ animationDelay: "60ms", animationFillMode: "backwards" }}>
+        <DefendSection
+          hasMaterial={hasMaterial}
+          setHasMaterial={setHasMaterial}
+          material={material}
+          setMaterial={setMaterial}
+          materialTitle={materialTitle}
+          setMaterialTitle={setMaterialTitle}
+          topic={topic}
+          setTopic={setTopic}
+        />
+      </div>
 
-      {/* 02 — Mode: Q&A / Drill side by side; drill target expands below */}
-      <ModeSection
-        experience={experience}
-        selectExperience={selectExperience}
-        drillTarget={drillTarget}
-        setDrillTarget={setDrillTarget}
-      />
+      <div className="spar-fade-up" style={{ animationDelay: "140ms", animationFillMode: "backwards" }}>
+        <ModeSection
+          experience={experience}
+          selectExperience={selectExperience}
+          drillTarget={drillTarget}
+          setDrillTarget={setDrillTarget}
+        />
+      </div>
 
-      {/* 03 — Panel: seats with the YOU visual */}
-      <PanelSection
-        seats={seats}
-        setSeats={setSeats}
-        onEditSeat={setEditingSeat}
-      />
+      <div className="spar-fade-up" style={{ animationDelay: "220ms", animationFillMode: "backwards" }}>
+        <PanelSection
+          seats={seats}
+          setSeats={setSeats}
+          onEditSeat={setEditingSeat}
+        />
+      </div>
 
       {/* Room details — advanced, behind a disclosure */}
       <div className="mt-8">
@@ -269,9 +281,9 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
               onClick={handleStart}
               disabled={!canStart}
               className={cn(
-                "flex items-center gap-2 px-5 h-11 rounded-md text-sm font-medium transition-all",
+                "flex items-center gap-2 px-6 h-12 rounded-md text-sm font-semibold transition-all",
                 canStart
-                  ? "bg-neutral-100 text-black hover:bg-white"
+                  ? "bg-neutral-100 text-black hover:bg-white shadow-[0_0_28px_-6px_rgba(255,255,255,0.28)]"
                   : "bg-neutral-900 text-neutral-600 cursor-not-allowed"
               )}
             >
@@ -469,7 +481,11 @@ function ModeSection({
               className={cn(
                 "w-full text-left rounded-md border p-4 transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-white/10",
                 isSelected
-                  ? "bg-[#171717] border-[#343434]"
+                  ? exp.key === "drill"
+                    ? // Drill runs hot: the warm treatment matches the room's
+                      // amber drill language.
+                      "bg-[#171717] border-amber-500/30 shadow-[inset_0_0_0_1px_rgba(251,191,36,0.08)]"
+                    : "bg-[#171717] border-[#343434]"
                   : "bg-[#101010] border-[#202020] hover:bg-[#161616] hover:border-[#2a2a2a]"
               )}
             >
@@ -484,7 +500,12 @@ function ModeSection({
                 </div>
                 {isSelected && (
                   <div className="flex-shrink-0">
-                    <Check className="h-4 w-4 text-neutral-300" />
+                    <Check
+                      className={cn(
+                        "h-4 w-4",
+                        exp.key === "drill" ? "text-amber-300" : "text-neutral-300"
+                      )}
+                    />
                   </div>
                 )}
               </div>
@@ -542,7 +563,7 @@ function PanelSection({
       <div className="relative rounded-md border border-[#1a1a1a] bg-[#0a0a0a] p-6 overflow-x-auto">
         {/* "YOU" position */}
         <div className="flex flex-col items-center mb-6">
-          <div className="flex h-12 w-12 items-center justify-center rounded-md border-2 border-[#2a2a2a] bg-[#101010]">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#2a2a2a] bg-[#101010] shadow-[0_0_20px_-6px_rgba(255,255,255,0.12)]">
             <span className="text-sm font-bold text-white">YOU</span>
           </div>
           <p className="mt-2 text-[10px] uppercase tracking-wider text-neutral-600">
@@ -584,7 +605,16 @@ function PanelSection({
                 onClick={() => onEditSeat(i)}
                 className="flex items-center justify-between rounded-md border border-[#202020] bg-[#101010] px-3 py-2.5 text-left transition-all hover:bg-[#161616]"
               >
-                <span className="text-sm text-white">
+                <span className="flex items-center gap-2 text-sm text-white">
+                  <span
+                    aria-hidden
+                    className="inline-block h-2.5 w-2.5 rounded-full"
+                    style={{
+                      background: `color-mix(in oklab, ${
+                        ARCHETYPES[seat.archetype].accentHue
+                      } 60%, transparent)`,
+                    }}
+                  />
                   {seat.name}
                   <span className="text-neutral-500"> · {INTENSITY_LABELS[seat.intensity]}</span>
                 </span>
@@ -622,7 +652,6 @@ function SeatCard({
   onClick: () => void;
 }) {
   const def = ARCHETYPES[seat.archetype];
-  const Icon = ARCHETYPE_ICONS[seat.archetype];
 
   if (!seat.filled) {
     return (
@@ -639,19 +668,37 @@ function SeatCard({
     );
   }
 
+  // A filled seat previews the room: the panelist's own muted hue on a
+  // circular presence — the accent system is the room's only color.
+  const accent = def.accentHue;
+  const seatStyle = {
+    background: `color-mix(in oklab, ${accent} 10%, #101010)`,
+    borderLeft: `2px solid color-mix(in oklab, ${accent} 50%, transparent)`,
+  };
+  const avatarStyle = {
+    background: `color-mix(in oklab, ${accent} 14%, oklch(0.16 0 0))`,
+    color: `color-mix(in oklab, ${accent} 55%, oklch(0.92 0 0))`,
+    boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${accent} 22%, transparent)`,
+  };
+
   return (
     <button
       onClick={onClick}
+      style={seatStyle}
       className={cn(
-        "group relative flex w-[140px] sm:w-[160px] flex-col items-center rounded-md border bg-[#101010] p-4 transition-all hover:bg-[#161616] hover:border-[#2a2a2a]",
-        "border-[#202020]"
+        "group relative flex w-[140px] sm:w-[160px] flex-col items-center rounded-md border border-[#202020] p-4 transition-all hover:brightness-125",
+        "spar-fade-up"
       )}
     >
       <span className="absolute top-2 left-2 text-[9px] text-neutral-600 tabular-nums">
         {index + 1}
       </span>
-      <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-md bg-[#1a1a1a] ring-1 ring-[#2a2a2a]">
-        <Icon className="h-5 w-5 text-neutral-300" />
+      <div
+        className="mb-2 flex h-12 w-12 items-center justify-center rounded-full text-sm font-semibold"
+        style={avatarStyle}
+        aria-hidden
+      >
+        {def.initials}
       </div>
       <p className="text-center text-xs font-medium text-white leading-tight">
         {seat.name}
@@ -827,9 +874,16 @@ function SeatEditor({
 
 function SectionHeader({ number, title }: { number: string; title: string }) {
   return (
-    <div className="mb-5 flex items-baseline gap-2.5">
-      <span className="text-xs text-neutral-600 tabular-nums">{number}</span>
-      <h2 className="text-base font-medium text-white tracking-tight">
+    <div className="mb-5 flex items-center gap-3">
+      {/* The page is a true sequence (what you defend → how → who), so the
+          numerals earn their place — large, light, quiet. */}
+      <span
+        aria-hidden
+        className="text-[38px] font-extralight leading-none text-white/[0.13] tabular-nums select-none"
+      >
+        {number}
+      </span>
+      <h2 className="text-[15px] font-medium text-white tracking-tight">
         {title}
       </h2>
     </div>

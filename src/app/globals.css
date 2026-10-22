@@ -192,6 +192,12 @@
   animation: spar-fade-up 0.3s ease-out;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .spar-fade-up {
+    animation: none;
+  }
+}
+
 /* ─── Panelist presence — the room's signature element ─────────────────── */
 
 /* Listening: the presence breathes — one slow, calm cycle. */
