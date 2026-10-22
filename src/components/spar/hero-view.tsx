@@ -5,13 +5,8 @@ import {
   ArrowRight,
   Swords,
   Mic,
-  Brain,
   Repeat,
-  Search,
-  Microscope,
-  Target,
   AlertCircle,
-  Sparkles,
 } from "lucide-react";
 import { SparringMockup } from "./sparring-mockup";
 
@@ -98,10 +93,6 @@ export function HeroView({ onEnter }: HeroViewProps) {
               Watch demo
             </button>
           </div>
-
-          <p className="mt-3 text-[11px] text-neutral-600">
-            Free to start. No credit card required.
-          </p>
         </div>
 
         {/* Animated product mockup — the centerpiece */}
@@ -121,7 +112,7 @@ export function HeroView({ onEnter }: HeroViewProps) {
               num="01"
               icon={<Mic className="h-4 w-4" />}
               title="Enter the room"
-              desc="Bring your pitch, your thesis, your proposal. An AI panel of 2-3 personas waits — each with a different lens."
+              desc="Bring your pitch, your thesis, your proposal. 1–3 panelists — Ada opens with a direct challenge."
               visual={<EnterRoomVisual />}
             />
             <StepVisual
@@ -151,15 +142,15 @@ export function HeroView({ onEnter }: HeroViewProps) {
           <div className="space-y-3">
             <ProofPoint
               stat="The panel remembers."
-              desc="After 3 sessions, it knows you hedge on financials. It probes there next time. Cross-session memory is the differentiator — no other tool adapts to your patterns."
+              desc="After repeated sessions, it tracks where you hesitate or hedge. The panel probes your recurring weak spots next time."
             />
             <ProofPoint
               stat="Every weakness gets hammered."
-              desc="Pick hedging. Every 'I think' gets interrupted immediately. You fix it or you repeat it. Drill Mode is relentless, targeted, and effective."
+              desc="Pick hedging or fillers. The room pushes back immediately so you correct the habit under real pressure. Drill mode is targeted and direct."
             />
             <ProofPoint
               stat="Not a chatbot. A room."
-              desc="The panel doesn't wait for you to finish. They interrupt mid-sentence. They reference what you said 3 minutes ago. The pressure is real."
+              desc="The panel doesn't wait for you to finish monologue. They interrupt mid-sentence when you dodge or overclaim. The pressure is real."
             />
           </div>
         </div>
@@ -188,15 +179,15 @@ export function HeroView({ onEnter }: HeroViewProps) {
             Built for people who can&apos;t afford to freeze in the real room
           </p>
           <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-neutral-500">
-            <span>Thesis defenses</span>
+            <span>Q&amp;A sparring</span>
+            <span className="text-neutral-700">·</span>
+            <span>Targeted drills</span>
+            <span className="text-neutral-700">·</span>
+            <span>Thesis defense</span>
             <span className="text-neutral-700">·</span>
             <span>Investor pitches</span>
             <span className="text-neutral-700">·</span>
-            <span>Board presentations</span>
-            <span className="text-neutral-700">·</span>
-            <span>Grant reviews</span>
-            <span className="text-neutral-700">·</span>
-            <span>Job interviews</span>
+            <span>Executive reviews</span>
           </div>
         </div>
       </div>
@@ -222,7 +213,10 @@ function StepVisual({
   return (
     <div className="rounded-md border border-[#1a1a1a] bg-[#0d0d0d] p-5">
       {/* Mini visualization */}
-      <div className="mb-4 h-24 overflow-hidden rounded border border-[#141414] bg-[#080808]">
+      <div
+        aria-hidden="true"
+        className="mb-4 h-24 overflow-hidden rounded border border-[#141414] bg-[#080808]"
+      >
         {visual}
       </div>
       <div className="flex items-center gap-2">
@@ -242,27 +236,33 @@ function EnterRoomVisual() {
     <div className="flex h-full items-center justify-center gap-3 p-3">
       {/* YOU */}
       <div className="flex flex-col items-center gap-1">
-        <div className="flex h-6 w-6 items-center justify-center rounded border border-[#2a2a2a] bg-[#101010] text-[7px] font-bold text-neutral-300">
+        <div className="flex h-7 w-7 items-center justify-center rounded-full border border-[#2a2a2a] bg-[#101010] text-[8px] font-bold text-neutral-300">
           U
         </div>
         <span className="text-[7px] uppercase text-neutral-600">You</span>
       </div>
       {/* Arrow */}
       <div className="h-px w-4 bg-[#1a1a1a]" />
-      {/* Seats */}
-      <div className="flex gap-1.5">
-        {[
-          { icon: Search, name: "SK" },
-          { icon: Microscope, name: "NP" },
-          { icon: Target, name: "SW" },
-        ].map((p, i) => (
-          <div key={i} className="flex flex-col items-center gap-1">
-            <div className="flex h-6 w-6 items-center justify-center rounded border border-[#1a1a1a] bg-[#0a0a0a]">
-              <p.icon className="h-2.5 w-2.5 text-neutral-500" />
-            </div>
-            <span className="text-[6px] text-neutral-600">{p.name}</span>
+      {/* Ada — circular presence, the true default */}
+      <div className="flex items-center gap-2">
+        <div className="flex flex-col items-center gap-1">
+          <div
+            className="flex h-7 w-7 items-center justify-center rounded-full text-[9px] font-semibold text-white"
+            style={{
+              background: "color-mix(in oklab, oklch(0.68 0.13 250) 25%, #161616)",
+              boxShadow: "inset 0 0 0 1px color-mix(in oklab, oklch(0.68 0.13 250) 35%, transparent)",
+            }}
+          >
+            A
           </div>
-        ))}
+          <span className="text-[7px] text-neutral-400">Ada</span>
+        </div>
+        <div className="flex flex-col items-center gap-1 opacity-40">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-[#2a2a2a] text-[8px] text-neutral-600">
+            +
+          </div>
+          <span className="text-[7px] text-neutral-600">Seat 2</span>
+        </div>
       </div>
     </div>
   );
@@ -271,6 +271,12 @@ function EnterRoomVisual() {
 function InterruptVisual() {
   const [pulse, setPulse] = useState(false);
   useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
     const interval = setInterval(() => setPulse((p) => !p), 800);
     return () => clearInterval(interval);
   }, []);
@@ -288,7 +294,7 @@ function InterruptVisual() {
             pulse ? "text-white" : "text-neutral-600"
           }`}
         >
-          Skeptic — Speaking
+          Ada — Speaking
         </span>
       </div>
       <div
@@ -313,6 +319,12 @@ function InterruptVisual() {
 function CoachVisual() {
   const [step, setStep] = useState(0);
   useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
     const interval = setInterval(() => {
       setStep((s) => (s + 1) % 3);
     }, 1500);
@@ -370,6 +382,13 @@ function HeroWaveform() {
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    ) {
+      const timer = setTimeout(() => setMounted(true), 0);
+      return () => clearTimeout(timer);
+    }
     const interval = setInterval(() => setTick((t) => t + 1), 80);
     const mountedTimer = setTimeout(() => setMounted(true), 0);
     return () => {
@@ -380,7 +399,10 @@ function HeroWaveform() {
 
   if (!mounted) {
     return (
-      <div className="flex items-center justify-center gap-[2px] h-8">
+      <div
+        aria-hidden="true"
+        className="flex items-center justify-center gap-[2px] h-8"
+      >
         {Array.from({ length: 32 }, (_, i) => (
           <div
             key={i}
@@ -402,7 +424,10 @@ function HeroWaveform() {
   });
 
   return (
-    <div className="flex items-center justify-center gap-[2px] h-8">
+    <div
+      aria-hidden="true"
+      className="flex items-center justify-center gap-[2px] h-8"
+    >
       {bars.map((h, i) => (
         <div
           key={i}
