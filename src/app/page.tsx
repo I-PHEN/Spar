@@ -9,7 +9,7 @@ import { HomeView } from "@/components/spar/home-view";
 import { PracticeView } from "@/components/spar/practice-view";
 import { SparringRoom } from "@/components/spar/sparring-room";
 import { DebriefView } from "@/components/spar/debrief-view";
-import { SCENARIOS } from "@/lib/scenarios";
+import { sessionLabel } from "@/lib/session-label";
 import type { ExperienceKey, DrillTarget } from "@/lib/experiences";
 import { GraduationCap, TrendingUp, Hammer } from "lucide-react";
 
@@ -97,8 +97,7 @@ export default function Page() {
       fetch(`/api/sessions/${activeSessionId}`)
         .then((r) => r.json())
         .then((d) => {
-          const key = d?.session?.scenario as keyof typeof SCENARIOS;
-          setScenarioLabel(SCENARIOS[key]?.label || d?.session?.scenario);
+          setScenarioLabel(sessionLabel(d?.session?.scenario ?? ""));
         })
         .catch(() => {});
     }

@@ -35,7 +35,6 @@ const PHASES = {
 } as const;
 
 export function SparringMockup() {
-  const [tick, setTick] = useState(0);
   const [phase, setPhase] = useState<number>(PHASES.PANEL_APPEARS);
   const [typedText, setTypedText] = useState("");
   const [waveformBars, setWaveformBars] = useState<number[]>(Array(14).fill(3));
@@ -97,7 +96,6 @@ export function SparringMockup() {
         setWaveformBars(Array(14).fill(3));
       }
 
-      setTick(elapsed);
       animationFrame = requestAnimationFrame(update);
     }
 

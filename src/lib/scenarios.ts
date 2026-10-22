@@ -113,4 +113,3 @@ export const SCENARIOS: Record<ScenarioKey, ScenarioDefinition> = {
   },
 };
 
-export const SCENARIO_LIST = Object.values(SCENARIOS);
