@@ -603,10 +603,9 @@ async function enterSparringRoom(page: Page): Promise<void> {
   await page.getByPlaceholder(/go-to-market strategy/).fill(
     "We grow 40 percent quarter over quarter selling into mid-market healthcare.",
   );
-  await page.getByRole("button", { name: /^Next/ }).click();
 
+  // Single-screen practice: mode cards and Start are on the same page.
   await page.getByRole("button", { name: /^Q&A/i }).click();
-  await page.getByRole("button", { name: /^Next/ }).click();
   await page.getByRole("button", { name: /Start Sparring/ }).click();
 
   await expect(page.getByText("State your central claim.")).toBeVisible({ timeout: 30_000 });
