@@ -40,76 +40,76 @@ endpoint. One shared helper derives debrief/session labels from
 `src/components/spar/persona-avatar.tsx`, mockup `tick` state, home's
 unused `/api/stats` shape gaps.
 
-- [ ] Failing test: `sessionLabel("open_spar")` → "Q&A", `("drill")` →
+- [x] Failing test: `sessionLabel("open_spar")` → "Q&A", `("drill")` →
   "Drill", legacy `("investor_pitch")` → SCENARIOS label, unknown → the
   raw key. Wire `handleSessionEnded` to it.
-- [ ] Delete dead code; full suite + typecheck green.
-- [ ] Commit `fix: experience-true session labels + surface dead weight cleared`.
+- [x] Delete dead code; full suite + typecheck green.
+- [x] Commit `fix: experience-true session labels + surface dead weight cleared`.
 
 ### Task 2: Practice — single screen
 
 **Files:** `src/components/spar/practice-view.tsx`, `practice-view.test.tsx`.
 
-- [ ] Failing tests (source + render): no stepper markup; "Defend" /
+- [x] Failing tests (source + render): no stepper markup; "Defend" /
   "Mode" / "Panel" section order; mode cards side-by-side container;
   drill chips render only when Drill selected; "Customize the room"
   disclosure hides room description; sticky Start bar present; seat
   summary line renders ("Ada" + intensity word); softer short-material
   state string; "YOU" block present; no duplicated defaultName.
-- [ ] Implement the user-locked layout (spec §1). Same validation, same
+- [x] Implement the user-locked layout (spec §1). Same validation, same
   POST. Seat editor dialog unchanged. e2e selectors updated in Task 6.
-- [ ] Green + typecheck. Commit `feat: single-screen practice flow`.
+- [x] Green + typecheck. Commit `feat: single-screen practice flow`.
 
 ### Task 3: Home — history + density
 
 **Files:** `src/components/spar/home-view.tsx` (+ test), page.tsx passes
 `onOpenDebrief`.
 
-- [ ] Failing tests: history section renders sessions (mode chip, date,
+- [x] Failing tests: history section renders sessions (mode chip, date,
   takeaway, "Read debrief"); empty state with invitation; stats row
   includes total sessions; CTA reads "New session".
-- [ ] Implement: fetch `/api/sessions` alongside stats/moment; "Read
+- [x] Implement: fetch `/api/sessions` alongside stats/moment; "Read
   debrief" opens the debrief view for that session id (page.tsx gains the
   handler); honest empty states (no bare zeros).
-- [ ] Green + typecheck. Commit `feat: home session history and density`.
+- [x] Green + typecheck. Commit `feat: home session history and density`.
 
 ### Task 4: Hero — truth mockup + honest copy
 
 **Files:** `src/components/spar/sparring-mockup.tsx`, `hero-view.tsx`
 (+ mockup test if pinning).
 
-- [ ] Failing tests (mockup render): equal circular presence(s) with Ada;
+- [x] Failing tests (mockup render): equal circular presence(s) with Ada;
   accent-edged caption; header "Q&A"; mic "Start speaking"; no
   "Thesis Defense" / "Click to speak" strings; reduced-motion attr/class
   handling present.
-- [ ] Rebuild the mock loop against the real room's visual language; fix
+- [x] Rebuild the mock loop against the real room's visual language; fix
   hero copy (1-3 panelists, default Ada opens; kill filler microcopy and
   Terms/Privacy lie; real scenario chips); animations `aria-hidden` +
   `prefers-reduced-motion`.
-- [ ] Green + typecheck. Commit `feat: hero tells the truth`.
+- [x] Green + typecheck. Commit `feat: hero tells the truth`.
 
 ### Task 5: Onboarding + auth honesty
 
 **Files:** `src/components/spar/onboarding-view.tsx`, `auth-view.tsx`,
 `src/app/page.tsx`.
 
-- [ ] Failing tests: onboarding has exactly 2 steps (moment title+date →
+- [x] Failing tests: onboarding has exactly 2 steps (moment title+date →
   real POST; name → `/api/user`); no focus-area step; auth is name-only
   with associated labels, no Terms line.
-- [ ] Implement; the moment POST reuses the existing endpoint; skip
+- [x] Implement; the moment POST reuses the existing endpoint; skip
   allowed on step 1.
-- [ ] Green + typecheck. Commit `feat: two-step onboarding with real moment`.
+- [x] Green + typecheck. Commit `feat: two-step onboarding with real moment`.
 
 ### Task 6: E2e funnel + full verification + docs
 
 **Files:** `tests/e2e/voice-loop.spec.ts` (selectors for the single-screen
 practice: no "Next" clicks; mode card + Start), README, worklog.
 
-- [ ] Update e2e to the new funnel; `bun run test:e2e` green (revert
+- [x] Update e2e to the new funnel; `bun run test:e2e` green (revert
   tsconfig churn; never stage).
-- [ ] `bun test && bun run typecheck && bun run lint && bun run build &&
+- [x] `bun test && bun run typecheck && bun run lint && bun run build &&
   git diff --check` — all 0.
-- [ ] README (home/practice/hero descriptions) + worklog entry (house
+- [x] README (home/practice/hero descriptions) + worklog entry (house
   format). Commit `docs: document practice and home redesign`.
 
 ## Deferred (explicit)
