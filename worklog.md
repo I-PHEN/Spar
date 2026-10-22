@@ -1215,3 +1215,20 @@ Stage Summary:
 - The room is rebuilt around the continuous conversation: equal circular presences carry the entire state language, captions are accent-edged and scroll-guarded, one control position serves both engines with no layout jump on fallback, and every live-mode gap found by the audit is closed (moment button, barge-in tell, browser-support wall aside). Old Defense/Boardroom sessions still open and debrief inside the new structure; all behavior contracts held (engine chip trio, deck strings, e2e flows).
 - How to try it: dev server (port 3001), practice screen → Q&A → Start Sparring. Watch a presence breathe while you speak, pulse when it speaks, flicker when you barge in (Gemini key set); scroll up mid-session — the feed waits; "I need a moment" is live even with the mic live.
 - Full verification green: bun test (545), test:e2e (3), typecheck, lint, build, git diff --check.
+
+---
+Task ID: project4-practice-home-redesign
+Agent: main (tasks 1-6)
+Task: Project 4 — Practice screen + Home redesign (single-screen practice, working home dashboard with session history, truth hero with real-room mockup, two-step onboarding with real moment)
+
+Work Log:
+- Debrief label fix & dead weight (Task 1): new pure module `src/lib/session-label.ts` maps experience keys to user-facing labels (`open_spar` → "Q&A", `drill` → "Drill") with legacy `SCENARIOS` fallback; wired to `handleSessionEnded`; deleted orphaned `PersonaAvatar` and `SCENARIO_LIST`.
+- Single-screen practice flow (Task 2 + polish waves): collapsed multi-step wizard into a single, cohesive configure page with Defend (topic or pasted material), Mode (Q&A / Drill with instant drill targets), and Panelist seats (1 default, up to 3) with direct seat addition and remembered configurations; added keyboard submission (`Ctrl/Cmd+Enter`) and a sticky Start Sparring control bar.
+- Home dashboard & density (Task 3): transformed Home into a working dashboard consuming `GET /api/sessions`; added session history cards with mode chips, dates, panelist initials, one-line debrief takeaways (`oneThingToPractice`), and direct "Read debrief" links that reopen previous session debriefs; rendered `totalSessions` stat.
+- Truth-first hero & animated mockup (Task 4): rebuilt the hero mockup to mirror the actual room — equal circular presences, Ada's skeptic accent, real state language (listening/gathering/speaking), ghost user response, and "Start speaking" mic label; updated hero copy to "1–3 panelists — Ada opens", removed "No credit card required" and fake Terms disclaimer, synced scenario chips to Q&A/Drill use cases; added `aria-hidden` and `prefers-reduced-motion` guards across all hero animations.
+- Two-step onboarding & honest auth (Task 5): streamlined onboarding to two steps — (1) "What are you preparing for?" (free-text title + optional date, persisting directly to `POST /api/upcoming-moment` to anchor the dashboard countdown, with a skip option) and (2) user name (`POST /api/user`); removed the dead focus-area step; simplified auth to name-only with accessible labels and a "Skip for now" affordance for fast operator iteration.
+- E2e & full verification (Task 6): synchronized Playwright e2e funnel in `tests/e2e/voice-loop.spec.ts` to name-only auth and single-screen practice; updated `README.md` and `worklog.md`.
+
+Stage Summary:
+- Project 4 complete: every surface between the landing page and the room now tells the truth. The practice view is a fast single-screen configuration, Home provides real session history with one-click debrief replay, the hero mockup matches the Project 3 room, and onboarding creates real upcoming moment countdowns.
+- Verification: all 576 unit tests passed, all 3 Playwright e2e tests passed (`chromium`), typecheck (0 errors), lint (0 errors), Next.js production build succeeded, `git diff --check` clean.

@@ -591,10 +591,9 @@ async function enterSparringRoom(page: Page): Promise<void> {
   await page.goto("/");
   await page.getByRole("button", { name: "Enter the Sparring Room" }).first().click();
 
-  // Fake sign-in: the /api/user double reports a returning operator.
+  // Name-only auth: the /api/user double reports a returning operator.
   await page.getByPlaceholder("Your name").fill("Operator");
-  await page.getByPlaceholder("you@example.com").fill("operator@spar.test");
-  await page.getByRole("button", { name: /Create Account/ }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
 
   // Dashboard → practice configuration.
   await page.getByRole("button", { name: "New session" }).first().click();

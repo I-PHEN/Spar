@@ -14,6 +14,9 @@ Defense and Boardroom are currently hidden from the UI (code retained for later 
 
 - **Live AI panel** — 1-3 panelists (Ada, Victor, Chiara, Marcus, Priya) with distinct lenses. They build agitation in real-time and interrupt when you show weakness.
 - **The room** — a voice-first stage, not a dashboard: equal circular presences (one per panelist, tinted with their accent) carry the whole state language (breathing = listening, dots = gathering, expand/contract pulse = speaking, flicker = you barged in); captions carry each speaker's accent edge; scrolling up to read pauses auto-scroll; the room paints the moment the session loads. No meters, no live stats — feedback lands in the debrief.
+- **Single-screen practice flow** — no steppers: defend your topic or paste material, pick mode (Q&A or Drill), and configure 1–3 panelists on a unified screen with direct panelist additions, remembered configurations, and sticky Start (Ctrl/Cmd+Enter).
+- **Home dashboard & session history** — working dashboard featuring real session history with mode chips, one-line debrief takeaways, and direct "Read debrief" access, alongside your weekly stats and upcoming moment countdown.
+- **Truth-first hero & 2-step onboarding** — the hero features an animated truth mockup mirroring the real room's circular presences, accent-edged captions, and speech state language; 2-step onboarding captures your real upcoming moment directly into the countdown with instant skip affordances.
 
 - **Voice-first** — Speak naturally. With a Gemini API key configured, Q&A runs on the Gemini Live speech-to-speech engine: one mic activation, continuous listening, and instant interruption in both directions. Without it (and whenever Live cannot connect), the Deepgram → Groq → Aura-2 cascade serves the room: Flux streaming STT transcription, Groq persona responses spoken through Aura-2 streaming TTS as phrases complete.
 
