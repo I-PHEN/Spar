@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   ArrowLeft,
@@ -58,6 +58,13 @@ interface PracticeViewProps {
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
+/** Example topics — one click fills the box. Kept honest and specific. */
+const TOPIC_EXAMPLES = [
+  "Startup go-to-market — I'm defending my startup's go-to-market strategy for an enterprise SaaS product targeting mid-market healthcare.",
+  "Thesis chapter — I'm defending Chapter 4 of my PhD thesis, the empirical study and its statistical validity.",
+  "Team proposal — I'm defending my proposal to reorganize the support team around regional pods.",
+];
+
 const ARCHETYPE_ICONS: Record<ArchetypeKey, typeof Search> = {
   skeptic: Search,
   nitpicker: Microscope,
@@ -75,26 +82,55 @@ const INTENSITY_LABELS: Record<number, string> = {
 // ─── Main Component ─────────────────────────────────────────────────────
 
 export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) {
+  // Last visit's setup (mode, panel, toggle) — restored, never the material
+  // itself. A returning user starts where they left off.
+  const lastConfig = (() => {
+    try {
+      const raw = typeof window !== "undefined" && window.localStorage.getItem("spar:last-config");
+      return raw ? (JSON.parse(raw) as {
+        experience: ExperienceKey; drillTarget: DrillTarget; hasMaterial: boolean; seats: PanelSeat[];
+      }) : null;
+    } catch {
+      return null;
+    }
+  })();
+
   // Defend — material or topic
   const [material, setMaterial] = useState("");
   const [materialTitle, setMaterialTitle] = useState("");
   const [topic, setTopic] = useState("");
-  const [hasMaterial, setHasMaterial] = useState(true);
+  const [hasMaterial, setHasMaterial] = useState(lastConfig?.hasMaterial ?? true);
 
   // Mode — Q&A (default) or Drill
-  const [experience, setExperience] = useState<ExperienceKey>("open_spar");
-  const [drillTarget, setDrillTarget] = useState<DrillTarget>("hedging");
+  const [experience, setExperience] = useState<ExperienceKey>(
+    lastConfig?.experience ?? "open_spar",
+  );
+  const [drillTarget, setDrillTarget] = useState<DrillTarget>(
+    lastConfig?.drillTarget ?? "hedging",
+  );
   const [customRoom, setCustomRoom] = useState("");
   const [showRoomDetails, setShowRoomDetails] = useState(false);
 
   // Panel (derived from experience, user can override)
   const [seats, setSeats] = useState<PanelSeat[]>(
-    defaultSeatsFor("open_spar")
+    lastConfig?.seats?.length ? lastConfig.seats : defaultSeatsFor("open_spar"),
   );
   const [editingSeat, setEditingSeat] = useState<number | null>(null);
 
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Persist the setup (not the material) whenever it changes.
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        "spar:last-config",
+        JSON.stringify({ experience, drillTarget, hasMaterial, seats }),
+      );
+    } catch {
+      // Private browsing et al. — remembering is a nicety, not a need.
+    }
+  }, [experience, drillTarget, hasMaterial, seats]);
 
   // When experience changes, reset the panel to the experience's default
   function selectExperience(key: ExperienceKey) {
@@ -173,6 +209,22 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
     }
   }
 
+  // Ctrl/Cmd+Enter starts the session from anywhere on the page.
+  const handleStartRef = useRef(handleStart);
+  useEffect(() => {
+    handleStartRef.current = handleStart;
+  });
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        handleStartRef.current();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
     <div className="relative mx-auto max-w-2xl px-4 pt-6 sm:px-6 sm:pt-8">
       {/* Header — the antechamber. A whisper of light behind it for depth. */}
@@ -191,8 +243,9 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
         <h1 className="mt-1.5 text-[26px] font-semibold tracking-tight text-white sm:text-3xl">
           Configure the room
         </h1>
-        <p className="mt-1.5 text-sm text-neutral-500">
-          Defaults are set — paste your material and press Start.
+        <p className="mt-1.5 text-sm text-neutral-400">
+          Defaults are set —{" "}
+          {hasMaterial ? "paste your material and press Start." : "state your topic and press Start."}
         </p>
       </div>
 
@@ -210,7 +263,7 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
         />
       </div>
 
-      <div className="spar-fade-up" style={{ animationDelay: "140ms", animationFillMode: "backwards" }}>
+      <div className="mt-12 spar-fade-up" style={{ animationDelay: "140ms", animationFillMode: "backwards" }}>
         <ModeSection
           experience={experience}
           selectExperience={selectExperience}
@@ -219,7 +272,7 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
         />
       </div>
 
-      <div className="spar-fade-up" style={{ animationDelay: "220ms", animationFillMode: "backwards" }}>
+      <div className="mt-12 spar-fade-up" style={{ animationDelay: "220ms", animationFillMode: "backwards" }}>
         <PanelSection
           seats={seats}
           setSeats={setSeats}
@@ -228,7 +281,7 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
       </div>
 
       {/* Room details — advanced, behind a disclosure */}
-      <div className="mt-8">
+      <div className="mt-12">
         <button
           onClick={() => setShowRoomDetails((v) => !v)}
           className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
@@ -254,7 +307,7 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
               onChange={(e) => setCustomRoom(e.target.value)}
               placeholder="Describe the specific room — e.g., 'A hiring committee of 3 senior engineers for a staff engineer role.' Overrides the default."
               rows={2}
-              className="bg-[#0a0a0a] border-[#202020] text-white placeholder:text-neutral-600 focus:border-[#3a3a3a] focus-visible:ring-0 rounded-md resize-y"
+              className="bg-[#0a0a0a] border-[#202020] text-white placeholder:text-neutral-500 focus:border-[#3a3a3a] focus-visible:ring-0 rounded-md resize-y"
             />
           </div>
         )}
@@ -267,39 +320,52 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
         </div>
       )}
 
-      {/* Sticky start bar — always in reach */}
-      <div className="sticky bottom-16 md:bottom-0 z-30 -mx-4 sm:-mx-6 mt-10 px-4 sm:px-6 py-3 border-t border-[#1a1a1a] bg-[#0a0a0a]/95 backdrop-blur">
-        <div className="flex items-center justify-between gap-3">
-          <button
-            onClick={onCancel}
-            className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-white transition-colors px-2 py-2"
-          >
-            <ArrowLeft className="h-4 w-4" /> Home
-          </button>
-          <div className="flex flex-col items-end gap-1">
+      {/* Sticky start bar — always in reach; a soft fade above it. */}
+      <div className="sticky bottom-16 md:bottom-0 z-30 -mx-4 sm:-mx-6 mt-12">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 -top-8 h-8 bg-gradient-to-b from-transparent to-[#0a0a0a]"
+        />
+        <div className="border-t border-[#1a1a1a] bg-[#0a0a0a]/95 px-4 py-4 backdrop-blur sm:px-6">
+          <div className="flex items-center justify-between gap-3">
             <button
-              onClick={handleStart}
-              disabled={!canStart}
-              className={cn(
-                "flex items-center gap-2 px-6 h-12 rounded-md text-sm font-semibold transition-all",
-                canStart
-                  ? "bg-neutral-100 text-black hover:bg-white shadow-[0_0_28px_-6px_rgba(255,255,255,0.28)]"
-                  : "bg-neutral-900 text-neutral-600 cursor-not-allowed"
-              )}
+              onClick={onCancel}
+              className="flex items-center gap-1.5 text-sm text-neutral-400 transition-colors hover:text-white px-2 py-2"
             >
-              {creating ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" /> Building...
-                </>
-              ) : (
-                <>
-                  Start Sparring <ArrowRight className="h-4 w-4" />
-                </>
-              )}
+              <ArrowLeft className="h-4 w-4" /> Home
             </button>
-            {!canStart && disabledReason && (
-              <p className="text-[11px] text-neutral-600">{disabledReason}</p>
-            )}
+            <div className="flex flex-col items-end gap-1">
+              <div className="flex items-center gap-2.5">
+                {canStart && !creating && (
+                  <span className="hidden sm:inline-flex items-center gap-1 rounded border border-[#2a2a2a] bg-[#111111] px-1.5 py-1 text-[10px] font-mono text-neutral-500">
+                    Ctrl ↵
+                  </span>
+                )}
+                <button
+                  onClick={handleStart}
+                  disabled={!canStart}
+                  className={cn(
+                    "flex items-center gap-2 px-6 h-12 rounded-md text-sm font-semibold transition-all",
+                    canStart
+                      ? "bg-neutral-100 text-black hover:bg-white shadow-[0_0_28px_-6px_rgba(255,255,255,0.28)]"
+                      : "border border-[#252525] bg-neutral-900 text-neutral-500 cursor-not-allowed"
+                  )}
+                >
+                  {creating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" /> Building...
+                    </>
+                  ) : (
+                    <>
+                      Start Sparring <ArrowRight className="h-4 w-4" />
+                    </>
+                  )}
+                </button>
+              </div>
+              {!canStart && disabledReason && (
+                <p className="text-[11px] text-neutral-500">{disabledReason}</p>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -389,7 +455,7 @@ function DefendSection({
               value={materialTitle}
               onChange={(e) => setMaterialTitle(e.target.value)}
               placeholder="e.g., PhD Dissertation Defense — Chapter 4"
-              className="bg-[#0a0a0a] border-[#202020] text-white placeholder:text-neutral-600 focus:border-[#3a3a3a] focus-visible:ring-0 rounded-md"
+              className="bg-[#0a0a0a] border-[#202020] text-white placeholder:text-neutral-500 focus:border-[#3a3a3a] focus-visible:ring-0 rounded-md"
             />
           </div>
           <div className="space-y-1.5">
@@ -403,11 +469,23 @@ function DefendSection({
               id="material-text"
               value={material}
               onChange={(e) => setMaterial(e.target.value)}
-              placeholder="Paste your pitch, abstract, strategy memo, proposal, or talking points. The more substance, the sharper the panel."
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                // Dropped text (or a small .txt/.md file) lands in the box.
+                const file = e.dataTransfer.files?.[0];
+                if (file && /\.(txt|md|markdown)$/i.test(file.name) && file.size < 500_000) {
+                  file.text().then(setMaterial).catch(() => {});
+                  return;
+                }
+                const text = e.dataTransfer.getData("text/plain");
+                if (text) setMaterial(text);
+              }}
+              placeholder="Paste or drop your pitch, abstract, strategy memo, proposal, or talking points. The more substance, the sharper the panel."
               rows={6}
-              className="bg-[#0a0a0a] border-[#202020] text-white placeholder:text-neutral-600 focus:border-[#3a3a3a] focus-visible:ring-0 rounded-md resize-y"
+              className="bg-[#0a0a0a] border-[#202020] text-white placeholder:text-neutral-500 focus:border-[#3a3a3a] focus-visible:ring-0 rounded-md resize-y"
             />
-            <div className="flex items-center justify-between text-[11px] text-neutral-600">
+            <div className="flex items-center justify-between text-[11px] text-neutral-500">
               <span>
                 {material.trim().length < 10
                   ? `${10 - material.trim().length} more characters needed`
@@ -433,12 +511,24 @@ function DefendSection({
             onChange={(e) => setTopic(e.target.value)}
             placeholder="e.g., I'm defending my startup's go-to-market strategy for an enterprise SaaS product targeting mid-market healthcare."
             rows={3}
-            className="bg-[#0a0a0a] border-[#202020] text-white placeholder:text-neutral-600 focus:border-[#3a3a3a] focus-visible:ring-0 rounded-md"
+            className="bg-[#0a0a0a] border-[#202020] text-white placeholder:text-neutral-500 focus:border-[#3a3a3a] focus-visible:ring-0 rounded-md"
           />
-          <p className="text-[11px] text-neutral-600">
-            The panel will challenge the central claim in your topic. Be
-            specific.
-          </p>
+          <div className="flex items-center justify-between text-[11px] text-neutral-500">
+            <span>The panel will challenge the central claim. Be specific.</span>
+            <span>{topic.length} chars</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            <span className="text-[11px] text-neutral-500">Try an example:</span>
+            {TOPIC_EXAMPLES.map((example) => (
+              <button
+                key={example}
+                onClick={() => setTopic(example)}
+                className="rounded-full border border-[#252525] bg-[#0f0f0f] px-2.5 py-1 text-[11px] text-neutral-400 transition-colors hover:border-[#3a3a3a] hover:text-neutral-200"
+              >
+                {example.split(" — ")[0]}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -494,8 +584,8 @@ function ModeSection({
                   <h4 className="text-white font-medium mb-0.5">
                     {exp.label}
                   </h4>
-                  <p className="text-neutral-400 text-xs leading-relaxed">
-                    {exp.description}
+                  <p className="text-neutral-300 text-xs leading-relaxed">
+                    {exp.tagline}
                   </p>
                 </div>
                 {isSelected && (
@@ -584,13 +674,18 @@ function PanelSection({
           ))}
           {seats.length < MAX_SEATS && (
             <button
-              onClick={() => setSeats(addSeat(seats))}
+              onClick={() => {
+                // Straight to the editor on the new seat — no empty-seat hop.
+                const next = addSeat(seats);
+                setSeats(next);
+                onEditSeat(next.length - 1);
+              }}
               className="flex w-[140px] sm:w-[160px] flex-col items-center justify-center rounded-md border border-dashed border-[#252525] py-8 transition-all hover:border-[#3a3a3a] hover:bg-[#0f0f0f]"
             >
-              <span className="text-[10px] uppercase tracking-wider text-neutral-600 mb-1">
+              <span className="text-[10px] uppercase tracking-wider text-neutral-500 mb-1">
                 Add panelist
               </span>
-              <span className="text-xs text-neutral-500">Up to {MAX_SEATS}</span>
+              <span className="text-xs text-neutral-400">Up to {MAX_SEATS}</span>
             </button>
           )}
         </div>
@@ -625,8 +720,12 @@ function PanelSection({
             ))}
           {seats.length < MAX_SEATS && (
             <button
-              onClick={() => setSeats(addSeat(seats))}
-              className="flex items-center justify-center gap-1.5 rounded-md border border-dashed border-[#252525] px-3 py-2.5 text-xs text-neutral-500 transition-all hover:border-[#3a3a3a] hover:bg-[#0f0f0f]"
+              onClick={() => {
+                const next = addSeat(seats);
+                setSeats(next);
+                onEditSeat(next.length - 1);
+              }}
+              className="flex items-center justify-center gap-1.5 rounded-md border border-dashed border-[#252525] px-3 py-2.5 text-xs text-neutral-400 transition-all hover:border-[#3a3a3a] hover:bg-[#0f0f0f]"
             >
               <Plus className="h-3.5 w-3.5" />
               Add panelist (up to {MAX_SEATS})
@@ -772,7 +871,7 @@ function SeatEditor({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={ARCHETYPES[archetype].defaultName}
-              className="bg-[#0a0a0a] border-[#202020] text-white placeholder:text-neutral-600 focus:border-[#3a3a3a] focus-visible:ring-0 rounded-md"
+              className="bg-[#0a0a0a] border-[#202020] text-white placeholder:text-neutral-500 focus:border-[#3a3a3a] focus-visible:ring-0 rounded-md"
             />
           </div>
 
@@ -879,7 +978,7 @@ function SectionHeader({ number, title }: { number: string; title: string }) {
           numerals earn their place — large, light, quiet. */}
       <span
         aria-hidden
-        className="text-[38px] font-extralight leading-none text-white/[0.13] tabular-nums select-none"
+        className="text-[38px] font-extralight leading-none text-white/[0.18] tabular-nums select-none"
       >
         {number}
       </span>
@@ -905,14 +1004,11 @@ function ToggleButton({
     <button
       onClick={onClick}
       className={cn(
-        "flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-medium transition-all",
+        "flex flex-1 items-center justify-center gap-2 rounded-md border px-3 py-2 text-xs font-medium transition-all",
         active
-          ? "bg-[#1b1b1b] border-[#3a3a3a] text-neutral-100"
+          ? "bg-[#1b1b1b] border-[#4a4a4a] text-white ring-1 ring-white/15"
           : "bg-[#101010] border-[#202020] text-neutral-400 hover:bg-[#161616] hover:border-[#2a2a2a]"
       )}
-      style={
-        !active ? { boxShadow: "0 0 0 3px rgba(255,255,255,0.0)" } : undefined
-      }
     >
       {icon}
       {label}

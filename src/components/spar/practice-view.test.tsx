@@ -20,7 +20,8 @@ describe("PracticeView", () => {
     // "VISIBLE_EXPERIENCE_LIST.map" contains "EXPERIENCE_LIST.map" as a
     // substring, so guard on the JSX-braced old picker usage instead.
     expect(source).not.toContain("{EXPERIENCE_LIST.map");
-    expect(source).toContain('useState<ExperienceKey>("open_spar")');
+    // Q&A default — with the remembered-config fallback in front of it.
+    expect(source).toContain('?? "open_spar"');
     expect(source).toContain('defaultSeatsFor("open_spar")');
     expect(source).toContain("addSeat"); // add-panelist affordance
   });
@@ -76,5 +77,51 @@ describe("practice aesthetic contract", () => {
     );
     // Ada (skeptic) is the default seat — her blue must be in the markup.
     expect(markup).toContain("oklch(0.68 0.13 250");
+  });
+});
+
+describe("practice polish wave (user review 2)", () => {
+  const markup = renderToStaticMarkup(
+    <PracticeView onSessionCreated={() => {}} onCancel={() => {}} />,
+  );
+
+  test("mode cards use the short taglines — balanced cards", () => {
+    expect(markup).toContain("Hammer one weakness until it&#x27;s fixed");
+  });
+
+  test("topic box has example chips", () => {
+    const source = readFileSync(
+      new URL("./practice-view.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(source).toContain("Try an example");
+    expect(source).toContain("TOPIC_EXAMPLES");
+  });
+
+  test("add-panelist opens the editor directly on the new seat", () => {
+    const source = readFileSync(
+      new URL("./practice-view.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(source).toContain("onEditSeat(next.length - 1)");
+  });
+
+  test("config persists between visits + Ctrl+Enter starts", () => {
+    const source = readFileSync(
+      new URL("./practice-view.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(source).toContain("spar:last-config");
+    expect(source).toContain("ctrlKey");
+    expect(source).toContain("Ctrl");
+  });
+
+  test("copy follows the material/topic toggle", () => {
+    const source = readFileSync(
+      new URL("./practice-view.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(source).toContain("paste your material and press Start");
+    expect(source).toContain("state your topic and press Start");
   });
 });

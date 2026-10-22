@@ -223,7 +223,6 @@ export default function Page() {
           />
         )}
       </main>
-      <Footer />
     </div>
   );
 }
@@ -251,16 +250,5 @@ function ComingSoonView({
         Under active construction
       </div>
     </div>
-  );
-}
-
-function Footer() {
-  return (
-    <footer className="mt-auto border-t border-[#1a1a1a] bg-[#0a0a0a] px-4 py-4 sm:px-6">
-      <div className="mx-auto max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-neutral-600">
-        <span>Spar — the sparring room for your next big moment.</span>
-        <span className="font-mono">v1.0 — voice sparring MVP</span>
-      </div>
-    </footer>
   );
 }
