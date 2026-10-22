@@ -58,8 +58,6 @@ interface PracticeViewProps {
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
-const STEP_LABELS = ["Defend", "Experience", "Panel"];
-
 const ARCHETYPE_ICONS: Record<ArchetypeKey, typeof Search> = {
   skeptic: Search,
   nitpicker: Microscope,
@@ -77,20 +75,19 @@ const INTENSITY_LABELS: Record<number, string> = {
 // ─── Main Component ─────────────────────────────────────────────────────
 
 export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) {
-  const [currentStep, setCurrentStep] = useState(0);
-
-  // Step 1 — Material
+  // Defend — material or topic
   const [material, setMaterial] = useState("");
   const [materialTitle, setMaterialTitle] = useState("");
   const [topic, setTopic] = useState("");
   const [hasMaterial, setHasMaterial] = useState(true);
 
-  // Step 2 — Experience
+  // Mode — Q&A (default) or Drill
   const [experience, setExperience] = useState<ExperienceKey>("open_spar");
   const [drillTarget, setDrillTarget] = useState<DrillTarget>("hedging");
   const [customRoom, setCustomRoom] = useState("");
+  const [showRoomDetails, setShowRoomDetails] = useState(false);
 
-  // Step 3 — Panel (derived from experience, user can override)
+  // Panel (derived from experience, user can override)
   const [seats, setSeats] = useState<PanelSeat[]>(
     defaultSeatsFor("open_spar")
   );
@@ -112,15 +109,9 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
   const materialValid = hasMaterial
     ? material.trim().length >= 10
     : topic.trim().length >= 10;
+  const panelValid = seats.filter((s) => s.filled).length >= 1;
 
-  const stepValid = [
-    materialValid, // Step 1
-    true, // Step 2 (experience always has a default)
-    seats.filter((s) => s.filled).length >= 1, // Step 3
-  ];
-
-  const canStart =
-    materialValid && stepValid[2] && !creating;
+  const canStart = materialValid && panelValid && !creating;
 
   const disabledReason = creating
     ? null
@@ -128,27 +119,9 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
     ? hasMaterial
       ? "Add at least 10 characters of material to start"
       : "Add a topic (10+ chars) to start"
-    : seats.filter((s) => s.filled).length < 1
+    : !panelValid
     ? "Add at least one panelist"
     : null;
-
-  // ─── Navigation ───────────────────────────────────────────────────────
-
-  function nextStep() {
-    if (currentStep < 2 && stepValid[currentStep]) {
-      setCurrentStep(currentStep + 1);
-    }
-  }
-
-  function prevStep() {
-    if (currentStep > 0) setCurrentStep(currentStep - 1);
-  }
-
-  function goToStep(step: number) {
-    if (step <= currentStep || stepValid.slice(0, step).every(Boolean)) {
-      setCurrentStep(step);
-    }
-  }
 
   // ─── Submit ───────────────────────────────────────────────────────────
 
@@ -201,7 +174,7 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6 sm:py-8 pb-32">
+    <div className="mx-auto max-w-2xl px-4 pt-6 sm:px-6 sm:pt-8">
       {/* Header */}
       <div className="mb-8">
         <p className="text-[11px] uppercase tracking-[0.18em] text-neutral-600">
@@ -210,92 +183,68 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
         <h1 className="mt-1.5 text-2xl font-semibold tracking-tight text-white sm:text-[28px]">
           Configure the room
         </h1>
+        <p className="mt-1.5 text-sm text-neutral-500">
+          Defaults are set — paste your material and press Start.
+        </p>
       </div>
 
-      {/* Stepper — 3 steps */}
-      <div className="mb-10">
-        <div className="flex items-center">
-          {STEP_LABELS.map((label, i) => {
-            const isComplete = i < currentStep;
-            const isCurrent = i === currentStep;
-            const isClickable =
-              i <= currentStep || stepValid.slice(0, i).every(Boolean);
-            return (
-              <div
-                key={label}
-                className="flex items-center flex-1 last:flex-none"
-              >
-                <button
-                  onClick={() => isClickable && goToStep(i)}
-                  disabled={!isClickable}
-                  className={cn(
-                    "flex items-center gap-2.5 transition-colors",
-                    isClickable ? "cursor-pointer" : "cursor-not-allowed"
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "h-1.5 w-1.5 rounded-full transition-colors",
-                      isComplete || isCurrent ? "bg-white" : "bg-neutral-700"
-                    )}
-                  />
-                  <span
-                    className={cn(
-                      "text-xs font-medium hidden sm:inline transition-colors tracking-tight",
-                      isCurrent
-                        ? "text-white"
-                        : isComplete
-                        ? "text-neutral-400"
-                        : "text-neutral-600"
-                    )}
-                  >
-                    {label}
-                  </span>
-                </button>
-                {i < STEP_LABELS.length - 1 && (
-                  <div
-                    className={cn(
-                      "flex-1 h-px mx-3 transition-colors",
-                      i < currentStep ? "bg-neutral-600" : "bg-neutral-800"
-                    )}
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      {/* 01 — Defend: material or topic (the main focus) */}
+      <DefendSection
+        hasMaterial={hasMaterial}
+        setHasMaterial={setHasMaterial}
+        material={material}
+        setMaterial={setMaterial}
+        materialTitle={materialTitle}
+        setMaterialTitle={setMaterialTitle}
+        topic={topic}
+        setTopic={setTopic}
+      />
 
-      {/* Step content */}
-      <div className="min-h-[300px]">
-        {currentStep === 0 && (
-          <Step1Material
-            hasMaterial={hasMaterial}
-            setHasMaterial={setHasMaterial}
-            material={material}
-            setMaterial={setMaterial}
-            materialTitle={materialTitle}
-            setMaterialTitle={setMaterialTitle}
-            topic={topic}
-            setTopic={setTopic}
-          />
-        )}
-        {currentStep === 1 && (
-          <Step2Experience
-            experience={experience}
-            selectExperience={selectExperience}
-            drillTarget={drillTarget}
-            setDrillTarget={setDrillTarget}
-            customRoom={customRoom}
-            setCustomRoom={setCustomRoom}
-          />
-        )}
-        {currentStep === 2 && (
-          <Step3Panel
-            seats={seats}
-            setSeats={setSeats}
-            onEditSeat={setEditingSeat}
-          />
+      {/* 02 — Mode: Q&A / Drill side by side; drill target expands below */}
+      <ModeSection
+        experience={experience}
+        selectExperience={selectExperience}
+        drillTarget={drillTarget}
+        setDrillTarget={setDrillTarget}
+      />
+
+      {/* 03 — Panel: seats with the YOU visual */}
+      <PanelSection
+        seats={seats}
+        setSeats={setSeats}
+        onEditSeat={setEditingSeat}
+      />
+
+      {/* Room details — advanced, behind a disclosure */}
+      <div className="mt-8">
+        <button
+          onClick={() => setShowRoomDetails((v) => !v)}
+          className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
+          aria-expanded={showRoomDetails}
+        >
+          <Pencil className="h-3 w-3" />
+          Customize the room
+          <span className="text-neutral-700">
+            ({showRoomDetails ? "hide" : "room description, optional"})
+          </span>
+        </button>
+        {showRoomDetails && (
+          <div className="mt-3 space-y-1.5">
+            <Label
+              htmlFor="custom-room"
+              className="text-[10px] uppercase tracking-wider text-neutral-500"
+            >
+              Room description (optional)
+            </Label>
+            <Textarea
+              id="custom-room"
+              value={customRoom}
+              onChange={(e) => setCustomRoom(e.target.value)}
+              placeholder="Describe the specific room — e.g., 'A hiring committee of 3 senior engineers for a staff engineer role.' Overrides the default."
+              rows={2}
+              className="bg-[#0a0a0a] border-[#202020] text-white placeholder:text-neutral-600 focus:border-[#3a3a3a] focus-visible:ring-0 rounded-md resize-y"
+            />
+          </div>
         )}
       </div>
 
@@ -306,39 +255,16 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
         </div>
       )}
 
-      {/* Navigation */}
-      <div className="mt-10 flex items-center justify-between">
-        {currentStep > 0 ? (
-          <button
-            onClick={prevStep}
-            className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-white transition-colors px-2 py-2"
-          >
-            <ArrowLeft className="h-4 w-4" /> Back
-          </button>
-        ) : (
+      {/* Sticky start bar — always in reach */}
+      <div className="sticky bottom-16 md:bottom-0 z-30 -mx-4 sm:-mx-6 mt-10 px-4 sm:px-6 py-3 border-t border-[#1a1a1a] bg-[#0a0a0a]/95 backdrop-blur">
+        <div className="flex items-center justify-between gap-3">
           <button
             onClick={onCancel}
             className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-white transition-colors px-2 py-2"
           >
             <ArrowLeft className="h-4 w-4" /> Home
           </button>
-        )}
-
-        {currentStep < 2 ? (
-          <button
-            onClick={nextStep}
-            disabled={!stepValid[currentStep]}
-            className={cn(
-              "flex items-center gap-2 px-5 h-11 rounded-md text-sm font-medium transition-all",
-              stepValid[currentStep]
-                ? "bg-neutral-100 text-black hover:bg-white"
-                : "bg-neutral-900 text-neutral-600 cursor-not-allowed"
-            )}
-          >
-            Next <ArrowRight className="h-4 w-4" />
-          </button>
-        ) : (
-          <div className="flex flex-col items-end gap-1.5">
+          <div className="flex flex-col items-end gap-1">
             <button
               onClick={handleStart}
               disabled={!canStart}
@@ -363,39 +289,10 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
               <p className="text-[11px] text-neutral-600">{disabledReason}</p>
             )}
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Sticky start button (mobile) */}
-      {currentStep === 2 && (
-        <div className="fixed bottom-20 left-4 right-4 z-40 md:hidden">
-          <button
-            onClick={handleStart}
-            disabled={!canStart}
-            className={cn(
-              "w-full h-12 rounded-md text-sm font-medium flex items-center justify-center gap-2 transition-all",
-              canStart
-                ? "bg-neutral-100 text-black hover:bg-white"
-                : "bg-neutral-900 text-neutral-600 cursor-not-allowed"
-            )}
-          >
-            {creating ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" /> Building...
-              </>
-            ) : (
-              <>
-                Start Sparring <ArrowRight className="h-4 w-4" />
-              </>
-            )}
-          </button>
-          {!canStart && disabledReason && (
-            <p className="text-center text-[11px] text-neutral-600 mt-2">
-              {disabledReason}
-            </p>
-          )}
-        </div>
-      )}
+      <div className="pb-8" />
 
       {/* Seat editor modal */}
       {editingSeat !== null && (
@@ -426,9 +323,9 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
   );
 }
 
-// ─── Step 1: Material ───────────────────────────────────────────────────
+// ─── 01 Defend: material or topic ───────────────────────────────────────────────────
 
-function Step1Material({
+function DefendSection({
   hasMaterial,
   setHasMaterial,
   material,
@@ -503,7 +400,7 @@ function Step1Material({
                 {material.trim().length < 10
                   ? `${10 - material.trim().length} more characters needed`
                   : material.trim().length < 60
-                  ? "Ready — paste more for richer claim extraction"
+                  ? "Short, so the panel will have less to challenge"
                   : "3-5 key claims will be auto-extracted"}
               </span>
               <span>{material.length} chars</span>
@@ -536,124 +433,97 @@ function Step1Material({
   );
 }
 
-// ─── Step 2: Experience ─────────────────────────────────────────────────
+// ─── 02 Mode: Q&A / Drill ──────────────────────────────────────────────
 
-function Step2Experience({
+function ModeSection({
   experience,
   selectExperience,
   drillTarget,
   setDrillTarget,
-  customRoom,
-  setCustomRoom,
 }: {
   experience: ExperienceKey;
   selectExperience: (key: ExperienceKey) => void;
   drillTarget: DrillTarget;
   setDrillTarget: (t: DrillTarget) => void;
-  customRoom: string;
-  setCustomRoom: (s: string) => void;
 }) {
   return (
     <div>
       <SectionHeader number="02" title="How will you spar?" />
 
-      {/* Experience cards */}
-      <div className="space-y-2">
+      {/* Mode cards — side by side, Q&A first (default) */}
+      <div className="grid grid-cols-2 gap-2">
         {VISIBLE_EXPERIENCE_LIST.map((exp) => {
           const isSelected = experience === exp.key;
           return (
-            <div key={exp.key}>
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => selectExperience(exp.key)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    selectExperience(exp.key);
-                  }
-                }}
-                className={cn(
-                  "w-full text-left rounded-md border p-4 transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-white/10",
-                  isSelected
-                    ? "bg-[#171717] border-[#343434]"
-                    : "bg-[#101010] border-[#202020] hover:bg-[#161616] hover:border-[#2a2a2a]"
-                )}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-white font-medium mb-0.5">
-                      {exp.label}
-                    </h4>
-                    <p className="text-neutral-400 text-xs mb-1.5 leading-relaxed">
-                      {exp.description}
-                    </p>
-                    <p className="text-[10px] text-neutral-600 italic">
-                      {exp.openingPrompt}
-                    </p>
-                  </div>
-                  {isSelected && (
-                    <div className="flex-shrink-0">
-                      <Check className="h-4 w-4 text-neutral-300" />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Drill target selector — only when Drill is selected */}
-              {exp.key === "drill" && isSelected && (
-                <div className="mt-2 ml-1">
-                  <p className="text-[10px] uppercase tracking-wider text-neutral-500 mb-2">
-                    What are you drilling?
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {DRILL_TARGETS.map((target) => (
-                      <button
-                        key={target.id}
-                        onClick={() => setDrillTarget(target.id)}
-                        className={cn(
-                          "text-xs px-3 py-1.5 rounded-md border transition-colors",
-                          drillTarget === target.id
-                            ? "bg-[#1b1b1b] border-[#3a3a3a] text-neutral-100"
-                            : "bg-[#101010] border-[#202020] text-neutral-400 hover:bg-[#161616] hover:border-[#2a2a2a]"
-                        )}
-                      >
-                        {target.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+            <div
+              key={exp.key}
+              role="button"
+              tabIndex={0}
+              onClick={() => selectExperience(exp.key)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  selectExperience(exp.key);
+                }
+              }}
+              className={cn(
+                "w-full text-left rounded-md border p-4 transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-white/10",
+                isSelected
+                  ? "bg-[#171717] border-[#343434]"
+                  : "bg-[#101010] border-[#202020] hover:bg-[#161616] hover:border-[#2a2a2a]"
               )}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-white font-medium mb-0.5">
+                    {exp.label}
+                  </h4>
+                  <p className="text-neutral-400 text-xs leading-relaxed">
+                    {exp.description}
+                  </p>
+                </div>
+                {isSelected && (
+                  <div className="flex-shrink-0">
+                    <Check className="h-4 w-4 text-neutral-300" />
+                  </div>
+                )}
+              </div>
             </div>
           );
         })}
       </div>
 
-      {/* Optional custom room context */}
-      <div className="mt-5 space-y-1.5">
-        <Label
-          htmlFor="custom-room"
-          className="text-[10px] uppercase tracking-wider text-neutral-500"
-        >
-          Room description (optional)
-        </Label>
-        <Textarea
-          id="custom-room"
-          value={customRoom}
-          onChange={(e) => setCustomRoom(e.target.value)}
-          placeholder="Describe the specific room — e.g., 'A hiring committee of 3 senior engineers for a staff engineer role.' Overrides the default."
-          rows={2}
-          className="bg-[#0a0a0a] border-[#202020] text-white placeholder:text-neutral-600 focus:border-[#3a3a3a] focus-visible:ring-0 rounded-md resize-y"
-        />
-      </div>
-
+      {/* Drill target — expands under the cards when Drill is selected */}
+      {experience === "drill" && (
+        <div className="mt-3">
+          <p className="text-[10px] uppercase tracking-wider text-neutral-500 mb-2">
+            What are you drilling?
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {DRILL_TARGETS.map((target) => (
+              <button
+                key={target.id}
+                onClick={() => setDrillTarget(target.id)}
+                className={cn(
+                  "text-xs px-3 py-1.5 rounded-md border transition-colors",
+                  drillTarget === target.id
+                    ? "bg-[#1b1b1b] border-[#3a3a3a] text-neutral-100"
+                    : "bg-[#101010] border-[#202020] text-neutral-400 hover:bg-[#161616] hover:border-[#2a2a2a]"
+                )}
+              >
+                {target.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// ─── Step 3: Panel (Seating Chart) ──────────────────────────────────────
+// ─── 03 Panel: seating chart ──────────────────────────────────────
 
-function Step3Panel({
+function PanelSection({
   seats,
   setSeats,
   onEditSeat,
@@ -681,8 +551,8 @@ function Step3Panel({
           <ArrowRight className="h-4 w-4 text-neutral-700 rotate-90 mt-1" />
         </div>
 
-        {/* Seats row */}
-        <div className="flex gap-3 justify-center min-w-fit">
+        {/* Seats row — full cards on roomy screens */}
+        <div className="hidden sm:flex gap-3 justify-center min-w-fit">
           {seats.map((seat, i) => (
             <SeatCard
               key={i}
@@ -700,6 +570,36 @@ function Step3Panel({
                 Add panelist
               </span>
               <span className="text-xs text-neutral-500">Up to {MAX_SEATS}</span>
+            </button>
+          )}
+        </div>
+
+        {/* Compact summary — one line per panelist when space is tight */}
+        <div className="sm:hidden flex flex-col gap-2">
+          {seats
+            .filter((s) => s.filled)
+            .map((seat, i) => (
+              <button
+                key={i}
+                onClick={() => onEditSeat(i)}
+                className="flex items-center justify-between rounded-md border border-[#202020] bg-[#101010] px-3 py-2.5 text-left transition-all hover:bg-[#161616]"
+              >
+                <span className="text-sm text-white">
+                  {seat.name}
+                  <span className="text-neutral-500"> · {INTENSITY_LABELS[seat.intensity]}</span>
+                </span>
+                <span className="text-[10px] uppercase tracking-wider text-neutral-500">
+                  Edit
+                </span>
+              </button>
+            ))}
+          {seats.length < MAX_SEATS && (
+            <button
+              onClick={() => setSeats(addSeat(seats))}
+              className="flex items-center justify-center gap-1.5 rounded-md border border-dashed border-[#252525] px-3 py-2.5 text-xs text-neutral-500 transition-all hover:border-[#3a3a3a] hover:bg-[#0f0f0f]"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add panelist (up to {MAX_SEATS})
             </button>
           )}
         </div>
@@ -755,9 +655,6 @@ function SeatCard({
       </div>
       <p className="text-center text-xs font-medium text-white leading-tight">
         {seat.name}
-      </p>
-      <p className="mt-0.5 text-[9px] uppercase tracking-wider text-neutral-500">
-        {def.defaultName}
       </p>
       <div className="mt-2 flex gap-1">
         {[1, 2, 3].map((level) => (

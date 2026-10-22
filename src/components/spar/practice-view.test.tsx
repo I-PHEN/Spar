@@ -25,3 +25,46 @@ describe("PracticeView", () => {
     expect(source).toContain("addSeat"); // add-panelist affordance
   });
 });
+
+describe("PracticeView single screen", () => {
+  const markup = renderToStaticMarkup(
+    <PracticeView onSessionCreated={() => {}} onCancel={() => {}} />,
+  );
+
+  test("all sections render at once — no stepper", () => {
+    expect(markup).toContain("What are you defending");
+    expect(markup).toContain("How will you spar");
+    expect(markup).toContain("Arrange your panel");
+    expect(markup).toContain("Start Sparring");
+    // The old stepper label does not render as a step chip.
+    expect(markup).not.toContain(">Experience<");
+  });
+
+  test("both mode cards visible; drill chips hidden until Drill is picked", () => {
+    expect(markup).toContain("Q&amp;A");
+    expect(markup).toContain("Drill");
+    expect(markup).not.toContain("What are you drilling");
+  });
+
+  test("room description is behind a disclosure, not shown by default", () => {
+    expect(markup).toContain("Customize the room");
+    expect(markup).not.toContain("Describe the specific room");
+  });
+
+  test("panel shows the default panelist summary and the YOU visual", () => {
+    expect(markup).toContain("YOU");
+    expect(markup).toContain("Ada");
+    expect(markup).toContain("Moderate");
+    expect(markup).toContain("Add panelist");
+  });
+
+  test("softer short-material state exists in source", () => {
+    const source = readFileSync(
+      new URL("./practice-view.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(source).toContain("Short, so the panel will have less to challenge");
+    // Sticky start bar.
+    expect(source).toContain("sticky");
+  });
+});
