@@ -13,6 +13,7 @@ import {
   Swords,
   Clock,
   Compass,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +50,13 @@ export interface SessionHistoryEntry {
   createdAt: string;
   personas: Array<{ name: string; archetype: string }>;
   summary: { oneThingToPractice: string } | null;
+  skills?: {
+    clarity: number;
+    recovery: number;
+    concision: number;
+    presence: number;
+    evidence: number;
+  } | null;
 }
 
 export interface Stats {
@@ -78,7 +86,71 @@ function sessionTopic(session: SessionHistoryEntry): string {
   return sessionLabel(session.scenario);
 }
 
-/** One past session in the executive ledger: topic header, mode, panel, the coach's takeaway, and the debrief. */
+/** Deduplicate panelist names to prevent repetitions like "Ada · Ada · Priya" */
+export function deduplicatePersonas(
+  personas: Array<{ name: string; archetype: string }>
+): Array<{ name: string; archetype: string }> {
+  const seen = new Set<string>();
+  const unique: Array<{ name: string; archetype: string }> = [];
+  for (const p of personas) {
+    const trimmed = p.name?.trim();
+    if (trimmed && !seen.has(trimmed.toLowerCase())) {
+      seen.add(trimmed.toLowerCase());
+      unique.push({ ...p, name: trimmed });
+    }
+  }
+  return unique;
+}
+
+/** Check if the coaching takeaway is generic fallback copy */
+export function isGenericPracticeTip(tip?: string | null): boolean {
+  if (!tip || !tip.trim()) return true;
+  const t = tip.trim().toLowerCase();
+  return (
+    t.includes("keep sparring") ||
+    t.includes("baseline is solid") ||
+    t === "no debrief" ||
+    t.startsWith("no debrief")
+  );
+}
+
+export type DateGroupKey = "Today" | "This week" | "Earlier";
+
+/** Group sessions into timeline buckets: Today, This week, and Earlier */
+export function groupSessionsByDate(sessionList: SessionHistoryEntry[]): Array<{
+  group: DateGroupKey;
+  sessions: SessionHistoryEntry[];
+}> {
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const sevenDaysAgo = startOfToday - 6 * 24 * 60 * 60 * 1000;
+
+  const today: SessionHistoryEntry[] = [];
+  const thisWeek: SessionHistoryEntry[] = [];
+  const earlier: SessionHistoryEntry[] = [];
+
+  for (const s of sessionList) {
+    const time = new Date(s.createdAt).getTime();
+    if (isNaN(time)) {
+      earlier.push(s);
+    } else if (time >= startOfToday) {
+      today.push(s);
+    } else if (time >= sevenDaysAgo) {
+      thisWeek.push(s);
+    } else {
+      earlier.push(s);
+    }
+  }
+
+  const result: Array<{ group: DateGroupKey; sessions: SessionHistoryEntry[] }> = [];
+  if (today.length > 0) result.push({ group: "Today", sessions: today });
+  if (thisWeek.length > 0) result.push({ group: "This week", sessions: thisWeek });
+  if (earlier.length > 0) result.push({ group: "Earlier", sessions: earlier });
+
+  return result;
+}
+
+/** One past session in the executive ledger: whole-row click, scannable hierarchy, deduplicated panelists, outcome badge. */
 export function SessionHistoryCard({
   session,
   onOpenDebrief,
@@ -92,50 +164,100 @@ export function SessionHistoryCard({
     month: "short",
     day: "numeric",
   });
-  const panel = session.personas.map((p) => p.name).join(" · ");
+  const uniquePersonas = deduplicatePersonas(session.personas);
+  const panelistNames = uniquePersonas.map((p) => p.name).join(" · ");
+
+  const hasSpecificTip =
+    Boolean(session.summary?.oneThingToPractice) &&
+    !isGenericPracticeTip(session.summary?.oneThingToPractice);
+
+  const overallScore = session.skills
+    ? Math.round(
+        (session.skills.clarity +
+          session.skills.recovery +
+          session.skills.concision +
+          session.skills.presence +
+          session.skills.evidence) /
+          5,
+      )
+    : null;
 
   return (
-    <div className="group flex flex-col gap-3 px-5 py-4 transition-colors hover:bg-white/[0.02] sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpenDebrief(session.id, label)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpenDebrief(session.id, label);
+        }
+      }}
+      aria-label={`Open debrief for ${topic}`}
+      className="group flex items-center justify-between gap-4 px-5 py-3.5 transition-all hover:bg-white/[0.03] cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40 select-none"
+    >
       <div className="min-w-0 flex-1">
         {/* Primary Header: The Topic */}
-        <h3 className="truncate text-sm font-semibold tracking-tight text-white sm:text-base">
+        <h3 className="truncate text-sm font-semibold tracking-tight text-white group-hover:text-white transition-colors sm:text-base">
           {topic}
         </h3>
 
-        {/* Metadata: Mode badge, Date, and Panelists */}
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutral-500 font-medium">
+        {/* Metadata: Mode badge, Date, and Deduplicated Panelists */}
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-neutral-400 font-normal">
           <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-300">
             {label}
           </span>
+          <span className="text-neutral-500">·</span>
           <span>{date}</span>
-          {panel && <span>· with {panel}</span>}
+          {uniquePersonas.length > 0 && (
+            <>
+              <span className="text-neutral-500">·</span>
+              <span className="inline-flex items-center gap-1.5 min-w-0">
+                <span className="flex -space-x-1 overflow-hidden flex-shrink-0">
+                  {uniquePersonas.map((p) => (
+                    <span
+                      key={p.name}
+                      title={p.name}
+                      className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-neutral-800 ring-1 ring-neutral-900 text-[9px] font-semibold text-neutral-300"
+                    >
+                      {p.name.charAt(0).toUpperCase()}
+                    </span>
+                  ))}
+                </span>
+                <span className="truncate">{panelistNames}</span>
+              </span>
+            </>
+          )}
         </div>
 
-        {/* The Coach Takeaway */}
-        {session.summary?.oneThingToPractice ? (
-          <p className="mt-1.5 truncate text-xs leading-relaxed text-neutral-300 font-normal sm:text-sm">
+        {/* The Coach Takeaway: only shown when authentic and session-specific */}
+        {hasSpecificTip && (
+          <p className="mt-1 truncate text-xs leading-relaxed text-neutral-400">
             <span className="text-neutral-500 font-medium">Practice: </span>
-            {session.summary.oneThingToPractice}
-          </p>
-        ) : (
-          <p className="mt-1.5 truncate text-xs text-neutral-500 italic">
-            No debrief — the session ended before coaching.
+            <span className="text-neutral-300">{session.summary!.oneThingToPractice}</span>
           </p>
         )}
       </div>
 
-      {/* Action Trigger */}
-      {session.summary && (
-        <div className="flex-shrink-0 self-end sm:self-center">
-          <button
-            onClick={() => onOpenDebrief(session.id, label)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-xs font-semibold text-neutral-200 transition-all hover:border-white/30 hover:bg-white hover:text-black"
-          >
-            Read debrief
-            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-          </button>
-        </div>
-      )}
+      {/* Outcome indicator and navigation chevron */}
+      <div className="flex flex-shrink-0 items-center gap-3">
+        {overallScore !== null ? (
+          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-400 tabular-nums">
+            <span>{overallScore}</span>
+            <span className="text-[9px] text-emerald-500 uppercase">pts</span>
+          </span>
+        ) : session.summary ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-medium text-emerald-400">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            Debriefed
+          </span>
+        ) : (
+          <span className="inline-flex items-center rounded-full border border-white/5 bg-white/[0.02] px-2 py-0.5 text-[10px] font-normal text-neutral-500">
+            Incomplete
+          </span>
+        )}
+        <ChevronRight className="h-4 w-4 text-neutral-500 transition-transform group-hover:translate-x-0.5 group-hover:text-white" />
+      </div>
     </div>
   );
 }
@@ -145,6 +267,7 @@ export function HomeView({ userName, onEnterSparringRoom, onOpenDebrief }: HomeV
   const [stats, setStats] = useState<Stats | null>(null);
   const [sessions, setSessions] = useState<SessionHistoryEntry[] | null>(null);
   const [editingMoment, setEditingMoment] = useState(false);
+  const [showAllSessions, setShowAllSessions] = useState(false);
   const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
@@ -373,13 +496,17 @@ export function HomeView({ userName, onEnterSparringRoom, onOpenDebrief }: HomeV
         {/* Recent Sessions Feed */}
         <motion.div variants={itemVariants} className="pt-4">
           <div className="mb-3 flex items-center justify-between">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-400">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-300">
               Recent sessions
             </p>
-            {sessions && sessions.length > 0 && (
-              <span className="text-[10px] text-neutral-500 tabular-nums font-mono">
-                Showing {Math.min(sessions.length, 5)} of {sessions.length}
-              </span>
+            {sessions && sessions.length > 3 && (
+              <button
+                type="button"
+                onClick={() => setShowAllSessions((prev) => !prev)}
+                className="rounded px-1.5 py-0.5 text-xs font-medium text-neutral-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40"
+              >
+                {showAllSessions ? "Show fewer" : `View all ${sessions.length}`}
+              </button>
             )}
           </div>
 
@@ -403,14 +530,39 @@ export function HomeView({ userName, onEnterSparringRoom, onOpenDebrief }: HomeV
               </Button>
             </div>
           ) : (
-            <div className="rounded-2xl border border-white/[0.08] bg-[#111111] divide-y divide-white/[0.06] overflow-hidden">
-              {sessions.slice(0, 5).map((s) => (
-                <SessionHistoryCard
-                  key={s.id}
-                  session={s}
-                  onOpenDebrief={onOpenDebrief}
-                />
-              ))}
+            <div className="rounded-2xl border border-white/[0.08] bg-[#111111] overflow-hidden">
+              {groupSessionsByDate(showAllSessions ? sessions : sessions.slice(0, 3)).map(
+                (bucket, groupIdx) => (
+                  <div key={bucket.group}>
+                    <div
+                      className={cn(
+                        "px-5 py-2 text-[10px] font-semibold uppercase tracking-wider text-neutral-400 bg-white/[0.02] border-b border-white/[0.04]",
+                        groupIdx > 0 && "border-t border-white/[0.06]"
+                      )}
+                    >
+                      {bucket.group}
+                    </div>
+                    <div className="divide-y divide-white/[0.04]">
+                      {bucket.sessions.map((s) => (
+                        <SessionHistoryCard
+                          key={s.id}
+                          session={s}
+                          onOpenDebrief={onOpenDebrief}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )
+              )}
+              {sessions.length > 3 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllSessions((prev) => !prev)}
+                  className="w-full border-t border-white/[0.06] py-3 text-center text-xs font-medium text-neutral-400 transition-colors hover:bg-white/[0.02] hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40"
+                >
+                  {showAllSessions ? "Show fewer" : `View all ${sessions.length} sessions →`}
+                </button>
+              )}
             </div>
           )}
         </motion.div>

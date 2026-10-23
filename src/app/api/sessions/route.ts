@@ -34,6 +34,7 @@ export async function GET() {
     include: {
       personas: { orderBy: { seatOrder: "asc" } },
       summary: true,
+      skills: true,
     },
   });
   return NextResponse.json({ sessions });

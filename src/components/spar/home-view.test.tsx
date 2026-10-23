@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import { HomeView, SessionHistoryCard, StatCard } from "./home-view";
+import { HomeView, SessionHistoryCard, StatCard, groupSessionsByDate } from "./home-view";
 
 const session = {
   id: "s1",
@@ -15,7 +15,7 @@ const session = {
 };
 
 describe("SessionHistoryCard", () => {
-  test("renders topic header, mode label, panelists, takeaway, and a debrief link", () => {
+  test("renders topic header, mode label, panelists, takeaway, outcome badge, and whole-row button", () => {
     const m = renderToStaticMarkup(
       <SessionHistoryCard session={session} onOpenDebrief={() => {}} />,
     );
@@ -24,16 +24,67 @@ describe("SessionHistoryCard", () => {
     expect(m).toContain("Ada");
     expect(m).toContain("Chiara");
     expect(m).toContain("Answer the question asked, then stop.");
-    expect(m).toContain("Read debrief");
+    expect(m).not.toContain("Read debrief"); // replaced by whole-row click
+    expect(m).toContain('role="button"');
+    expect(m).toContain('tabindex="0"');
+    expect(m).toContain("Debriefed"); // outcome indicator badge
   });
 
-  test("a session without a debrief says so honestly", () => {
+  test("deduplicates repeated panelist names in panel display and initials avatar", () => {
+    const m = renderToStaticMarkup(
+      <SessionHistoryCard
+        session={{
+          ...session,
+          personas: [
+            { name: "Ada", archetype: "skeptic" },
+            { name: "Ada", archetype: "nitpicker" },
+            { name: "Priya", archetype: "ally" },
+          ],
+        }}
+        onOpenDebrief={() => {}}
+      />,
+    );
+    expect(m).toContain("Ada · Priya");
+    expect(m).not.toContain("Ada · Ada");
+  });
+
+  test("suppresses generic fallback practice tips", () => {
+    const m = renderToStaticMarkup(
+      <SessionHistoryCard
+        session={{
+          ...session,
+          summary: { oneThingToPractice: "Keep sparring. Your baseline is solid." },
+        }}
+        onOpenDebrief={() => {}}
+      />,
+    );
+    expect(m).not.toContain("Keep sparring");
+    expect(m).not.toContain("Practice:");
+  });
+
+  test("renders score outcome badge when skills telemetry is present", () => {
+    const m = renderToStaticMarkup(
+      <SessionHistoryCard
+        session={{
+          ...session,
+          skills: { clarity: 80, recovery: 90, concision: 85, presence: 85, evidence: 85 },
+        }}
+        onOpenDebrief={() => {}}
+      />,
+    );
+    expect(m).toContain("85");
+    expect(m).toContain("pts");
+  });
+
+  test("a session without a debrief renders incomplete badge and omits practice line", () => {
     const m = renderToStaticMarkup(
       <SessionHistoryCard
         session={{ ...session, summary: null }}
         onOpenDebrief={() => {}}
       />,
     );
+    expect(m).toContain("Incomplete");
+    expect(m).not.toContain("Practice:");
     expect(m).not.toContain("Read debrief");
   });
 });
@@ -73,5 +124,29 @@ describe("StatCard", () => {
     expect(m).toContain("Current streak");
     expect(m).toContain("5d");
     expect(m).toContain("top 10%");
+  });
+});
+
+describe("groupSessionsByDate", () => {
+  test("buckets sessions into Today, This week, and Earlier categories", () => {
+    const now = new Date();
+    const todayIso = now.toISOString();
+    const threeDaysAgoIso = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString();
+    const twoWeeksAgoIso = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString();
+
+    const sampleSessions = [
+      { ...session, id: "s-today", createdAt: todayIso },
+      { ...session, id: "s-week", createdAt: threeDaysAgoIso },
+      { ...session, id: "s-earlier", createdAt: twoWeeksAgoIso },
+    ];
+
+    const groups = groupSessionsByDate(sampleSessions);
+    expect(groups.length).toBe(3);
+    expect(groups[0].group).toBe("Today");
+    expect(groups[0].sessions[0].id).toBe("s-today");
+    expect(groups[1].group).toBe("This week");
+    expect(groups[1].sessions[0].id).toBe("s-week");
+    expect(groups[2].group).toBe("Earlier");
+    expect(groups[2].sessions[0].id).toBe("s-earlier");
   });
 });
