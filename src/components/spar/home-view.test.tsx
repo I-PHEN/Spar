@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import { HomeView, SessionHistoryCard } from "./home-view";
+import { HomeView, SessionHistoryCard, StatCard } from "./home-view";
 
 const session = {
   id: "s1",
@@ -48,5 +48,26 @@ describe("HomeView", () => {
 
   test("stats row includes total sessions", () => {
     expect(markup).toContain("Total sessions");
+  });
+
+  test("header includes executive command title and username", () => {
+    expect(markup).toContain("Executive Command");
+    expect(markup).toContain("Michael.");
+  });
+});
+
+describe("StatCard", () => {
+  test("renders label, value, and optional sub-metric", () => {
+    const m = renderToStaticMarkup(
+      <StatCard
+        icon={<span>*</span>}
+        label="Current streak"
+        value="5d"
+        sub="top 10%"
+      />,
+    );
+    expect(m).toContain("Current streak");
+    expect(m).toContain("5d");
+    expect(m).toContain("top 10%");
   });
 });
