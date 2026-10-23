@@ -50,9 +50,11 @@ describe("HomeView", () => {
     expect(markup).toContain("Total sessions");
   });
 
-  test("header includes executive command title and username", () => {
+  test("header includes executive command title, username, and calm tagline without duplicate CTA", () => {
     expect(markup).toContain("Executive Command");
     expect(markup).toContain("Michael.");
+    expect(markup).toContain("Sharpen your instincts against adversarial panels.");
+    expect(markup).not.toContain("Set preparation target");
   });
 });
 

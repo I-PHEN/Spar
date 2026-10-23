@@ -65,7 +65,7 @@ function greeting(): string {
   return "Good evening";
 }
 
-/** One past session: mode, panel, the coach's takeaway, and the debrief. */
+/** One past session in the executive ledger: mode, panel, the coach's takeaway, and the debrief. */
 export function SessionHistoryCard({
   session,
   onOpenDebrief,
@@ -81,37 +81,43 @@ export function SessionHistoryCard({
   const panel = session.personas.map((p) => p.name).join(" · ");
 
   return (
-    <div className="group flex items-center justify-between gap-4 rounded-xl border border-white/[0.08] bg-[#111111] px-4 py-3.5 transition-all hover:border-white/20 hover:bg-[#161616]">
+    <div className="group flex flex-col gap-3 px-5 py-4 transition-colors hover:bg-white/[0.02] sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+      {/* Zone 1 & 2: Metadata + Directive */}
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="rounded-md border border-white/10 bg-white/[0.05] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-200">
+        <div className="flex flex-wrap items-center gap-2 mb-1.5">
+          <span className="rounded bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-300">
             {label}
           </span>
           <span className="text-xs text-neutral-500 font-medium">{date}</span>
           {panel && (
-            <span className="hidden truncate text-xs text-neutral-400 sm:inline">
-              with {panel}
+            <span className="text-xs text-neutral-500">
+              · with {panel}
             </span>
           )}
         </div>
         {session.summary?.oneThingToPractice ? (
-          <p className="mt-1.5 truncate text-xs leading-relaxed text-neutral-300 sm:text-sm">
+          <p className="text-xs leading-relaxed text-neutral-200 sm:text-sm font-normal">
             <span className="text-neutral-500 font-medium">Practice: </span>
             {session.summary.oneThingToPractice}
           </p>
         ) : (
-          <p className="mt-1.5 truncate text-xs text-neutral-500 italic">
+          <p className="text-xs text-neutral-500 italic">
             No debrief — the session ended before coaching.
           </p>
         )}
       </div>
+
+      {/* Zone 3: Action Trigger */}
       {session.summary && (
-        <button
-          onClick={() => onOpenDebrief(session.id, label)}
-          className="flex-shrink-0 rounded-lg border border-white/10 bg-white/[0.04] px-3.5 py-1.5 text-xs font-semibold text-neutral-200 transition-all hover:border-white/25 hover:bg-white hover:text-black"
-        >
-          Read debrief
-        </button>
+        <div className="flex-shrink-0 self-end sm:self-center">
+          <button
+            onClick={() => onOpenDebrief(session.id, label)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-xs font-semibold text-neutral-200 transition-all hover:border-white/30 hover:bg-white hover:text-black"
+          >
+            Read debrief
+            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+          </button>
+        </div>
       )}
     </div>
   );
@@ -184,20 +190,14 @@ export function HomeView({ userName, onEnterSparringRoom, onOpenDebrief }: HomeV
         </h1>
         {moment && daysUntil !== null ? (
           <p className="mt-2 text-xs text-neutral-400 sm:text-sm">
-            Target engagement: <span className="text-white font-medium">{moment.title}</span> in{" "}
+            Upcoming target: <span className="text-white font-medium">{moment.title}</span> in{" "}
             <span className="font-semibold text-white">
               {daysUntil} {daysUntil === 1 ? "day" : "days"}
             </span>.
           </p>
         ) : (
           <p className="mt-2 text-xs text-neutral-400 sm:text-sm">
-            No upcoming moment set.{" "}
-            <button
-              onClick={() => setEditingMoment(true)}
-              className="font-medium text-white underline underline-offset-4 hover:text-neutral-200"
-            >
-              Set preparation target →
-            </button>
+            Sharpen your instincts against adversarial panels.
           </p>
         )}
       </motion.div>
@@ -245,7 +245,7 @@ export function HomeView({ userName, onEnterSparringRoom, onOpenDebrief }: HomeV
                     <div className="flex items-center gap-2 text-neutral-400">
                       <Calendar className="h-4 w-4" />
                       <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
-                        Target Date
+                        Upcoming Moment
                       </span>
                     </div>
                     <Button
@@ -280,13 +280,13 @@ export function HomeView({ userName, onEnterSparringRoom, onOpenDebrief }: HomeV
                   <div className="flex items-center gap-2 text-neutral-400">
                     <Calendar className="h-4 w-4" />
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
-                      Upcoming Target
+                      Upcoming Moment
                     </span>
                   </div>
                   <div className="my-3">
-                    <p className="text-sm font-semibold text-white">No target set</p>
+                    <p className="text-sm font-semibold text-white">No upcoming moment set</p>
                     <p className="mt-1 text-xs text-neutral-400">
-                      Anchor your sparring to an upcoming pitch or defense.
+                      Anchor your sparring to an upcoming pitch, review, or defense.
                     </p>
                   </div>
                   <Button
@@ -385,7 +385,7 @@ export function HomeView({ userName, onEnterSparringRoom, onOpenDebrief }: HomeV
               </Button>
             </div>
           ) : (
-            <div className="flex flex-col gap-2.5">
+            <div className="rounded-2xl border border-white/[0.08] bg-[#111111] divide-y divide-white/[0.06] overflow-hidden">
               {sessions.slice(0, 5).map((s) => (
                 <SessionHistoryCard
                   key={s.id}
@@ -522,7 +522,7 @@ export function UpcomingMomentDialog({
       <DialogContent className="sm:max-w-md border-white/10 bg-[#121212] text-white">
         <DialogHeader>
           <DialogTitle className="text-white font-semibold">
-            {existing ? "Edit your preparation target" : "Set preparation target"}
+            {existing ? "Edit your upcoming moment" : "Set your upcoming moment"}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
@@ -580,7 +580,7 @@ export function UpcomingMomentDialog({
             disabled={saving || !title.trim() || !date}
             className="bg-white text-black hover:bg-neutral-200"
           >
-            {saving ? "Saving..." : "Save target"}
+            {saving ? "Saving..." : "Save moment"}
           </Button>
         </DialogFooter>
       </DialogContent>
