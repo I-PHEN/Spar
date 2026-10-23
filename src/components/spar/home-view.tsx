@@ -319,11 +319,19 @@ export function HomeView({ userName, onEnterSparringRoom, onOpenDebrief }: HomeV
         transition={{ duration: 0.3 }}
         className="mb-8"
       >
-        <div className="flex items-center gap-2">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-400">
-            {greeting()} · Executive Command
-          </p>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-400">
+              {greeting()} · Executive Command
+            </p>
+          </div>
+          {stats && stats.streak > 0 && (
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-400 tabular-nums">
+              <Flame className="h-3 w-3 fill-amber-400 text-amber-400" />
+              <span>{stats.streak}d streak</span>
+            </div>
+          )}
         </div>
         <h1 className="mt-2 text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
           {userName}.
@@ -466,32 +474,7 @@ export function HomeView({ userName, onEnterSparringRoom, onOpenDebrief }: HomeV
           </motion.div>
         )}
 
-        {/* Quick Stats Row (4 Tiles) */}
-        <motion.div variants={itemVariants}>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatCard
-              icon={<Sparkles className="h-3.5 w-3.5 text-neutral-400" />}
-              label="Sessions this week"
-              value={stats?.sessionsThisWeek ?? "—"}
-            />
-            <StatCard
-              icon={<Flame className="h-3.5 w-3.5 text-amber-400" />}
-              label="Current streak"
-              value={stats ? `${stats.streak}d` : "—"}
-            />
-            <StatCard
-              icon={<Target className="h-3.5 w-3.5 text-neutral-400" />}
-              label="Top skill"
-              value={stats?.topSkill?.name ?? "—"}
-              sub={stats?.topSkill ? `${stats.topSkill.score}` : undefined}
-            />
-            <StatCard
-              icon={<Swords className="h-3.5 w-3.5 text-neutral-400" />}
-              label="Total sessions"
-              value={stats?.totalSessions ?? "—"}
-            />
-          </div>
-        </motion.div>
+
 
         {/* Recent Sessions Feed */}
         <motion.div variants={itemVariants} className="pt-4">

@@ -99,8 +99,9 @@ describe("HomeView", () => {
     expect(markup).not.toContain(">Enter the Sparring Room<");
   });
 
-  test("stats row includes total sessions", () => {
-    expect(markup).toContain("Total sessions");
+  test("home view body is calm and action-oriented without heavy stats row", () => {
+    expect(markup).not.toContain("Total sessions");
+    expect(markup).not.toContain("Sessions this week");
   });
 
   test("header includes executive command title, username, and calm tagline without duplicate CTA", () => {
