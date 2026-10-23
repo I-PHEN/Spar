@@ -5,6 +5,7 @@ import { HomeView, SessionHistoryCard, StatCard } from "./home-view";
 const session = {
   id: "s1",
   scenario: "open_spar",
+  materialTitle: "Machine learning",
   createdAt: new Date("2026-10-20T10:00:00Z").toISOString(),
   personas: [
     { name: "Ada", archetype: "skeptic" },
@@ -14,10 +15,11 @@ const session = {
 };
 
 describe("SessionHistoryCard", () => {
-  test("renders mode label, panelists, takeaway, and a debrief link", () => {
+  test("renders topic header, mode label, panelists, takeaway, and a debrief link", () => {
     const m = renderToStaticMarkup(
       <SessionHistoryCard session={session} onOpenDebrief={() => {}} />,
     );
+    expect(m).toContain("Machine learning"); // topic header
     expect(m).toContain("Q&amp;A"); // mode chip resolves the experience key
     expect(m).toContain("Ada");
     expect(m).toContain("Chiara");

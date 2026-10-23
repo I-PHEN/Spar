@@ -44,6 +44,8 @@ export interface UpcomingMoment {
 export interface SessionHistoryEntry {
   id: string;
   scenario: string;
+  materialTitle?: string | null;
+  rawMaterial?: string | null;
   createdAt: string;
   personas: Array<{ name: string; archetype: string }>;
   summary: { oneThingToPractice: string } | null;
@@ -65,7 +67,18 @@ function greeting(): string {
   return "Good evening";
 }
 
-/** One past session in the executive ledger: mode, panel, the coach's takeaway, and the debrief. */
+function sessionTopic(session: SessionHistoryEntry): string {
+  if (session.materialTitle?.trim()) {
+    return session.materialTitle.trim();
+  }
+  if (session.rawMaterial?.trim()) {
+    const firstLine = session.rawMaterial.trim().split("\n")[0];
+    return firstLine.length > 70 ? `${firstLine.slice(0, 70)}…` : firstLine;
+  }
+  return sessionLabel(session.scenario);
+}
+
+/** One past session in the executive ledger: topic header, mode, panel, the coach's takeaway, and the debrief. */
 export function SessionHistoryCard({
   session,
   onOpenDebrief,
@@ -74,6 +87,7 @@ export function SessionHistoryCard({
   onOpenDebrief: (sessionId: string, label: string) => void;
 }) {
   const label = sessionLabel(session.scenario);
+  const topic = sessionTopic(session);
   const date = new Date(session.createdAt).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
@@ -82,32 +96,35 @@ export function SessionHistoryCard({
 
   return (
     <div className="group flex flex-col gap-3 px-5 py-4 transition-colors hover:bg-white/[0.02] sm:flex-row sm:items-center sm:justify-between sm:gap-6">
-      {/* Zone 1 & 2: Metadata + Directive */}
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2 mb-1.5">
-          <span className="rounded bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-300">
+        {/* Primary Header: The Topic */}
+        <h3 className="truncate text-sm font-semibold tracking-tight text-white sm:text-base">
+          {topic}
+        </h3>
+
+        {/* Metadata: Mode badge, Date, and Panelists */}
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutral-500 font-medium">
+          <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-300">
             {label}
           </span>
-          <span className="text-xs text-neutral-500 font-medium">{date}</span>
-          {panel && (
-            <span className="text-xs text-neutral-500">
-              · with {panel}
-            </span>
-          )}
+          <span>{date}</span>
+          {panel && <span>· with {panel}</span>}
         </div>
+
+        {/* The Coach Takeaway */}
         {session.summary?.oneThingToPractice ? (
-          <p className="text-xs leading-relaxed text-neutral-200 sm:text-sm font-normal">
+          <p className="mt-1.5 truncate text-xs leading-relaxed text-neutral-300 font-normal sm:text-sm">
             <span className="text-neutral-500 font-medium">Practice: </span>
             {session.summary.oneThingToPractice}
           </p>
         ) : (
-          <p className="text-xs text-neutral-500 italic">
+          <p className="mt-1.5 truncate text-xs text-neutral-500 italic">
             No debrief — the session ended before coaching.
           </p>
         )}
       </div>
 
-      {/* Zone 3: Action Trigger */}
+      {/* Action Trigger */}
       {session.summary && (
         <div className="flex-shrink-0 self-end sm:self-center">
           <button
@@ -214,6 +231,7 @@ export function HomeView({ userName, onEnterSparringRoom, onOpenDebrief }: HomeV
             {/* Primary Action Card (Span 2) */}
             <button
               onClick={onEnterSparringRoom}
+              aria-label="New session"
               className="group relative block w-full overflow-hidden rounded-2xl border border-white/10 bg-[#121212] p-6 text-left transition-all hover:border-white/25 hover:bg-[#161616] sm:p-7 lg:col-span-2"
             >
               <div className="flex items-center justify-between gap-4">

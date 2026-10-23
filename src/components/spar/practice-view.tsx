@@ -58,11 +58,11 @@ interface PracticeViewProps {
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
-/** Example topics — one click fills the box. Kept honest and specific. */
+/** Example topics — one click fills the box. Kept concise and specific. */
 const TOPIC_EXAMPLES = [
-  "Startup go-to-market — I'm defending my startup's go-to-market strategy for an enterprise SaaS product targeting mid-market healthcare.",
-  "Thesis chapter — I'm defending Chapter 4 of my PhD thesis, the empirical study and its statistical validity.",
-  "Team proposal — I'm defending my proposal to reorganize the support team around regional pods.",
+  "Startup GTM — Defending enterprise SaaS go-to-market strategy for healthcare.",
+  "Machine Learning — Defending empirical findings and statistical validity in Chapter 4.",
+  "Team Proposal — Defending reorganization of customer support around regional pods.",
 ];
 
 const ARCHETYPE_ICONS: Record<ArchetypeKey, typeof Search> = {
@@ -503,19 +503,22 @@ function DefendSection({
             htmlFor="topic"
             className="text-[10px] uppercase tracking-wider text-neutral-500"
           >
-            State your topic in 1-2 sentences
+            State your topic (concise, max 100 chars)
           </Label>
           <Textarea
             id="topic"
             value={topic}
+            maxLength={100}
             onChange={(e) => setTopic(e.target.value)}
-            placeholder="e.g., I'm defending my startup's go-to-market strategy for an enterprise SaaS product targeting mid-market healthcare."
-            rows={3}
+            placeholder="e.g., go-to-market strategy, Machine learning defense, Q3 Board review"
+            rows={2}
             className="bg-[#0a0a0a] border-[#202020] text-white placeholder:text-neutral-500 focus:border-[#3a3a3a] focus-visible:ring-0 rounded-md"
           />
           <div className="flex items-center justify-between text-[11px] text-neutral-500">
-            <span>The panel will challenge the central claim. Be specific.</span>
-            <span>{topic.length} chars</span>
+            <span>The panel will challenge this central claim. Be specific and concise.</span>
+            <span className={cn(topic.length >= 95 ? "text-amber-400 font-medium" : "")}>
+              {topic.length}/100 chars
+            </span>
           </div>
           <div className="flex flex-wrap items-center gap-1.5 pt-1">
             <span className="text-[11px] text-neutral-500">Try an example:</span>
