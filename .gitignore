@@ -59,3 +59,4 @@ server.log
 
 # Isolated feature worktrees
 /.worktrees/
+/data/

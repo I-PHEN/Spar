@@ -9,9 +9,10 @@ import { HomeView } from "@/components/spar/home-view";
 import { PracticeView } from "@/components/spar/practice-view";
 import { SparringRoom } from "@/components/spar/sparring-room";
 import { DebriefView } from "@/components/spar/debrief-view";
+import { CoachView } from "@/components/spar/coach-view";
 import { sessionLabel } from "@/lib/session-label";
 import type { ExperienceKey, DrillTarget } from "@/lib/experiences";
-import { GraduationCap, TrendingUp, Hammer } from "lucide-react";
+import { TrendingUp, Hammer } from "lucide-react";
 
 type View = NavView | "hero" | "auth" | "onboarding" | "sparring" | "debrief";
 
@@ -25,6 +26,10 @@ export default function Page() {
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [experience, setExperience] = useState<ExperienceKey>("open_spar");
   const [drillTarget, setDrillTarget] = useState<DrillTarget | null>(null);
+  const [activeCourseLesson, setActiveCourseLesson] = useState<{
+    courseId: string;
+    lessonId: string;
+  } | null>(null);
 
   // Load user name (for the dashboard after they enter)
   useEffect(() => {
@@ -92,11 +97,13 @@ export default function Page() {
   function handleSessionCreated(
     sessionId: string,
     exp: ExperienceKey,
-    target: DrillTarget | null
+    target: DrillTarget | null,
+    lessonMeta?: { courseId: string; lessonId: string }
   ) {
     setActiveSessionId(sessionId);
     setExperience(exp);
     setDrillTarget(target);
+    setActiveCourseLesson(lessonMeta ?? null);
     setView("sparring");
   }
 
@@ -109,17 +116,38 @@ export default function Page() {
         })
         .catch(() => {});
     }
+    if (activeCourseLesson) {
+      fetch("/api/coach/progress", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          courseId: activeCourseLesson.courseId,
+          lessonId: activeCourseLesson.lessonId,
+          sessionId: activeSessionId,
+        }),
+      }).catch(() => {});
+    }
     setView("debrief");
   }
 
   function handleSparAgain() {
     setActiveSessionId(null);
-    setView("practice");
+    if (activeCourseLesson) {
+      setActiveCourseLesson(null);
+      setView("coach");
+    } else {
+      setView("practice");
+    }
   }
 
   function handleBackHome() {
     setActiveSessionId(null);
-    setView("home");
+    if (activeCourseLesson) {
+      setActiveCourseLesson(null);
+      setView("coach");
+    } else {
+      setView("home");
+    }
   }
 
   function handleOnboardingComplete(data: { name: string }) {
@@ -200,11 +228,7 @@ export default function Page() {
           />
         )}
         {view === "coach" && (
-          <ComingSoonView
-            icon={<GraduationCap className="h-6 w-6" />}
-            title="Coach"
-            description="The development layer. Active programs, skill map, pattern insights, recommended drills. Shipping in the next solid thing."
-          />
+          <CoachView onSessionCreated={handleSessionCreated} />
         )}
         {view === "progress" && (
           <ComingSoonView
