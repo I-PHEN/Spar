@@ -46,7 +46,7 @@ describe("CoachView (3-Screen Learner Experience)", () => {
     expect(markup).not.toContain("Creator Passkey");
   });
 
-  test("Screen B (Roadmap): renders focused course roadmap with 'Learn /' breadcrumb, connected lesson nodes, and no row of course switcher pills", () => {
+  test("Screen B (Roadmap): renders focused course roadmap with 'Learn /' breadcrumb, upfront outcomes, straight-axis lesson nodes, and 'Apply in the room' link", () => {
     const markup = renderToStaticMarkup(
       <CoachView
         onSessionCreated={() => {}}
@@ -59,8 +59,12 @@ describe("CoachView (3-Screen Learner Experience)", () => {
 
     expect(markup).toContain("Learn");
     expect(markup).toContain("Boardroom Curveballs");
+    expect(markup).toContain("By the end you&#x27;ll be able to:");
+    expect(markup).toContain("Up next:");
     expect(markup).toContain("Surviving the Friendly Trap");
     expect(markup).toContain("Two-Second Recovery");
+    expect(markup).toContain("Partner in room:");
+    expect(markup).toContain("Apply in the room");
 
     // Must NOT show other courses as switcher pills above the roadmap
     expect(markup).not.toContain("Zero-Hedge Concision");

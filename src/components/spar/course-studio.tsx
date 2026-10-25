@@ -24,12 +24,14 @@ import { ARCHETYPE_LIST, ARCHETYPES } from "@/lib/personas";
 import { DRILL_TARGETS, type DrillTarget, type ExperienceKey } from "@/lib/experiences";
 import type { ArchetypeKey, BehaviorStyle } from "@/lib/types";
 import {
+  ACTIVITY_TYPE_LABELS,
   DEFAULT_COURSES,
   DIAGRAM_PRESET_LABELS,
   buildLessonSessionPayload,
   createEmptyCourse,
   createEmptyLesson,
   createEmptyModule,
+  type ActivityType,
   type Course,
   type CourseDifficulty,
   type CourseLesson,
@@ -830,7 +832,7 @@ export function CourseStudio({
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="lesson-title" className="text-xs text-neutral-300">
                     Lesson Title
@@ -858,6 +860,117 @@ export function CourseStudio({
                       }))
                     }
                     className="border-white/10 bg-[#0c0c0c] text-white"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="lesson-activity-type" className="text-xs text-neutral-300">
+                    Node Activity Type
+                  </Label>
+                  <select
+                    id="lesson-activity-type"
+                    value={activeLesson.activityType ?? "lesson"}
+                    onChange={(e) =>
+                      updateActiveLesson((l) => ({
+                        ...l,
+                        activityType: e.target.value as ActivityType,
+                      }))
+                    }
+                    className="h-9 w-full rounded-md border border-white/10 bg-[#0c0c0c] px-3 text-xs text-white focus:border-white/30 focus:outline-none"
+                  >
+                    {(Object.keys(ACTIVITY_TYPE_LABELS) as ActivityType[]).map(
+                      (typeKey) => (
+                        <option key={typeKey} value={typeKey}>
+                          {ACTIVITY_TYPE_LABELS[typeKey]}
+                        </option>
+                      )
+                    )}
+                  </select>
+                </div>
+              </div>
+
+              {/* Interactive Practice Prompts (Scenario Hook & Retry Challenge) */}
+              <div className="grid grid-cols-1 gap-4 rounded-xl border border-white/[0.06] bg-[#0e0e0e] p-4 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="lesson-hook-prompt" className="text-xs text-neutral-300">
+                    Stage 1: Opening Scenario Challenge (Hook Prompt)
+                  </Label>
+                  <Textarea
+                    id="lesson-hook-prompt"
+                    rows={2}
+                    value={
+                      activeLesson.practice?.hookPrompt ??
+                      activeLesson.slides.tape.prompt
+                    }
+                    onChange={(e) =>
+                      updateActiveLesson((l) => ({
+                        ...l,
+                        practice: {
+                          hookContext:
+                            l.practice?.hookContext ??
+                            "Executive Scenario Challenge",
+                          hookSpeaker:
+                            l.practice?.hookSpeaker ??
+                            l.roomConfig.personaName,
+                          hookPrompt: e.target.value,
+                          timeLimitSeconds: l.practice?.timeLimitSeconds ?? 30,
+                          differenceSummary:
+                            l.practice?.differenceSummary ??
+                            l.slides.tape.strongWhy,
+                          retryContext:
+                            l.practice?.retryContext ??
+                            "Follow-Up Pressure Challenge",
+                          retryPrompt:
+                            l.practice?.retryPrompt ??
+                            l.slides.mission.openingAttack,
+                          targetMaxWords: l.practice?.targetMaxWords ?? 35,
+                          suggestedRewrite:
+                            l.practice?.suggestedRewrite ??
+                            l.slides.tape.strongResponse,
+                        },
+                      }))
+                    }
+                    className="border-white/10 bg-[#08080a] text-xs text-white"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="lesson-retry-prompt" className="text-xs text-neutral-300">
+                    Stage 4: Retry Challenge Prompt (New Situation)
+                  </Label>
+                  <Textarea
+                    id="lesson-retry-prompt"
+                    rows={2}
+                    value={
+                      activeLesson.practice?.retryPrompt ??
+                      activeLesson.slides.mission.openingAttack
+                    }
+                    onChange={(e) =>
+                      updateActiveLesson((l) => ({
+                        ...l,
+                        practice: {
+                          hookContext:
+                            l.practice?.hookContext ??
+                            "Executive Scenario Challenge",
+                          hookSpeaker:
+                            l.practice?.hookSpeaker ??
+                            l.roomConfig.personaName,
+                          hookPrompt:
+                            l.practice?.hookPrompt ?? l.slides.tape.prompt,
+                          timeLimitSeconds: l.practice?.timeLimitSeconds ?? 30,
+                          differenceSummary:
+                            l.practice?.differenceSummary ??
+                            l.slides.tape.strongWhy,
+                          retryContext:
+                            l.practice?.retryContext ??
+                            "Follow-Up Pressure Challenge",
+                          retryPrompt: e.target.value,
+                          targetMaxWords: l.practice?.targetMaxWords ?? 35,
+                          suggestedRewrite:
+                            l.practice?.suggestedRewrite ??
+                            l.slides.tape.strongResponse,
+                        },
+                      }))
+                    }
+                    className="border-white/10 bg-[#08080a] text-xs text-white"
                   />
                 </div>
               </div>

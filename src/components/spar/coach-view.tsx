@@ -1264,6 +1264,7 @@ export function CoachView({
         <CourseRoadmap
           course={selectedCourse}
           completedLessonIds={completedLessonIds}
+          launchingChamber={launching}
           onBackToCatalog={() => {
             setActiveLessonId(null);
             setScreen("catalog");
@@ -1272,6 +1273,7 @@ export function CoachView({
             setActiveLessonId(lessonId);
             setScreen("lesson");
           }}
+          onLaunchChamber={handleLaunchDrill}
         />
       ) : (
         <CourseCatalog

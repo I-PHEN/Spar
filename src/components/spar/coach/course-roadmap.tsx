@@ -7,28 +7,29 @@ import {
   getCourseLessons,
   getNextIncompleteLesson,
   type Course,
+  type CourseLesson,
 } from "@/lib/courses";
 import { RoadmapNode, type NodeStatus } from "./roadmap-node";
 
 export interface CourseRoadmapProps {
   course: Course;
   completedLessonIds: ReadonlySet<string>;
+  launchingChamber?: boolean;
   onBackToCatalog: () => void;
   onStartLesson: (lessonId: string) => void;
+  onLaunchChamber?: (
+    course: Pick<Course, "id" | "title">,
+    lesson: CourseLesson
+  ) => void;
 }
-
-const ZIGZAG_CYCLE: Array<"center" | "right" | "center" | "left"> = [
-  "center",
-  "right",
-  "center",
-  "left",
-];
 
 export function CourseRoadmap({
   course,
   completedLessonIds,
+  launchingChamber = false,
   onBackToCatalog,
   onStartLesson,
+  onLaunchChamber,
 }: CourseRoadmapProps) {
   const allLessons = getCourseLessons(course);
   const nextLesson = getNextIncompleteLesson(course, completedLessonIds);
@@ -67,37 +68,37 @@ export function CourseRoadmap({
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 pb-32 sm:px-6 sm:py-10 md:pb-16 space-y-10">
-      {/* Top Breadcrumb Navigation (No course tabs/pills here) */}
+      {/* Top Breadcrumb Navigation */}
       <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs">
         <button
           type="button"
           onClick={onBackToCatalog}
-          className="inline-flex items-center gap-1.5 font-medium text-neutral-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:underline"
+          className="inline-flex items-center gap-1.5 font-medium text-neutral-300 transition-colors hover:text-white focus-visible:outline-none focus-visible:underline"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           Learn
         </button>
-        <span className="text-neutral-600">/</span>
-        <span className="font-medium text-neutral-200 truncate">
-          {course.title}
-        </span>
+        <span className="text-neutral-500">/</span>
+        <span className="font-medium text-white truncate">{course.title}</span>
       </nav>
 
-      {/* Compact Top Course Overview Header */}
+      {/* Course Overview Header with Upfront Outcomes & Clean CTA */}
       <header className="rounded-2xl border border-white/10 bg-[#111113] p-6 sm:p-7">
-        <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
-          <div className="space-y-2.5 max-w-2xl">
-            <div className="flex flex-wrap items-center gap-2.5 text-xs text-neutral-400">
-              <span className="font-medium text-neutral-200">
+        <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-start">
+          <div className="space-y-3 max-w-2xl">
+            <div className="flex flex-wrap items-center gap-2.5 text-xs text-neutral-300">
+              <span className="rounded-md bg-white/[0.06] px-2.5 py-0.5 font-medium text-white">
                 {course.category}
               </span>
               <span>·</span>
               <span>{course.difficulty}</span>
               <span>·</span>
               <span className="inline-flex items-center gap-1">
-                <Clock className="h-3.5 w-3.5 text-neutral-500" />
+                <Clock className="h-3.5 w-3.5 text-neutral-400" />
                 {course.estimatedMinutes} min total
               </span>
+              <span>·</span>
+              <span>{totalCount} lessons</span>
             </div>
 
             <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
@@ -108,22 +109,42 @@ export function CourseRoadmap({
               {course.subtitle}
             </p>
 
-            <p className="text-xs leading-relaxed text-neutral-400 sm:text-sm">
+            <p className="text-xs leading-relaxed text-neutral-300 sm:text-sm">
               {course.description}
             </p>
+
+            {/* Frame Outcomes Up Front */}
+            {course.learningOutcomes && course.learningOutcomes.length > 0 && (
+              <div className="pt-2 space-y-2">
+                <p className="text-xs font-semibold text-neutral-200">
+                  By the end you&apos;ll be able to:
+                </p>
+                <ul className="space-y-1.5">
+                  {course.learningOutcomes.map((outcome) => (
+                    <li
+                      key={outcome}
+                      className="flex items-start gap-2 text-xs text-neutral-300 sm:text-sm"
+                    >
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+                      <span>{outcome}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
 
-          {/* Right: Compact Progress & Primary Action */}
-          <div className="flex shrink-0 flex-col gap-3 sm:min-w-[240px]">
+          {/* Right: Compact Progress & Short Primary CTA + Up Next Caption */}
+          <div className="flex w-full shrink-0 flex-col gap-3 rounded-xl border border-white/[0.08] bg-[#0b0b0d] p-4 lg:w-72">
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between gap-4 text-xs text-neutral-400">
+              <div className="flex items-center justify-between gap-4 text-xs text-neutral-300">
                 <span>
                   <strong className="text-white font-semibold">
                     {completedCount}
                   </strong>{" "}
-                  of {totalCount} lessons mastered
+                  of {totalCount} completed
                 </span>
-                <span className="font-mono tabular-nums text-neutral-200">
+                <span className="font-mono font-semibold tabular-nums text-emerald-400">
                   {progressPct}%
                 </span>
               </div>
@@ -136,42 +157,44 @@ export function CourseRoadmap({
             </div>
 
             {nextLesson && (
-              <Button
-                onClick={() => onStartLesson(nextLesson.id)}
-                className="w-full min-w-max bg-white text-black hover:bg-neutral-200 text-xs sm:text-sm font-semibold px-5 py-2.5 h-auto"
-              >
-                <span>
-                  {primaryCtaLabel}: {nextLesson.title}
-                </span>
-                <ArrowRight className="ml-1.5 h-4 w-4 shrink-0" />
-              </Button>
+              <div className="space-y-2 pt-1">
+                <Button
+                  onClick={() => onStartLesson(nextLesson.id)}
+                  className="w-full bg-white text-black hover:bg-neutral-200 text-xs sm:text-sm font-semibold px-4 py-2.5 h-auto"
+                >
+                  <span>{primaryCtaLabel}</span>
+                  <ArrowRight className="ml-1.5 h-4 w-4 shrink-0" />
+                </Button>
+                <p className="text-xs text-neutral-300 leading-snug">
+                  <span className="text-neutral-400">Up next: </span>
+                  <span className="font-medium text-white">
+                    {nextLesson.title}
+                  </span>
+                </p>
+              </div>
             )}
           </div>
         </div>
       </header>
 
-      {/* Central Spacious Learning Roadmap */}
-      <section aria-label="Course learning roadmap" className="mx-auto max-w-3xl pt-2 space-y-12">
-        {course.modules.map((mod, modIdx) => (
-          <div key={mod.id} className="space-y-8">
-            {/* Milestone Stage Divider */}
-            <div className="flex items-center gap-4">
-              <div className="h-px flex-1 bg-white/[0.08]" />
-              <div className="text-center px-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-300">
-                  {mod.title}
+      {/* Straight-Axis Vertical Learning Roadmap (Uses Full Column Width) */}
+      <section aria-label="Course learning roadmap" className="space-y-10">
+        {course.modules.map((mod) => (
+          <div key={mod.id} className="space-y-5">
+            {/* Module Header with High-Contrast Outcome */}
+            <div className="border-b border-white/[0.08] pb-3">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-white">
+                {mod.title}
+              </h2>
+              {mod.description && (
+                <p className="mt-1 text-xs text-neutral-300 sm:text-sm">
+                  {mod.description}
                 </p>
-                {mod.description && (
-                  <p className="mt-0.5 text-xs text-neutral-500">
-                    {mod.description}
-                  </p>
-                )}
-              </div>
-              <div className="h-px flex-1 bg-white/[0.08]" />
+              )}
             </div>
 
-            {/* Connected Nodes along the Path */}
-            <div className="flex flex-col items-center">
+            {/* Straight Vertical Timeline + Full-Width Right Cards */}
+            <div className="flex flex-col">
               {mod.lessons.map((lesson, lessonIdx) => {
                 const num = lessonNumbers.get(lesson.id) ?? lessonIdx + 1;
                 const isDone = completedLessonIds.has(lesson.id);
@@ -182,26 +205,25 @@ export function CourseRoadmap({
                   ? "current"
                   : "available";
 
-                const isLastInCourse =
-                  modIdx === course.modules.length - 1 &&
-                  lessonIdx === mod.lessons.length - 1;
-
-                const alignment =
-                  ZIGZAG_CYCLE[(num - 1) % ZIGZAG_CYCLE.length];
+                const isLastInModule = lessonIdx === mod.lessons.length - 1;
 
                 return (
-                  <div key={lesson.id} className="w-full">
-                    <RoadmapNode
-                      lesson={lesson}
-                      lessonNumber={num}
-                      status={status}
-                      isSelected={selectedNodeId === lesson.id}
-                      isLast={isLastInCourse}
-                      alignment={alignment}
-                      onSelectNode={handleSelectNode}
-                      onLaunchLesson={onStartLesson}
-                    />
-                  </div>
+                  <RoadmapNode
+                    key={lesson.id}
+                    lesson={lesson}
+                    lessonNumber={num}
+                    status={status}
+                    isSelected={selectedNodeId === lesson.id}
+                    isLast={isLastInModule}
+                    launchingChamber={launchingChamber}
+                    onSelectNode={handleSelectNode}
+                    onLaunchLesson={onStartLesson}
+                    onApplyInRoom={
+                      onLaunchChamber
+                        ? (les) => onLaunchChamber(course, les)
+                        : undefined
+                    }
+                  />
                 );
               })}
             </div>
@@ -209,19 +231,19 @@ export function CourseRoadmap({
         ))}
 
         {/* Final Course Completion Milestone Footer */}
-        <div className="flex flex-col items-center pt-2 text-center">
+        <div className="flex items-center gap-3 rounded-xl border border-white/[0.08] bg-[#111113] px-5 py-4">
           <div
             className={
               isAllDone
-                ? "flex h-12 w-12 items-center justify-center rounded-full border border-emerald-400/50 bg-emerald-500/15 text-emerald-300"
-                : "flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-[#121215] text-neutral-500"
+                ? "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-400/50 bg-emerald-500/15 text-emerald-300"
+                : "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 bg-[#141418] text-neutral-400"
             }
           >
-            <CheckCircle2 className="h-5 w-5" />
+            <CheckCircle2 className="h-4 w-4" />
           </div>
-          <p className="mt-2 text-xs font-medium text-neutral-400">
+          <p className="text-xs font-medium text-neutral-300 sm:text-sm">
             {isAllDone
-              ? `Course completed · All ${totalCount} activities mastered`
+              ? `Course completed · All ${totalCount} activities finished`
               : `Complete all ${totalCount} activities to finish ${course.title}`}
           </p>
         </div>
