@@ -93,12 +93,13 @@ describe("CoachView (3-Screen Learner Experience)", () => {
       />
     );
 
-    // Both completed lesson (Review) and current lesson (Start) render as direct button cards
+    // Both 3D discs and title labels render as directly clickable buttons to open lessons straight away
     expect(markup).toContain('aria-label="Open lesson 1: Surviving the Friendly Trap (Completed, click to review)"');
     expect(markup).toContain('aria-label="Open lesson 2: Two-Second Recovery (Current lesson, click to start)"');
+    expect(markup).toContain('aria-label="Open lesson 1: Surviving the Friendly Trap"');
+    expect(markup).toContain('aria-label="Open lesson 2: Two-Second Recovery"');
 
-    // Direct action labels appear directly on the cards
-    expect(markup).toContain("Review");
+    // Bottom action launcher provides primary start action
     expect(markup).toContain("Start");
   });
 
