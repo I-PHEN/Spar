@@ -130,4 +130,31 @@ describe("courses schema & lesson-to-chamber linking", () => {
     expect(hedgedEval.hasConcreteNumbers).toBe(false);
     expect(hedgedEval.hasDirectOpening).toBe(false);
   });
+
+  test("createEmptyLesson, createExtraSlide, and createEmptyCourse start with clean blank fields", () => {
+    const blankCourse = createEmptyCourse();
+    expect(blankCourse.title).toBe("Untitled Course");
+    expect(blankCourse.subtitle).toBe("");
+    expect(blankCourse.description).toBe("");
+
+    const blankLesson = blankCourse.modules[0].lessons[0];
+    expect(blankLesson.tagline).toBe("");
+    expect(blankLesson.slides.trap.headline).toBe("");
+    expect(blankLesson.slides.trap.body).toBe("");
+    expect(blankLesson.slides.trap.costOfFailure).toBe("");
+    expect(blankLesson.slides.trap.instinctQuote).toBe("");
+    expect(blankLesson.slides.trap.flaws).toEqual([]);
+
+    expect(blankLesson.slides.mentalModel.headline).toBe("");
+    expect(blankLesson.slides.mentalModel.body).toBe("");
+    expect(blankLesson.slides.mentalModel.goldenRule).toBe("");
+
+    expect(blankLesson.slides.tape.prompt).toBe("");
+    expect(blankLesson.slides.tape.weakResponse).toBe("");
+    expect(blankLesson.slides.tape.strongResponse).toBe("");
+
+    expect(blankLesson.slides.mission.briefing).toBe("");
+    expect(blankLesson.slides.mission.passCriteria).toBe("");
+    expect(blankLesson.slides.mission.openingAttack).toBe("");
+  });
 });

@@ -630,7 +630,7 @@ export function ExecutiveBriefingDeck({
       : null;
 
   return (
-    <div className="rounded-2xl border border-white/12 bg-[#0e0e10] overflow-hidden shadow-[0_24px_80px_rgba(0,0,0,0.65)]">
+    <div className="w-full max-w-[1040px] h-[640px] flex flex-col rounded-2xl border border-white/15 bg-[#0e0e10] overflow-hidden shadow-[0_32px_100px_rgba(0,0,0,0.8)] mx-auto">
       {/* Top Stage Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] bg-[#131316] px-5 py-4 sm:px-7">
         <div className="min-w-0">
@@ -712,8 +712,8 @@ export function ExecutiveBriefingDeck({
         })}
       </div>
 
-      {/* Animated Stage Body */}
-      <div className="p-6 sm:p-8 min-h-[400px] flex flex-col justify-between bg-gradient-to-b from-[#111114] to-[#0c0c0e]">
+      {/* Animated Stage Body (Scrollable inside fixed 640px stage) */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-6 sm:p-8 flex flex-col justify-between bg-gradient-to-b from-[#111114] to-[#0c0c0e]">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={`${lesson.id}-slide-${currentSlide}`}

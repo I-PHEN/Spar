@@ -1449,115 +1449,138 @@ export function CourseStudio({
                   </button>
                 </div>
 
-                {/* WIDESCREEN 16:9 KEYNOTE SLIDE STAGE */}
-                <div className="rounded-3xl border border-white/15 bg-gradient-to-b from-[#131318] to-[#0b0b0e] p-6 sm:p-10 min-h-[540px] flex flex-col justify-between shadow-[0_28px_90px_rgba(0,0,0,0.75)]">
-                  {/* ─── SLIDE 1: THE TRAP (Direct On-Slide Editing) ───────── */}
-                  {activeSlide === 0 && (
-                    <div className="space-y-6">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-rose-300">
-                          <ShieldAlert className="h-3.5 w-3.5" />
-                          Slide 1 · The Trap (What Speakers Get Wrong)
+                {/* FIXED-DIMENSION EDITORIAL COURSE FOLIO CANVAS */}
+                <div className="w-full max-w-[1040px] h-[640px] flex flex-col rounded-2xl border border-white/15 bg-[#0a0a0d] shadow-[0_32px_100px_rgba(0,0,0,0.85)] overflow-hidden mx-auto">
+                  {/* Pinned Top Architectural Folio Bar */}
+                  <header className="h-12 shrink-0 border-b border-white/[0.08] bg-[#0e0e13] px-5 sm:px-7 flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-[10px] font-mono tracking-[0.2em] uppercase text-neutral-400 truncate">
+                        FOLIO // {activeCourse.title} · L0{selectedLessonIdx + 1}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {activeSlide === 0 && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-rose-300">
+                          <ShieldAlert className="h-3 w-3" />
+                          Chapter 01 · Diagnostic Pattern
                         </span>
-
-                        <input
-                          type="text"
-                          value={(slides.trap.flaws ?? []).join(", ")}
-                          onChange={(e) =>
-                            updateActiveLesson((l) => ({
-                              ...l,
-                              slides: {
-                                ...l.slides,
-                                trap: {
-                                  ...l.slides.trap,
-                                  flaws: e.target.value
-                                    .split(",")
-                                    .map((s) => s.trim())
-                                    .filter(Boolean),
-                                },
-                              },
-                            }))
-                          }
-                          placeholder="Flaw tags (comma-separated)..."
-                          className="rounded-lg border border-rose-500/20 bg-rose-500/[0.06] px-3 py-1 font-mono text-[11px] text-rose-200 focus:border-rose-400 focus:outline-none"
-                        />
-                      </div>
-
-                      {trapLayout === "hero" && (
-                        <OnSlideVisualCanvas
-                          visual={slides.trap.visual}
-                          onChange={(nextVisual) =>
-                            updateActiveLesson((l) => ({
-                              ...l,
-                              slides: {
-                                ...l.slides,
-                                trap: { ...l.slides.trap, visual: nextVisual },
-                              },
-                            }))
-                          }
-                        />
                       )}
+                      {activeSlide === 1 && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-emerald-300">
+                          <Sparkles className="h-3 w-3" />
+                          Chapter 02 · Foundational Model
+                        </span>
+                      )}
+                      {activeSlide === 2 && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-sky-300">
+                          <BookOpen className="h-3 w-3" />
+                          Chapter 03 · Field Breakdown
+                        </span>
+                      )}
+                      {activeExtraSlide && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-violet-300">
+                          <Sparkles className="h-3 w-3" />
+                          {activeExtraSlide.label || "Tactical Deep-Dive"}
+                        </span>
+                      )}
+                      {activeSlide === 3 && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-amber-300">
+                          <Swords className="h-3 w-3" />
+                          Chapter 04 · Simulation Briefing
+                        </span>
+                      )}
+                      {activeSlide === 4 && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/35 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-[0.16em] text-emerald-300">
+                          <Sparkles className="h-3 w-3" />
+                          Spar Signature · Reality Transfer
+                        </span>
+                      )}
+                      <span className="hidden sm:inline-block text-[11px] font-mono text-neutral-500">
+                        · {activeLesson.durationMinutes} min drill
+                      </span>
+                    </div>
+                  </header>
 
-                      <div
-                        className={cn(
-                          "grid gap-8 items-start",
-                          trapLayout === "split"
-                            ? "grid-cols-1 lg:grid-cols-12"
-                            : "grid-cols-1"
-                        )}
-                      >
-                        <div
-                          className={cn(
-                            "space-y-5",
-                            trapLayout === "split" ? "lg:col-span-6" : ""
-                          )}
-                        >
-                          {/* Direct Headline Input on Slide */}
-                          <input
-                            type="text"
-                            aria-label="Trap Headline"
-                            value={slides.trap.headline}
-                            onChange={(e) =>
-                              updateActiveLesson((l) => ({
-                                ...l,
-                                slides: {
-                                  ...l.slides,
-                                  trap: {
-                                    ...l.slides.trap,
-                                    headline: e.target.value,
+                  {/* Fixed-Height Editorial Magazine / Bento Stage */}
+                  <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-white/[0.08] overflow-hidden">
+                    {/* ─── SLIDE 1: THE TRAP ─────────────────────────────── */}
+                    {activeSlide === 0 && (
+                      <>
+                        <div className="lg:col-span-7 h-full overflow-y-auto p-6 sm:p-8 space-y-4 bg-[#0a0a0d]">
+                          <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] pb-3">
+                            <span className="font-mono text-[11px] font-semibold tracking-[0.2em] uppercase text-rose-400">
+                              01 // THE PATTERN TO BREAK
+                            </span>
+                            <input
+                              type="text"
+                              value={(slides.trap.flaws ?? []).join(", ")}
+                              onChange={(e) =>
+                                updateActiveLesson((l) => ({
+                                  ...l,
+                                  slides: {
+                                    ...l.slides,
+                                    trap: {
+                                      ...l.slides.trap,
+                                      flaws: e.target.value
+                                        .split(",")
+                                        .map((s) => s.trim())
+                                        .filter(Boolean),
+                                    },
                                   },
-                                },
-                              }))
-                            }
-                            placeholder="Click to type slide headline..."
-                            className="w-full rounded-xl bg-transparent px-2.5 py-1.5 -mx-2.5 text-2xl sm:text-3xl font-bold tracking-tight text-white hover:bg-white/[0.04] focus:bg-white/[0.06] focus:outline-none focus:ring-1 focus:ring-white/25"
-                          />
+                                }))
+                              }
+                              placeholder="Flaw tags (comma-separated)..."
+                              className="w-48 rounded border border-rose-500/20 bg-rose-500/[0.06] px-2 py-0.5 font-mono text-[10px] text-rose-200 focus:outline-none"
+                            />
+                          </div>
 
-                          {/* Direct Body Textarea on Slide */}
-                          <textarea
-                            rows={3}
-                            aria-label="Trap Explanation"
-                            value={slides.trap.body}
-                            onChange={(e) =>
-                              updateActiveLesson((l) => ({
-                                ...l,
-                                slides: {
-                                  ...l.slides,
-                                  trap: {
-                                    ...l.slides.trap,
-                                    body: e.target.value,
+                          <div className="space-y-2">
+                            <input
+                              type="text"
+                              aria-label="Trap Headline"
+                              value={slides.trap.headline}
+                              onChange={(e) =>
+                                updateActiveLesson((l) => ({
+                                  ...l,
+                                  slides: {
+                                    ...l.slides,
+                                    trap: {
+                                      ...l.slides.trap,
+                                      headline: e.target.value,
+                                    },
                                   },
-                                },
-                              }))
-                            }
-                            placeholder="Click to explain what speakers get wrong under pressure..."
-                            className="w-full resize-none rounded-xl bg-transparent px-2.5 py-1.5 -mx-2.5 text-sm sm:text-base leading-relaxed text-neutral-200 hover:bg-white/[0.04] focus:bg-white/[0.06] focus:outline-none focus:ring-1 focus:ring-white/25"
-                          />
+                                }))
+                              }
+                              placeholder="Headline of the trap or mistake..."
+                              className="w-full rounded-lg bg-transparent px-2 py-1 -mx-2 text-2xl font-bold tracking-tight text-white hover:bg-white/[0.04] focus:bg-white/[0.06] focus:outline-none"
+                            />
 
-                          {/* Direct Fatal Impulse Quote Box */}
-                          <div className="rounded-2xl border border-white/10 bg-[#09090c] p-4 space-y-1">
+                            <textarea
+                              rows={3}
+                              aria-label="Trap Explanation"
+                              value={slides.trap.body}
+                              onChange={(e) =>
+                                updateActiveLesson((l) => ({
+                                  ...l,
+                                  slides: {
+                                    ...l.slides,
+                                    trap: {
+                                      ...l.slides.trap,
+                                      body: e.target.value,
+                                    },
+                                  },
+                                }))
+                              }
+                              placeholder="Explain what speakers get wrong under pressure..."
+                              className="w-full resize-none rounded-lg bg-transparent px-2 py-1 -mx-2 text-sm leading-relaxed text-neutral-300 hover:bg-white/[0.04] focus:bg-white/[0.06] focus:outline-none"
+                            />
+                          </div>
+
+                          {/* Fatal Impulse Verbatim Callout */}
+                          <div className="border-l-2 border-white/20 bg-white/[0.03] p-3.5 rounded-r-xl space-y-1">
                             <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
-                              The Fatal Impulse (What Speakers Blurt Out)
+                              The Fatal Impulse (What speakers blurt out)
                             </span>
                             <input
                               type="text"
@@ -1575,12 +1598,12 @@ export function CourseStudio({
                                 }))
                               }
                               placeholder="“Well, we had several moving pieces...”"
-                              className="w-full rounded bg-transparent px-1.5 py-1 -mx-1.5 text-xs sm:text-sm italic text-neutral-200 hover:bg-white/[0.04] focus:bg-white/[0.06] focus:outline-none"
+                              className="w-full rounded bg-transparent px-1.5 py-0.5 -mx-1.5 text-xs italic text-neutral-200 hover:bg-white/[0.04] focus:outline-none"
                             />
                           </div>
 
-                          {/* Direct Cost of Failure Box */}
-                          <div className="rounded-2xl border border-rose-500/25 bg-rose-500/[0.07] p-4 space-y-1">
+                          {/* Autopsy: Why this loses the room */}
+                          <div className="border-l-2 border-rose-500/50 bg-rose-500/[0.05] p-3.5 rounded-r-xl space-y-1">
                             <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-rose-300">
                               Why this costs you the room
                             </span>
@@ -1599,23 +1622,198 @@ export function CourseStudio({
                                   },
                                 }))
                               }
-                              placeholder="Why this mistake loses executive authority..."
-                              className="w-full rounded bg-transparent px-1.5 py-1 -mx-1.5 text-xs sm:text-sm text-white hover:bg-white/[0.04] focus:bg-white/[0.06] focus:outline-none"
+                              placeholder="Why this mistake loses authority in the room..."
+                              className="w-full rounded bg-transparent px-1.5 py-0.5 -mx-1.5 text-xs text-white hover:bg-white/[0.04] focus:outline-none"
                             />
                           </div>
                         </div>
 
-                        {trapLayout === "split" && (
-                          <div className="lg:col-span-6">
+                        <div className="lg:col-span-5 h-full overflow-y-auto p-6 sm:p-7 space-y-4 bg-[#070709]">
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
+                            Tactical Visual or Diagram
+                          </span>
+                          <OnSlideVisualCanvas
+                            visual={slides.trap.visual}
+                            onChange={(nextVisual) =>
+                              updateActiveLesson((l) => ({
+                                ...l,
+                                slides: {
+                                  ...l.slides,
+                                  trap: {
+                                    ...l.slides.trap,
+                                    visual: nextVisual,
+                                  },
+                                },
+                              }))
+                            }
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {/* ─── SLIDE 2: THE MENTAL MODEL ─────────────────────── */}
+                    {activeSlide === 1 && (
+                      <>
+                        <div className="lg:col-span-7 h-full overflow-y-auto p-6 sm:p-8 space-y-5 bg-[#0a0a0d]">
+                          <span className="font-mono text-[11px] font-semibold tracking-[0.2em] uppercase text-emerald-400 block border-b border-white/[0.06] pb-3">
+                            02 // THE TACTICAL LAW
+                          </span>
+
+                          <div className="space-y-2">
+                            <input
+                              type="text"
+                              aria-label="Mental Model Headline"
+                              value={slides.mentalModel.headline}
+                              onChange={(e) =>
+                                updateActiveLesson((l) => ({
+                                  ...l,
+                                  slides: {
+                                    ...l.slides,
+                                    mentalModel: {
+                                      ...l.slides.mentalModel,
+                                      headline: e.target.value,
+                                    },
+                                  },
+                                }))
+                              }
+                              placeholder="Framework headline (e.g. BLUF)..."
+                              className="w-full rounded-lg bg-transparent px-2 py-1 -mx-2 text-2xl font-bold tracking-tight text-white hover:bg-white/[0.04] focus:bg-white/[0.06] focus:outline-none"
+                            />
+
+                            <textarea
+                              rows={3}
+                              aria-label="Mental Model Body"
+                              value={slides.mentalModel.body}
+                              onChange={(e) =>
+                                updateActiveLesson((l) => ({
+                                  ...l,
+                                  slides: {
+                                    ...l.slides,
+                                    mentalModel: {
+                                      ...l.slides.mentalModel,
+                                      body: e.target.value,
+                                    },
+                                  },
+                                }))
+                              }
+                              placeholder="Explain how the technique works..."
+                              className="w-full resize-none rounded-lg bg-transparent px-2 py-1 -mx-2 text-sm leading-relaxed text-neutral-300 hover:bg-white/[0.04] focus:bg-white/[0.06] focus:outline-none"
+                            />
+                          </div>
+
+                          {/* The Golden Rule Plate */}
+                          <div className="rounded-2xl border border-emerald-500/35 bg-gradient-to-br from-emerald-500/[0.12] via-[#0f1412] to-[#0a0a0d] p-5 space-y-1.5">
+                            <div className="flex items-center gap-2 text-[10px] font-mono font-semibold uppercase tracking-[0.2em] text-emerald-300">
+                              <Compass className="h-3.5 w-3.5" />
+                              The Golden Rule Law
+                            </div>
+                            <input
+                              type="text"
+                              aria-label="The Golden Rule"
+                              value={slides.mentalModel.goldenRule}
+                              onChange={(e) =>
+                                updateActiveLesson((l) => ({
+                                  ...l,
+                                  slides: {
+                                    ...l.slides,
+                                    mentalModel: {
+                                      ...l.slides.mentalModel,
+                                      goldenRule: e.target.value,
+                                    },
+                                  },
+                                }))
+                              }
+                              placeholder="Type the 1-sentence golden rule..."
+                              className="w-full rounded bg-transparent px-2 py-1 -mx-2 text-base font-bold text-white hover:bg-white/[0.04] focus:outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="lg:col-span-5 h-full overflow-y-auto p-6 sm:p-7 space-y-4 bg-[#070709]">
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
+                            3-Step Execution Pipeline
+                          </span>
+                          <div className="space-y-2.5">
+                            {(slides.mentalModel.steps ?? [
+                              { step: 1, label: "", detail: "" },
+                              { step: 2, label: "", detail: "" },
+                              { step: 3, label: "", detail: "" },
+                            ]).map((st, sIdx) => (
+                              <div
+                                key={sIdx}
+                                className="rounded-xl border border-white/10 bg-[#0d0d12] p-3 space-y-1"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-white/[0.08] font-mono text-[10px] font-bold text-white">
+                                    0{sIdx + 1}
+                                  </span>
+                                  <input
+                                    type="text"
+                                    value={st.label}
+                                    onChange={(e) => {
+                                      const currentSteps =
+                                        slides.mentalModel.steps ?? [];
+                                      const nextSteps = currentSteps.map(
+                                        (item, idx) =>
+                                          idx === sIdx
+                                            ? { ...item, label: e.target.value }
+                                            : item
+                                      );
+                                      updateActiveLesson((l) => ({
+                                        ...l,
+                                        slides: {
+                                          ...l.slides,
+                                          mentalModel: {
+                                            ...l.slides.mentalModel,
+                                            steps: nextSteps,
+                                          },
+                                        },
+                                      }));
+                                    }}
+                                    placeholder={`Step ${sIdx + 1} label...`}
+                                    className="w-full rounded bg-transparent text-xs font-semibold text-white focus:outline-none"
+                                  />
+                                </div>
+                                <input
+                                  type="text"
+                                  value={st.detail}
+                                  onChange={(e) => {
+                                    const currentSteps =
+                                      slides.mentalModel.steps ?? [];
+                                    const nextSteps = currentSteps.map(
+                                      (item, idx) =>
+                                        idx === sIdx
+                                          ? { ...item, detail: e.target.value }
+                                          : item
+                                    );
+                                    updateActiveLesson((l) => ({
+                                      ...l,
+                                      slides: {
+                                        ...l.slides,
+                                        mentalModel: {
+                                          ...l.slides.mentalModel,
+                                          steps: nextSteps,
+                                        },
+                                      },
+                                    }));
+                                  }}
+                                  placeholder="Step instruction..."
+                                  className="w-full rounded bg-transparent text-[11px] text-neutral-400 focus:outline-none"
+                                />
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="pt-2">
                             <OnSlideVisualCanvas
-                              visual={slides.trap.visual}
+                              visual={slides.mentalModel.visual}
                               onChange={(nextVisual) =>
                                 updateActiveLesson((l) => ({
                                   ...l,
                                   slides: {
                                     ...l.slides,
-                                    trap: {
-                                      ...l.slides.trap,
+                                    mentalModel: {
+                                      ...l.slides.mentalModel,
                                       visual: nextVisual,
                                     },
                                   },
@@ -1623,253 +1821,97 @@ export function CourseStudio({
                               }
                             />
                           </div>
-                        )}
-                      </div>
-
-                      {trapLayout === "card" && (
-                        <OnSlideVisualCanvas
-                          visual={slides.trap.visual}
-                          onChange={(nextVisual) =>
-                            updateActiveLesson((l) => ({
-                              ...l,
-                              slides: {
-                                ...l.slides,
-                                trap: { ...l.slides.trap, visual: nextVisual },
-                              },
-                            }))
-                          }
-                        />
-                      )}
-                    </div>
-                  )}
-
-                  {/* ─── SLIDE 2: THE MENTAL MODEL (Direct On-Slide Editing) ── */}
-                  {activeSlide === 1 && (
-                    <div className="space-y-6">
-                      <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-emerald-300">
-                        <Sparkles className="h-3.5 w-3.5" />
-                        Slide 2 · The Mental Model &amp; Golden Rule
-                      </div>
-
-                      <div className="space-y-2">
-                        <input
-                          type="text"
-                          aria-label="Mental Model Headline"
-                          value={slides.mentalModel.headline}
-                          onChange={(e) =>
-                            updateActiveLesson((l) => ({
-                              ...l,
-                              slides: {
-                                ...l.slides,
-                                mentalModel: {
-                                  ...l.slides.mentalModel,
-                                  headline: e.target.value,
-                                },
-                              },
-                            }))
-                          }
-                          placeholder="Click to type framework headline..."
-                          className="w-full rounded-xl bg-transparent px-2.5 py-1 -mx-2.5 text-2xl sm:text-3xl font-bold tracking-tight text-white hover:bg-white/[0.04] focus:bg-white/[0.06] focus:outline-none focus:ring-1 focus:ring-white/25"
-                        />
-
-                        <textarea
-                          rows={2}
-                          aria-label="Mental Model Body"
-                          value={slides.mentalModel.body}
-                          onChange={(e) =>
-                            updateActiveLesson((l) => ({
-                              ...l,
-                              slides: {
-                                ...l.slides,
-                                mentalModel: {
-                                  ...l.slides.mentalModel,
-                                  body: e.target.value,
-                                },
-                              },
-                            }))
-                          }
-                          placeholder="Click to explain how the technique works..."
-                          className="w-full resize-none rounded-xl bg-transparent px-2.5 py-1 -mx-2.5 text-sm sm:text-base leading-relaxed text-neutral-300 hover:bg-white/[0.04] focus:bg-white/[0.06] focus:outline-none focus:ring-1 focus:ring-white/25"
-                        />
-                      </div>
-
-                      {/* Golden Rule Callout (Direct Edit) */}
-                      <div className="rounded-2xl border border-emerald-500/35 bg-gradient-to-br from-emerald-500/[0.12] via-[#101513] to-[#0e0e0f] p-5 sm:p-6">
-                        <div className="flex items-center gap-2 text-[10px] font-mono font-semibold uppercase tracking-[0.2em] text-emerald-300">
-                          <Compass className="h-3.5 w-3.5" />
-                          The Golden Rule
                         </div>
-                        <input
-                          type="text"
-                          aria-label="The Golden Rule"
-                          value={slides.mentalModel.goldenRule}
-                          onChange={(e) =>
-                            updateActiveLesson((l) => ({
-                              ...l,
-                              slides: {
-                                ...l.slides,
-                                mentalModel: {
-                                  ...l.slides.mentalModel,
-                                  goldenRule: e.target.value,
-                                },
-                              },
-                            }))
-                          }
-                          placeholder="Type the 1-sentence golden rule..."
-                          className="mt-2 w-full rounded-lg bg-transparent px-2 py-1 -mx-2 text-lg sm:text-xl font-bold text-white hover:bg-white/[0.04] focus:bg-white/[0.06] focus:outline-none"
-                        />
-                      </div>
+                      </>
+                    )}
 
-                      {/* 3-Step Playbook Cards (Direct Edit) */}
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                        {(slides.mentalModel.steps ?? [
-                          { step: 1, label: "Step 1", detail: "Action one" },
-                          { step: 2, label: "Step 2", detail: "Action two" },
-                          { step: 3, label: "Step 3", detail: "Action three" },
-                        ]).map((st, sIdx) => (
-                          <div
-                            key={sIdx}
-                            className="rounded-xl border border-white/10 bg-[#141418] p-4 space-y-2"
-                          >
-                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.07] font-mono text-xs font-bold text-white">
-                              0{sIdx + 1}
+                    {/* ─── SLIDE 3: THE TAPE BREAKDOWN ───────────────────── */}
+                    {activeSlide === 2 && (
+                      <>
+                        <div className="lg:col-span-6 h-full overflow-y-auto p-6 sm:p-8 space-y-5 bg-[#0a0a0d]">
+                          <span className="font-mono text-[11px] font-semibold tracking-[0.2em] uppercase text-sky-400 block border-b border-white/[0.06] pb-3">
+                            03 // THE ARENA TAPE
+                          </span>
+
+                          <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.05] p-4 space-y-1.5">
+                            <span className="text-[10px] font-mono uppercase tracking-wider text-amber-300">
+                              Incoming Question from {roomConfig.personaName}
                             </span>
-                            <input
-                              type="text"
-                              value={st.label}
-                              onChange={(e) => {
-                                const currentSteps =
-                                  slides.mentalModel.steps ?? [];
-                                const nextSteps = currentSteps.map((item, idx) =>
-                                  idx === sIdx
-                                    ? { ...item, label: e.target.value }
-                                    : item
-                                );
-                                updateActiveLesson((l) => ({
-                                  ...l,
-                                  slides: {
-                                    ...l.slides,
-                                    mentalModel: {
-                                      ...l.slides.mentalModel,
-                                      steps: nextSteps,
-                                    },
-                                  },
-                                }));
-                              }}
-                              placeholder={`Step ${sIdx + 1} title`}
-                              className="w-full rounded bg-transparent px-1.5 py-0.5 -mx-1.5 text-sm font-bold text-white hover:bg-white/[0.04] focus:bg-white/[0.06] focus:outline-none"
-                            />
                             <textarea
                               rows={2}
-                              value={st.detail}
-                              onChange={(e) => {
-                                const currentSteps =
-                                  slides.mentalModel.steps ?? [];
-                                const nextSteps = currentSteps.map((item, idx) =>
-                                  idx === sIdx
-                                    ? { ...item, detail: e.target.value }
-                                    : item
-                                );
+                              aria-label="Example Panelist Question"
+                              value={slides.tape.prompt}
+                              onChange={(e) =>
                                 updateActiveLesson((l) => ({
                                   ...l,
                                   slides: {
                                     ...l.slides,
-                                    mentalModel: {
-                                      ...l.slides.mentalModel,
-                                      steps: nextSteps,
+                                    tape: {
+                                      ...l.slides.tape,
+                                      prompt: e.target.value,
                                     },
                                   },
-                                }));
-                              }}
-                              placeholder="Step explanation..."
-                              className="w-full resize-none rounded bg-transparent px-1.5 py-0.5 -mx-1.5 text-xs leading-relaxed text-neutral-300 hover:bg-white/[0.04] focus:bg-white/[0.06] focus:outline-none"
+                                }))
+                              }
+                              placeholder="Type the high-stakes question being tested..."
+                              className="w-full resize-none rounded bg-transparent text-sm font-semibold text-white focus:outline-none"
                             />
                           </div>
-                        ))}
-                      </div>
 
-                      <OnSlideVisualCanvas
-                        visual={slides.mentalModel.visual}
-                        onChange={(nextVisual) =>
-                          updateActiveLesson((l) => ({
-                            ...l,
-                            slides: {
-                              ...l.slides,
-                              mentalModel: {
-                                ...l.slides.mentalModel,
-                                visual: nextVisual,
-                              },
-                            },
-                          }))
-                        }
-                      />
-                    </div>
-                  )}
-
-                  {/* ─── SLIDE 3: THE TAPE BREAKDOWN (Direct On-Slide Edit) ── */}
-                  {activeSlide === 2 && (
-                    <div className="space-y-6">
-                      <div className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-sky-300">
-                        <BookOpen className="h-3.5 w-3.5" />
-                        Slide 3 · Before vs. After Response Comparison
-                      </div>
-
-                      {/* Incoming Prompt Box */}
-                      <div className="rounded-2xl border border-white/12 bg-[#09090c] p-5 space-y-1.5">
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400">
-                          Incoming Question from {roomConfig.personaName}
-                        </span>
-                        <input
-                          type="text"
-                          aria-label="Example Panelist Question"
-                          value={slides.tape.prompt}
-                          onChange={(e) =>
-                            updateActiveLesson((l) => ({
-                              ...l,
-                              slides: {
-                                ...l.slides,
-                                tape: {
-                                  ...l.slides.tape,
-                                  prompt: e.target.value,
-                                },
-                              },
-                            }))
-                          }
-                          placeholder="Type the question being answered..."
-                          className="w-full rounded bg-transparent px-2 py-1 -mx-2 text-base sm:text-lg font-semibold text-white hover:bg-white/[0.04] focus:bg-white/[0.06] focus:outline-none"
-                        />
-                      </div>
-
-                      {/* Side-by-Side Weak vs Strong Cards */}
-                      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-                        {/* Weak Tape */}
-                        <div className="rounded-2xl border border-rose-500/25 bg-rose-500/[0.04] p-5 space-y-3">
-                          <div className="flex items-center gap-1.5 text-xs font-bold text-rose-400">
-                            <XCircle className="h-4 w-4" />
-                            Weak / Defensive Response
-                          </div>
-                          <textarea
-                            rows={3}
-                            aria-label="Weak Response"
-                            value={slides.tape.weakResponse}
-                            onChange={(e) =>
-                              updateActiveLesson((l) => ({
-                                ...l,
-                                slides: {
-                                  ...l.slides,
-                                  tape: {
-                                    ...l.slides.tape,
-                                    weakResponse: e.target.value,
-                                  },
-                                },
-                              }))
-                            }
-                            className="w-full resize-none rounded-lg bg-transparent px-2 py-1 -mx-2 text-xs sm:text-sm italic leading-relaxed text-neutral-200 hover:bg-white/[0.04] focus:bg-white/[0.06] focus:outline-none"
-                          />
-                          <div className="border-t border-rose-500/15 pt-3">
-                            <span className="font-mono text-[10px] uppercase text-rose-300">
-                              Why it fails:
+                          <div className="space-y-1.5 border-t border-white/[0.08] pt-3">
+                            <span className="text-[10px] font-mono uppercase text-neutral-400">
+                              Coach Difference Summary
                             </span>
+                            <textarea
+                              rows={3}
+                              value={slides.tape.differenceSummary}
+                              onChange={(e) =>
+                                updateActiveLesson((l) => ({
+                                  ...l,
+                                  slides: {
+                                    ...l.slides,
+                                    tape: {
+                                      ...l.slides.tape,
+                                      differenceSummary: e.target.value,
+                                    },
+                                  },
+                                }))
+                              }
+                              placeholder="Summarize the core distinction between the weak and strong answers..."
+                              className="w-full resize-none rounded-lg bg-transparent p-2 text-xs text-neutral-300 border border-white/10 focus:outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="lg:col-span-6 h-full overflow-y-auto p-6 space-y-3.5 bg-[#070709]">
+                          {/* Weak Response Card */}
+                          <div className="rounded-xl border border-rose-500/25 bg-rose-500/[0.04] p-3.5 space-y-2">
+                            <div className="flex items-center justify-between text-xs font-bold text-rose-400">
+                              <span className="flex items-center gap-1.5">
+                                <XCircle className="h-3.5 w-3.5" />
+                                Ineffective Response
+                              </span>
+                              <span className="font-mono text-[10px] text-rose-300">Loses room</span>
+                            </div>
+                            <textarea
+                              rows={2}
+                              aria-label="Weak Response"
+                              value={slides.tape.weakResponse}
+                              onChange={(e) =>
+                                updateActiveLesson((l) => ({
+                                  ...l,
+                                  slides: {
+                                    ...l.slides,
+                                    tape: {
+                                      ...l.slides.tape,
+                                      weakResponse: e.target.value,
+                                    },
+                                  },
+                                }))
+                              }
+                              placeholder="Amateur or defensive response..."
+                              className="w-full resize-none rounded bg-transparent text-xs italic text-neutral-300 focus:outline-none"
+                            />
                             <input
                               type="text"
                               value={slides.tape.weakCritique}
@@ -1885,39 +1927,39 @@ export function CourseStudio({
                                   },
                                 }))
                               }
-                              className="mt-1 w-full rounded bg-transparent px-1.5 py-0.5 -mx-1.5 text-xs text-neutral-300 hover:bg-white/[0.04] focus:bg-white/[0.06] focus:outline-none"
+                              placeholder="Why it fails..."
+                              className="w-full rounded border-t border-rose-500/15 pt-1.5 bg-transparent text-[11px] text-neutral-400 focus:outline-none"
                             />
                           </div>
-                        </div>
 
-                        {/* Strong Tape */}
-                        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.06] p-5 space-y-3">
-                          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
-                            <CheckCircle2 className="h-4 w-4" />
-                            Strong Executive Response
-                          </div>
-                          <textarea
-                            rows={3}
-                            aria-label="Executive Response"
-                            value={slides.tape.strongResponse}
-                            onChange={(e) =>
-                              updateActiveLesson((l) => ({
-                                ...l,
-                                slides: {
-                                  ...l.slides,
-                                  tape: {
-                                    ...l.slides.tape,
-                                    strongResponse: e.target.value,
+                          {/* Strong Response Card */}
+                          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-3.5 space-y-2">
+                            <div className="flex items-center justify-between text-xs font-bold text-emerald-400">
+                              <span className="flex items-center gap-1.5">
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                Strong Executive Response
+                              </span>
+                              <span className="font-mono text-[10px] text-emerald-300">Commands room</span>
+                            </div>
+                            <textarea
+                              rows={2}
+                              aria-label="Executive Response"
+                              value={slides.tape.strongResponse}
+                              onChange={(e) =>
+                                updateActiveLesson((l) => ({
+                                  ...l,
+                                  slides: {
+                                    ...l.slides,
+                                    tape: {
+                                      ...l.slides.tape,
+                                      strongResponse: e.target.value,
+                                    },
                                   },
-                                },
-                              }))
-                            }
-                            className="w-full resize-none rounded-lg bg-transparent px-2 py-1 -mx-2 text-xs sm:text-sm font-medium leading-relaxed text-white hover:bg-white/[0.04] focus:bg-white/[0.06] focus:outline-none"
-                          />
-                          <div className="border-t border-emerald-500/20 pt-3">
-                            <span className="font-mono text-[10px] uppercase text-emerald-300">
-                              Why it works:
-                            </span>
+                                }))
+                              }
+                              placeholder="Disciplined executive response..."
+                              className="w-full resize-none rounded bg-transparent text-xs font-medium text-white focus:outline-none"
+                            />
                             <input
                               type="text"
                               value={slides.tape.strongWhy}
@@ -1933,264 +1975,302 @@ export function CourseStudio({
                                   },
                                 }))
                               }
-                              className="mt-1 w-full rounded bg-transparent px-1.5 py-0.5 -mx-1.5 text-xs text-neutral-200 hover:bg-white/[0.04] focus:bg-white/[0.06] focus:outline-none"
+                              placeholder="Why it works..."
+                              className="w-full rounded border-t border-emerald-500/20 pt-1.5 bg-transparent text-[11px] text-emerald-200 focus:outline-none"
+                            />
+                          </div>
+
+                          <OnSlideVisualCanvas
+                            visual={slides.tape.visual}
+                            onChange={(nextVisual) =>
+                              updateActiveLesson((l) => ({
+                                ...l,
+                                slides: {
+                                  ...l.slides,
+                                  tape: { ...l.slides.tape, visual: nextVisual },
+                                },
+                              }))
+                            }
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {/* ─── CUSTOM INSIGHT SLIDE ──────────────────────────── */}
+                    {activeExtraSlide && activeExtraIdx >= 0 && (
+                      <>
+                        <div className="lg:col-span-7 h-full overflow-y-auto p-6 sm:p-8 space-y-5 bg-[#0a0a0d]">
+                          <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] pb-3">
+                            <span className="font-mono text-[11px] font-semibold tracking-[0.2em] uppercase text-violet-400">
+                              INSIGHT // TACTICAL DEEP-DIVE
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveExtraSlide(activeExtraIdx)}
+                              className="inline-flex items-center gap-1 text-xs text-rose-400 hover:text-rose-300"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Delete Slide
+                            </button>
+                          </div>
+
+                          <div className="space-y-2">
+                            <input
+                              type="text"
+                              value={activeExtraSlide.headline}
+                              onChange={(e) =>
+                                updateExtraSlide(activeExtraIdx, (s) => ({
+                                  ...s,
+                                  headline: e.target.value,
+                                }))
+                              }
+                              placeholder="Insight headline..."
+                              className="w-full rounded-lg bg-transparent px-2 py-1 -mx-2 text-2xl font-bold tracking-tight text-white hover:bg-white/[0.04] focus:outline-none"
+                            />
+
+                            <textarea
+                              rows={3}
+                              value={activeExtraSlide.body}
+                              onChange={(e) =>
+                                updateExtraSlide(activeExtraIdx, (s) => ({
+                                  ...s,
+                                  body: e.target.value,
+                                }))
+                              }
+                              placeholder="Explain this insight in depth..."
+                              className="w-full resize-none rounded-lg bg-transparent px-2 py-1 -mx-2 text-sm leading-relaxed text-neutral-300 hover:bg-white/[0.04] focus:outline-none"
+                            />
+                          </div>
+
+                          <div className="border-l-2 border-violet-500/50 bg-violet-500/[0.06] p-4 rounded-r-xl space-y-1">
+                            <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.2em] text-violet-300">
+                              Key Takeaway
+                            </span>
+                            <input
+                              type="text"
+                              value={activeExtraSlide.takeaway ?? ""}
+                              onChange={(e) =>
+                                updateExtraSlide(activeExtraIdx, (s) => ({
+                                  ...s,
+                                  takeaway: e.target.value,
+                                }))
+                              }
+                              placeholder="Core takeaway rule..."
+                              className="w-full rounded bg-transparent text-sm font-semibold text-white focus:outline-none"
                             />
                           </div>
                         </div>
-                      </div>
 
-                      <OnSlideVisualCanvas
-                        visual={slides.tape.visual}
-                        onChange={(nextVisual) =>
-                          updateActiveLesson((l) => ({
-                            ...l,
-                            slides: {
-                              ...l.slides,
-                              tape: { ...l.slides.tape, visual: nextVisual },
-                            },
-                          }))
-                        }
-                      />
-                    </div>
-                  )}
+                        <div className="lg:col-span-5 h-full overflow-y-auto p-6 sm:p-7 space-y-4 bg-[#070709]">
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
+                            Core Breakdown Points
+                          </span>
+                          <div className="space-y-2">
+                            {(activeExtraSlide.bullets ?? ["", "", ""]).map((b, bIdx) => (
+                              <div
+                                key={bIdx}
+                                className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#0d0d12] p-2.5"
+                              >
+                                <span className="font-mono text-[10px] text-violet-400">0{bIdx + 1}</span>
+                                <input
+                                  type="text"
+                                  value={b}
+                                  onChange={(e) => {
+                                    const nextBullets = [...(activeExtraSlide.bullets ?? [])];
+                                    nextBullets[bIdx] = e.target.value;
+                                    updateExtraSlide(activeExtraIdx, (s) => ({
+                                      ...s,
+                                      bullets: nextBullets,
+                                    }));
+                                  }}
+                                  placeholder={`Point ${bIdx + 1}...`}
+                                  className="w-full rounded bg-transparent text-xs text-neutral-200 focus:outline-none"
+                                />
+                              </div>
+                            ))}
+                          </div>
 
-                  {/* ─── CUSTOM INSIGHT SLIDE (Direct On-Slide Edit) ───────── */}
-                  {activeExtraSlide && activeExtraIdx >= 0 && (
-                    <div className="space-y-6">
-                      <div className="flex items-center justify-between gap-2">
-                        <input
-                          type="text"
-                          value={activeExtraSlide.label}
-                          onChange={(e) =>
-                            updateExtraSlide(activeExtraIdx, (s) => ({
-                              ...s,
-                              label: e.target.value,
-                            }))
-                          }
-                          placeholder="Slide Badge Label..."
-                          className="rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-violet-300 focus:outline-none"
-                        />
-
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveExtraSlide(activeExtraIdx)}
-                          className="inline-flex items-center gap-1 text-xs text-rose-400 hover:text-rose-300"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          Delete Slide
-                        </button>
-                      </div>
-
-                      <input
-                        type="text"
-                        value={activeExtraSlide.headline}
-                        onChange={(e) =>
-                          updateExtraSlide(activeExtraIdx, (s) => ({
-                            ...s,
-                            headline: e.target.value,
-                          }))
-                        }
-                        placeholder="Click to type slide headline..."
-                        className="w-full rounded-xl bg-transparent px-2.5 py-1 -mx-2.5 text-2xl sm:text-3xl font-bold tracking-tight text-white hover:bg-white/[0.04] focus:bg-white/[0.06] focus:outline-none"
-                      />
-
-                      <textarea
-                        rows={3}
-                        value={activeExtraSlide.body}
-                        onChange={(e) =>
-                          updateExtraSlide(activeExtraIdx, (s) => ({
-                            ...s,
-                            body: e.target.value,
-                          }))
-                        }
-                        placeholder="Click to type slide body..."
-                        className="w-full resize-none rounded-xl bg-transparent px-2.5 py-1 -mx-2.5 text-sm sm:text-base leading-relaxed text-neutral-300 hover:bg-white/[0.04] focus:bg-white/[0.06] focus:outline-none"
-                      />
-
-                      <div className="rounded-2xl border border-violet-500/30 bg-violet-500/[0.08] p-5">
-                        <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.2em] text-violet-300">
-                          Key Takeaway
-                        </span>
-                        <input
-                          type="text"
-                          value={activeExtraSlide.takeaway ?? ""}
-                          onChange={(e) =>
-                            updateExtraSlide(activeExtraIdx, (s) => ({
-                              ...s,
-                              takeaway: e.target.value,
-                            }))
-                          }
-                          placeholder="Click to type key takeaway..."
-                          className="mt-1.5 w-full rounded bg-transparent px-2 py-1 -mx-2 text-base font-semibold text-white hover:bg-white/[0.04] focus:bg-white/[0.06] focus:outline-none"
-                        />
-                      </div>
-
-                      <OnSlideVisualCanvas
-                        visual={activeExtraSlide.visual}
-                        onChange={(nextVisual) =>
-                          updateExtraSlide(activeExtraIdx, (s) => ({
-                            ...s,
-                            visual: nextVisual,
-                          }))
-                        }
-                      />
-                    </div>
-                  )}
-
-                  {/* ─── SLIDE 4: CHAMBER BRIEFING SLIDE ───────────────────── */}
-                  {activeSlide === 3 && (
-                    <div className="space-y-6">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-amber-300">
-                          <Swords className="h-3.5 w-3.5" />
-                          Chamber Pre-Flight Briefing Slide
-                        </span>
-
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={() => setStudioStep("room")}
-                          className="h-8 bg-amber-400 text-black hover:bg-amber-300 text-xs font-semibold"
-                        >
-                          Open Full AI Room Builder →
-                        </Button>
-                      </div>
-
-                      <div>
-                        <h3 className="text-2xl sm:text-3xl font-bold text-white">
-                          Prove It Live Against {roomConfig.personaName}
-                        </h3>
-                        <textarea
-                          rows={2}
-                          value={slides.mission.briefing}
-                          onChange={(e) =>
-                            updateActiveLesson((l) => ({
-                              ...l,
-                              slides: {
-                                ...l.slides,
-                                mission: {
-                                  ...l.slides.mission,
-                                  briefing: e.target.value,
-                                },
-                              },
-                            }))
-                          }
-                          placeholder="Click to edit mission briefing..."
-                          className="mt-2 w-full resize-none rounded-lg bg-transparent px-2 py-1 -mx-2 text-sm sm:text-base text-neutral-300 hover:bg-white/[0.04] focus:bg-white/[0.06] focus:outline-none"
-                        />
-                      </div>
-
-                      <div className="rounded-2xl border border-amber-500/25 bg-amber-500/[0.06] p-5 space-y-2">
-                        <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-amber-300">
-                          Opening Challenge Line from {roomConfig.personaName} ({archetypeDef.tagline})
-                        </span>
-                        <textarea
-                          rows={2}
-                          value={slides.mission.openingAttack}
-                          onChange={(e) =>
-                            updateActiveLesson((l) => ({
-                              ...l,
-                              slides: {
-                                ...l.slides,
-                                mission: {
-                                  ...l.slides.mission,
-                                  openingAttack: e.target.value,
-                                },
-                              },
-                            }))
-                          }
-                          className="w-full resize-none rounded-lg bg-transparent px-2 py-1 -mx-2 text-base sm:text-lg font-semibold italic text-white hover:bg-white/[0.04] focus:bg-white/[0.06] focus:outline-none"
-                        />
-                      </div>
-
-                      <OnSlideVisualCanvas
-                        visual={slides.mission.visual}
-                        onChange={(nextVisual) =>
-                          updateActiveLesson((l) => ({
-                            ...l,
-                            slides: {
-                              ...l.slides,
-                              mission: {
-                                ...l.slides.mission,
+                          <OnSlideVisualCanvas
+                            visual={activeExtraSlide.visual}
+                            onChange={(nextVisual) =>
+                              updateExtraSlide(activeExtraIdx, (s) => ({
+                                ...s,
                                 visual: nextVisual,
-                              },
-                            },
-                          }))
-                        }
-                      />
-                    </div>
-                  )}
-
-                  {/* ─── SLIDE 5: SPAR SIGNATURE REAL-WORLD TRANSFER SLIDE ─── */}
-                  {activeSlide === 4 && (
-                    <div className="space-y-6">
-                      <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/35 bg-emerald-500/10 px-3 py-1 text-[10px] font-mono font-semibold uppercase tracking-[0.18em] text-emerald-300">
-                        <Sparkles className="h-3.5 w-3.5" />
-                        Spar Signature Slide · Real-World Transfer
-                      </div>
-
-                      <div>
-                        <h3 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-                          {SPAR_SIGNATURE_HEADLINE}
-                        </h3>
-                        <p className="mt-2.5 max-w-3xl text-sm sm:text-base leading-relaxed text-neutral-300">
-                          {SPAR_SIGNATURE_MANIFESTO}
-                        </p>
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                        <div className="rounded-xl border border-white/10 bg-[#141418] p-4">
-                          <span className="text-[10px] font-mono uppercase text-neutral-400">
-                            01 · Learn the Frame
-                          </span>
-                          <p className="mt-1 text-sm font-semibold text-white">
-                            Spot the conversational trap
-                          </p>
+                              }))
+                            }
+                          />
                         </div>
-                        <div className="rounded-xl border border-white/10 bg-[#141418] p-4">
-                          <span className="text-[10px] font-mono uppercase text-amber-300">
-                            02 · Spar in the Room
-                          </span>
-                          <p className="mt-1 text-sm font-semibold text-white">
-                            Wire the reflex with {roomConfig.personaName}
-                          </p>
-                        </div>
-                        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.07] p-4">
-                          <span className="text-[10px] font-mono uppercase text-emerald-300">
-                            03 · Use It Live Today
-                          </span>
-                          <p className="mt-1 text-sm font-semibold text-white">
-                            Deploy with real people
-                          </p>
-                        </div>
-                      </div>
+                      </>
+                    )}
 
-                      {/* Direct Editable 24-Hour Real-World Challenge */}
-                      <div className="rounded-2xl border border-emerald-500/35 bg-gradient-to-br from-emerald-500/[0.12] via-[#101614] to-[#0b0d0c] p-5 sm:p-6 space-y-2">
-                        <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.2em] text-emerald-300">
-                          Your 24-Hour Real-World Challenge (Click to customize for this lesson)
-                        </span>
-                        <textarea
-                          rows={2}
-                          value={getRealWorldChallenge(activeLesson)}
-                          onChange={(e) =>
-                            updateActiveLesson((l) => ({
-                              ...l,
-                              realWorldTransfer: {
-                                ...l.realWorldTransfer,
-                                enabled: true,
-                                challenge: e.target.value,
-                              },
-                            }))
-                          }
-                          className="w-full resize-none rounded-lg bg-transparent px-2 py-1 -mx-2 text-base sm:text-lg font-semibold leading-relaxed text-white hover:bg-white/[0.04] focus:bg-white/[0.06] focus:outline-none"
-                        />
-                      </div>
-                    </div>
-                  )}
+                    {/* ─── SLIDE 4: CHAMBER BRIEFING ─────────────────────── */}
+                    {activeSlide === 3 && (
+                      <>
+                        <div className="lg:col-span-7 h-full overflow-y-auto p-6 sm:p-8 space-y-5 bg-[#0a0a0d]">
+                          <span className="font-mono text-[11px] font-semibold tracking-[0.2em] uppercase text-amber-400 block border-b border-white/[0.06] pb-3">
+                            04 // SIMULATION BRIEFING
+                          </span>
 
-                  {/* Bottom Slide Stage Bar */}
-                  <div className="mt-8 flex items-center justify-between border-t border-white/[0.08] pt-4">
+                          <div className="space-y-2">
+                            <h3 className="text-2xl font-bold text-white">
+                              Prove It Live Against {roomConfig.personaName}
+                            </h3>
+                            <textarea
+                              rows={2}
+                              value={slides.mission.briefing}
+                              onChange={(e) =>
+                                updateActiveLesson((l) => ({
+                                  ...l,
+                                  slides: {
+                                    ...l.slides,
+                                    mission: {
+                                      ...l.slides.mission,
+                                      briefing: e.target.value,
+                                    },
+                                  },
+                                }))
+                              }
+                              placeholder="Brief the learner on what to expect in this sparring room..."
+                              className="w-full resize-none rounded-lg bg-transparent px-2 py-1 -mx-2 text-sm text-neutral-300 hover:bg-white/[0.04] focus:outline-none"
+                            />
+                          </div>
+
+                          <div className="border-l-2 border-amber-400 bg-amber-500/[0.06] p-4 rounded-r-xl space-y-1.5">
+                            <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-amber-300">
+                              Opening Attack Line from {roomConfig.personaName}
+                            </span>
+                            <textarea
+                              rows={2}
+                              value={slides.mission.openingAttack}
+                              onChange={(e) =>
+                                updateActiveLesson((l) => ({
+                                  ...l,
+                                  slides: {
+                                    ...l.slides,
+                                    mission: {
+                                      ...l.slides.mission,
+                                      openingAttack: e.target.value,
+                                    },
+                                  },
+                                }))
+                              }
+                              placeholder="Type what the opponent asks first..."
+                              className="w-full resize-none rounded bg-transparent text-sm font-semibold italic text-white focus:outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="lg:col-span-5 h-full overflow-y-auto p-6 sm:p-7 space-y-4 bg-[#070709]">
+                          <div className="rounded-xl border border-white/10 bg-[#0d0d12] p-4 space-y-2">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-400/30 bg-amber-500/15 text-sm font-bold text-amber-300">
+                                {roomConfig.personaName.charAt(0)}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-bold text-white">{roomConfig.personaName}</p>
+                                <p className="truncate text-xs text-neutral-400">{archetypeDef.tagline}</p>
+                              </div>
+                            </div>
+                            <div className="border-t border-white/[0.08] pt-2 space-y-1">
+                              <span className="text-[10px] font-mono text-emerald-300">Pass Criteria:</span>
+                              <input
+                                type="text"
+                                value={slides.mission.passCriteria}
+                                onChange={(e) =>
+                                updateActiveLesson((l) => ({
+                                  ...l,
+                                  slides: {
+                                    ...l.slides,
+                                    mission: {
+                                      ...l.slides.mission,
+                                      passCriteria: e.target.value,
+                                    },
+                                  },
+                                }))
+                              }
+                              placeholder="One-line pass criteria..."
+                              className="w-full rounded bg-transparent text-xs text-white focus:outline-none"
+                            />
+                            </div>
+                          </div>
+
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => setStudioStep("room")}
+                            className="w-full bg-amber-400 text-black hover:bg-amber-300 text-xs font-semibold"
+                          >
+                            Open Full AI Room Builder →
+                          </Button>
+                        </div>
+                      </>
+                    )}
+
+                    {/* ─── SLIDE 5: SPAR SIGNATURE REAL-WORLD TRANSFER ───── */}
+                    {activeSlide === 4 && (
+                      <>
+                        <div className="lg:col-span-7 h-full overflow-y-auto p-6 sm:p-8 space-y-5 bg-[#0a0a0d]">
+                          <span className="font-mono text-[11px] font-semibold tracking-[0.2em] uppercase text-emerald-400 block border-b border-white/[0.06] pb-3">
+                            SPAR MANIFESTO // REAL-WORLD PROTOCOL
+                          </span>
+
+                          <div>
+                            <h3 className="text-2xl font-bold tracking-tight text-white">
+                              {SPAR_SIGNATURE_HEADLINE}
+                            </h3>
+                            <p className="mt-2 text-sm leading-relaxed text-neutral-300">
+                              {SPAR_SIGNATURE_MANIFESTO}
+                            </p>
+                          </div>
+
+                          <div className="rounded-2xl border border-emerald-500/35 bg-gradient-to-br from-emerald-500/[0.12] via-[#101614] to-[#0b0d0c] p-5 space-y-2">
+                            <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.2em] text-emerald-300">
+                              Your 24-Hour Real-World Challenge
+                            </span>
+                            <textarea
+                              rows={2}
+                              value={getRealWorldChallenge(activeLesson)}
+                              onChange={(e) =>
+                                updateActiveLesson((l) => ({
+                                  ...l,
+                                  realWorldTransfer: {
+                                    ...l.realWorldTransfer,
+                                    enabled: true,
+                                    challenge: e.target.value,
+                                  },
+                                }))
+                              }
+                              placeholder="Challenge the learner to apply this technique in the real world..."
+                              className="w-full resize-none rounded-lg bg-transparent text-sm font-semibold text-white focus:outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="lg:col-span-5 h-full overflow-y-auto p-6 sm:p-7 space-y-3 bg-[#070709]">
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
+                            The 3-Phase Progression
+                          </span>
+                          <div className="space-y-2 text-xs">
+                            <div className="rounded-xl border border-white/10 bg-[#0d0d12] p-3">
+                              <span className="font-mono text-[10px] text-neutral-400">01 · SPOT THE TRAP</span>
+                              <p className="mt-0.5 font-semibold text-white">Recognize the instinct under pressure</p>
+                            </div>
+                            <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.06] p-3">
+                              <span className="font-mono text-[10px] text-amber-300">02 · WIRE THE REFLEX</span>
+                              <p className="mt-0.5 font-semibold text-white">Spar in the chamber with {roomConfig.personaName}</p>
+                            </div>
+                            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.08] p-3">
+                              <span className="font-mono text-[10px] text-emerald-300">03 · REAL-WORLD DEPLOYMENT</span>
+                              <p className="mt-0.5 font-semibold text-white">Apply with real stakeholders within 24h</p>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Pinned Bottom Architectural Folio Bar */}
+                  <footer className="h-14 shrink-0 border-t border-white/[0.08] bg-[#0e0e13] px-5 sm:px-7 flex items-center justify-between">
                     <Button
                       type="button"
                       variant="ghost"
@@ -2202,12 +2282,27 @@ export function CourseStudio({
                       className="text-xs text-neutral-300 hover:text-white"
                     >
                       <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-                      Previous Slide
+                      Previous Chapter
                     </Button>
 
-                    <span className="font-mono text-xs text-neutral-400">
-                      Slide {currentFilmPos + 1} of {filmstripItems.length}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs text-neutral-400">
+                        Chapter {currentFilmPos + 1} of {filmstripItems.length}
+                      </span>
+                      <div className="hidden sm:flex items-center gap-1">
+                        {filmstripItems.map((item, idx) => (
+                          <span
+                            key={item.slideIndex}
+                            className={cn(
+                              "h-1.5 rounded-full transition-all",
+                              idx === currentFilmPos
+                                ? "w-4 bg-white"
+                                : "w-1.5 bg-white/20"
+                            )}
+                          />
+                        ))}
+                      </div>
+                    </div>
 
                     {nextFilmItem ? (
                       <Button
@@ -2229,7 +2324,7 @@ export function CourseStudio({
                         Next: AI Sparring Room →
                       </Button>
                     )}
-                  </div>
+                  </footer>
                 </div>
               </main>
             </div>

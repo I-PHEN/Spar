@@ -437,25 +437,24 @@ export function getRealWorldChallenge(lesson: CourseLesson): string {
   if (lesson.realWorldTransfer?.challenge?.trim()) {
     return lesson.realWorldTransfer.challenge.trim();
   }
+  if (!lesson.slides.mentalModel.goldenRule.trim()) {
+    return "";
+  }
   return `In your next live meeting or high-stakes Q&A within 24 hours, apply "${lesson.title}" once: ${lesson.slides.mentalModel.goldenRule}`;
 }
 
 /**
  * Factory for an additional custom slide inside a lesson (up to MAX_LESSON_SLIDES).
+ * Starts blank so creators write their own content from a clean slate.
  */
 export function createExtraSlide(index = 1): LessonExtraSlide {
   return {
     id: `extra-slide-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    label: `Key Insight ${index}`,
-    headline: "Anchor the Room Before You Elaborate",
-    body: "High-stakes listeners decide whether they trust your answer in the first 5 seconds. Give them the headline first, then invite follow-up questions on your terms.",
-    takeaway:
-      "Lead with certainty on what you know; name the boundary on what you are still testing.",
-    bullets: [
-      "State the headline conclusion in sentence one",
-      "Support with one concrete metric or customer proof point",
-      "Pause cleanly instead of trailing off with 'so yeah...'",
-    ],
+    label: `Insight ${index}`,
+    headline: "",
+    body: "",
+    takeaway: "",
+    bullets: ["", "", ""],
     visual: {
       preset: "none",
       layout: "split",
@@ -464,106 +463,101 @@ export function createExtraSlide(index = 1): LessonExtraSlide {
   };
 }
 
-/** Factory for a blank lesson in the Creator Studio */
+/**
+ * Factory for a blank lesson in the Creator Studio.
+ * All slide text fields start empty so creators are never met with pre-filled sample text.
+ */
 export function createEmptyLesson(index = 1): CourseLesson {
   const id = `lesson-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   return {
     id,
-    title: `Lesson ${index}: New Executive Technique`,
-    tagline: "State the conclusion before the explanation",
+    title: `Untitled Lesson ${index}`,
+    tagline: "",
     durationMinutes: 4,
     activityType: "lesson",
     pattern: "concept",
     slides: {
       trap: {
-        headline: "The Defensive Backstory Trap",
-        body: "When challenged on a hard metric or missed milestone, most speakers spend 40 seconds explaining the history before answering the question.",
-        costOfFailure:
-          "The panel assumes you are evading accountability and interrupts before you reach your point.",
-        instinctQuote:
-          "Well, we had several moving pieces with the vendor audit and the timeline shifted because...",
-        flaws: ["Chronological Rambling", "Buried Lead", "Defensive Tone"],
+        headline: "",
+        body: "",
+        costOfFailure: "",
+        instinctQuote: "",
+        flaws: [],
         visual: {
-          preset: "bluf-pyramid",
+          preset: "none",
           layout: "split",
-          caption: "Chronological buildup loses executive attention before the answer lands.",
+          caption: "",
         },
       },
       mentalModel: {
-        headline: "The Headline-First Protocol",
-        body: "Deliver the direct answer in your first sentence. Follow with at most two concrete drivers, then stop speaking and yield the floor.",
-        goldenRule:
-          "First 5 seconds = the direct answer. Next 10 seconds = two proof points. Then stop.",
+        headline: "",
+        body: "",
+        goldenRule: "",
         ruleTheme: "emerald",
         steps: [
           {
             step: 1,
-            label: "Land the Verdict",
-            detail: "Open with 'Yes', 'No', or the exact figure in sentence one.",
+            label: "",
+            detail: "",
           },
           {
             step: 2,
-            label: "Isolate Two Drivers",
-            detail: "Name the primary mechanism and the verifiable metric.",
+            label: "",
+            detail: "",
           },
           {
             step: 3,
-            label: "Hold the Period",
-            detail: "Stop speaking cleanly and let the room pull for detail.",
+            label: "",
+            detail: "",
           },
         ],
+        visual: {
+          preset: "none",
+          layout: "split",
+          caption: "",
+        },
       },
       tape: {
-        headline: "Tape Comparison: Rambling vs. Executive",
-        prompt: "Why did enterprise onboarding slip by three weeks this quarter?",
-        speakerName: "Ada · Managing Partner",
-        weakResponse:
-          "Well, we had a lot of moving pieces with the security audit and the client's IT team was also changing their SSO provider, so things took longer...",
-        weakCritique:
-          "Starts with 'Well', blames external factors first, and never directly owns the timeline.",
-        weakBadges: ["Verbal Crutch ('Well')", "Blame-Shifting", "No Recovery Metric"],
-        strongResponse:
-          "Enterprise onboarding took 5 weeks instead of 2 due to SSO compliance gating. We automated that check on Tuesday, bringing cycle time back to 10 days.",
-        strongWhy:
-          "Owns the exact number immediately, names the single root cause, and closes with the verified fix.",
-        strongBadges: ["Direct Number First", "Single Root Cause", "Verified Fix"],
-        differenceSummary:
-          "The stronger response owns the exact timeline in the first six words and states the completed fix instead of listing excuses.",
+        headline: "",
+        prompt: "",
+        speakerName: "",
+        weakResponse: "",
+        weakCritique: "",
+        weakBadges: [],
+        strongResponse: "",
+        strongWhy: "",
+        strongBadges: [],
+        differenceSummary: "",
+        visual: {
+          preset: "none",
+          layout: "split",
+          caption: "",
+        },
       },
       mission: {
-        briefing:
-          "Ada will press you on a slipped milestone or key metric. Apply the Headline-First Protocol immediately without defensive preamble.",
-        passCriteria:
-          "Answer directly in your first sentence in under 25 words with zero hedge words.",
-        passCriteriaList: [
-          "Deliver the direct answer in your very first sentence",
-          "Cite one concrete operational fix or metric",
-          "Finish speaking in under 25 words with zero hedges",
-        ],
-        openingAttack:
-          "Your team missed the Q3 launch window by three weeks. Can you actually hit the Q4 target, or are we looking at another slip?",
+        briefing: "",
+        passCriteria: "",
+        passCriteriaList: [],
+        openingAttack: "",
       },
     },
     practice: {
-      hookContext: "Quarterly Board Review · Enterprise Onboarding Delay",
-      hookSpeaker: "Ada · Managing Partner",
-      hookPrompt: "Why did enterprise onboarding slip by three weeks this quarter?",
+      hookContext: "",
+      hookSpeaker: "",
+      hookPrompt: "",
       timeLimitSeconds: 30,
-      differenceSummary:
-        "Instead of listing historical excuses, the stronger response states the exact numbers first, isolates one root cause, and closes with the verified fix.",
-      retryContext: "New Scenario · Q4 Launch Window",
-      retryPrompt:
-        "Your team missed the Q3 launch window by three weeks. Can you actually hit the Q4 target, or are we looking at another slip?",
+      differenceSummary: "",
+      retryContext: "",
+      retryPrompt: "",
       targetMaxWords: 35,
-      suggestedRewrite:
-        "Yes, we will hit the November 15th Q4 target. The Q3 slip came from manual SSO gating, which we automated this week, cutting release testing from 14 days to 3.",
+      suggestedRewrite: "",
     },
     roomConfig: {
       experience: "open_spar",
       drillTarget: null,
       archetype: "skeptic",
       personaName: "Ada",
-      behaviorStyle: "aggressive",
+      behaviorStyle: "moderate",
     },
   };
 }
@@ -572,8 +566,8 @@ export function createEmptyLesson(index = 1): CourseLesson {
 export function createEmptyModule(index = 1): CourseModule {
   return {
     id: `module-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    title: `Stage ${index}: Core Foundations`,
-    description: "Master the fundamental response patterns under pressure.",
+    title: `Module ${index}`,
+    description: "",
     lessons: [createEmptyLesson(1)],
   };
 }
@@ -582,13 +576,13 @@ export function createEmptyModule(index = 1): CourseModule {
 export function createEmptyCourse(): Course {
   return {
     id: `course-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    title: "Untitled Executive Course",
-    subtitle: "Handle high-stakes questions with clarity and composure.",
-    description:
-      "A practical training track designed to sharpen executive clarity, eliminate defensive rambling, and command high-pressure Q&A.",
+    title: "Untitled Course",
+    subtitle: "",
+    description: "",
+    learningOutcomes: ["", "", ""],
     category: "Q&A",
     difficulty: "Intermediate",
-    estimatedMinutes: 15,
+    estimatedMinutes: 10,
     status: "draft",
     updatedAt: new Date().toISOString(),
     modules: [createEmptyModule(1)],
