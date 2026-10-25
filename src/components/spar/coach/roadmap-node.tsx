@@ -95,8 +95,8 @@ export function RoadmapNode({
               isCurrent
                 ? "border-white bg-gradient-to-b from-white via-neutral-100 to-neutral-300 text-black shadow-[inset_0_2px_4px_rgba(255,255,255,0.8),inset_0_-2px_4px_rgba(0,0,0,0.4)]"
                 : isCompleted
-                ? "border-white/30 bg-[#16161b] text-white hover:border-white/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.1),0_2px_4px_rgba(0,0,0,0.4)]"
-                : "border-white/12 bg-[#101014] text-neutral-400 hover:border-white/25 hover:text-white shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_2px_4px_rgba(0,0,0,0.4)]"
+                ? "border-white/30 bg-[#181818] text-white hover:border-white/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.1),0_2px_4px_rgba(0,0,0,0.4)]"
+                : "border-white/10 bg-[#121212] text-neutral-400 hover:border-white/25 hover:text-white shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_2px_4px_rgba(0,0,0,0.4)]"
             )}
           >
             {/* Inner Concentric Core */}

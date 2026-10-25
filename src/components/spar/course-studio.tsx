@@ -177,14 +177,14 @@ function OnSlideVisualCanvas({
             handleFileSelected(e.dataTransfer.files?.[0]);
           }}
           className={cn(
-            "group relative rounded-2xl border bg-[#09090c] p-2 transition-all",
+            "group relative rounded-2xl border bg-[#0a0a0a] p-2 transition-all",
             isDragging
               ? "border-white bg-white/10"
               : "border-white/12 hover:border-white/25"
           )}
         >
           {/* Floating Visual Controls on Hover */}
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#121217] px-3 py-1.5 text-xs">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#141414] px-3 py-1.5 text-xs">
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
@@ -309,7 +309,7 @@ function OnSlideVisualCanvas({
       {/* Clean Modal Gallery for Built-in Diagrams or Image URL */}
       {showDiagramModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-3xl rounded-2xl border border-white/15 bg-[#111115] p-6 shadow-2xl space-y-5 max-h-[88vh] overflow-y-auto">
+          <div className="w-full max-w-3xl rounded-2xl border border-white/15 bg-[#121212] p-6 shadow-2xl space-y-5 max-h-[88vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-white/10 pb-4">
               <div>
                 <h3 className="text-base font-bold text-white">
@@ -340,7 +340,7 @@ function OnSlideVisualCanvas({
                   })
                 }
                 placeholder="Or paste an external image URL (https://...)"
-                className="border-white/10 bg-[#0a0a0d] text-xs text-white"
+                className="border-white/10 bg-[#0a0a0a] text-xs text-white"
               />
               <Button
                 type="button"
@@ -377,7 +377,7 @@ function OnSlideVisualCanvas({
                       "flex flex-col justify-between rounded-xl border p-3 text-left transition-all",
                       selected
                         ? "border-white bg-white/[0.08] ring-1 ring-white"
-                        : "border-white/10 bg-[#0b0b0e] hover:border-white/25"
+                        : "border-white/10 bg-[#0e0e0e] hover:border-white/25"
                     )}
                   >
                     <p className="mb-2 text-xs font-semibold text-white">
@@ -851,9 +851,9 @@ export function CourseStudio({
   const trapLayout = slides.trap.visual?.layout ?? "split";
 
   return (
-    <div className="min-h-screen bg-[#070708] text-white flex flex-col">
+    <div className="min-h-screen bg-[#070707] text-white flex flex-col">
       {/* ─── Clean Top Studio Navigation Bar ───────────────────────────────── */}
-      <header className="sticky top-0 z-30 border-b border-white/10 bg-[#0d0d10]/95 backdrop-blur px-4 py-3 sm:px-6">
+      <header className="sticky top-0 z-30 border-b border-white/10 bg-[#0a0a0a]/95 backdrop-blur px-4 py-3 sm:px-6">
         <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-3">
           {/* Left: Back + Course Picker */}
           <div className="flex flex-wrap items-center gap-2.5">
@@ -881,7 +881,7 @@ export function CourseStudio({
                 setSelectedLessonIdx(0);
                 setActiveSlide(0);
               }}
-              className="rounded-lg border border-white/10 bg-[#151519] px-3 py-1.5 text-xs font-medium text-white"
+              className="rounded-lg border border-white/10 bg-[#141414] px-3 py-1.5 text-xs font-medium text-white"
             >
               {courses.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -905,7 +905,7 @@ export function CourseStudio({
           {!fullPreview && (
             <nav
               aria-label="Studio workflow steps"
-              className="flex items-center rounded-xl border border-white/10 bg-[#131317] p-1"
+              className="flex items-center rounded-xl border border-white/10 bg-[#121212] p-1"
             >
               <button
                 type="button"
@@ -1022,7 +1022,7 @@ export function CourseStudio({
           {studioStep === "syllabus" && (
             <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 space-y-8">
               {/* Course Header Card */}
-              <section className="rounded-3xl border border-white/10 bg-[#101014] p-6 sm:p-8 space-y-6">
+              <section className="rounded-3xl border border-white/10 bg-[#121212] p-6 sm:p-8 space-y-6">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-[11px] font-mono font-semibold uppercase tracking-[0.18em] text-neutral-400">
                     1. Course Settings
@@ -1038,7 +1038,7 @@ export function CourseStudio({
                         }))
                       }
                       placeholder="Category (e.g. Q&A)"
-                      className="h-8 w-36 border-white/10 bg-[#09090b] text-xs text-white"
+                      className="h-8 w-36 border-white/10 bg-[#0a0a0a] text-xs text-white"
                     />
                     <select
                       aria-label="Course Difficulty"
@@ -1049,7 +1049,7 @@ export function CourseStudio({
                           difficulty: e.target.value as CourseDifficulty,
                         }))
                       }
-                      className="h-8 rounded-md border border-white/10 bg-[#09090b] px-2.5 text-xs text-white"
+                      className="h-8 rounded-md border border-white/10 bg-[#0a0a0a] px-2.5 text-xs text-white"
                     >
                       {DIFFICULTIES.map((d) => (
                         <option key={d} value={d}>
@@ -1101,7 +1101,7 @@ export function CourseStudio({
                       }))
                     }
                     placeholder="Short course overview..."
-                    className="border-white/10 bg-[#09090c] text-xs text-neutral-300"
+                    className="border-white/10 bg-[#0a0a0a] text-xs text-neutral-300"
                   />
                 </div>
 
@@ -1123,7 +1123,7 @@ export function CourseStudio({
                       }))
                     }
                     placeholder="Answer hostile questions in your first sentence&#10;Defend core assumptions with downside floors&#10;Recover from curveballs in under 2 seconds"
-                    className="border-white/10 bg-[#09090c] text-xs text-white"
+                    className="border-white/10 bg-[#0a0a0a] text-xs text-white"
                   />
                 </div>
               </section>
@@ -1154,7 +1154,7 @@ export function CourseStudio({
                 {activeCourse.modules.map((mod, mIdx) => (
                   <div
                     key={mod.id}
-                    className="rounded-2xl border border-white/10 bg-[#101014] p-5 sm:p-6 space-y-4"
+                    className="rounded-2xl border border-white/10 bg-[#121212] p-5 sm:p-6 space-y-4"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] pb-3">
                       <div className="flex-1 min-w-[240px] space-y-1">
@@ -1207,7 +1207,7 @@ export function CourseStudio({
                       {mod.lessons.map((les, lIdx) => (
                         <div
                           key={les.id}
-                          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.08] bg-[#0b0b0e] px-4 py-3 hover:border-white/20 transition-all"
+                          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/[0.08] bg-[#0e0e0e] px-4 py-3 hover:border-white/20 transition-all"
                         >
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
@@ -1289,7 +1289,7 @@ export function CourseStudio({
               {/* Left Thumbnail Rail (3 cols) */}
               <aside className="space-y-4 lg:col-span-3">
                 {/* Active Lesson Switcher */}
-                <div className="rounded-2xl border border-white/10 bg-[#101014] p-3.5 space-y-2.5">
+                <div className="rounded-2xl border border-white/10 bg-[#121212] p-3.5 space-y-2.5">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
                       Editing Lesson
@@ -1313,12 +1313,12 @@ export function CourseStudio({
                         title: e.target.value,
                       }))
                     }
-                    className="w-full rounded-lg border border-white/10 bg-[#09090c] px-2.5 py-1.5 text-xs font-semibold text-white focus:border-white/30 focus:outline-none"
+                    className="w-full rounded-lg border border-white/10 bg-[#0a0a0a] px-2.5 py-1.5 text-xs font-semibold text-white focus:border-white/30 focus:outline-none"
                   />
                 </div>
 
                 {/* Slide Filmstrip */}
-                <div className="rounded-2xl border border-white/10 bg-[#101014] p-4 space-y-3.5">
+                <div className="rounded-2xl border border-white/10 bg-[#121212] p-4 space-y-3.5">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-neutral-300">
@@ -1356,7 +1356,7 @@ export function CourseStudio({
                             item.accentClass,
                             isSelected
                               ? "border-white/35 bg-white/[0.09] text-white shadow-sm"
-                              : "border-white/[0.07] bg-[#0a0a0d] text-neutral-300 hover:border-white/15"
+                              : "border-white/[0.07] bg-[#0a0a0a] text-neutral-300 hover:border-white/15"
                           )}
                         >
                           <button
@@ -1450,9 +1450,9 @@ export function CourseStudio({
                 </div>
 
                 {/* FIXED-DIMENSION EDITORIAL COURSE FOLIO CANVAS */}
-                <div className="w-full max-w-[1040px] h-[640px] flex flex-col rounded-2xl border border-white/15 bg-[#0a0a0d] shadow-[0_32px_100px_rgba(0,0,0,0.85)] overflow-hidden mx-auto">
+                <div className="w-full max-w-[1040px] h-[640px] flex flex-col rounded-2xl border border-white/15 bg-[#0a0a0a] shadow-[0_32px_100px_rgba(0,0,0,0.85)] overflow-hidden mx-auto">
                   {/* Pinned Top Architectural Folio Bar */}
-                  <header className="h-12 shrink-0 border-b border-white/[0.08] bg-[#0e0e13] px-5 sm:px-7 flex items-center justify-between">
+                  <header className="h-12 shrink-0 border-b border-white/[0.08] bg-[#0e0e0e] px-5 sm:px-7 flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="text-[10px] font-mono tracking-[0.2em] uppercase text-neutral-400 truncate">
                         FOLIO // {activeCourse.title} · L0{selectedLessonIdx + 1}
@@ -1507,7 +1507,7 @@ export function CourseStudio({
                     {/* ─── SLIDE 1: THE TRAP ─────────────────────────────── */}
                     {activeSlide === 0 && (
                       <>
-                        <div className="lg:col-span-7 h-full overflow-y-auto p-6 sm:p-8 space-y-4 bg-[#0a0a0d]">
+                        <div className="lg:col-span-7 h-full overflow-y-auto p-6 sm:p-8 space-y-4 bg-[#0a0a0a]">
                           <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] pb-3">
                             <span className="font-mono text-[11px] font-semibold tracking-[0.2em] uppercase text-white">
                               01 // THE PATTERN TO BREAK
@@ -1628,7 +1628,7 @@ export function CourseStudio({
                           </div>
                         </div>
 
-                        <div className="lg:col-span-5 h-full overflow-y-auto p-6 sm:p-7 space-y-4 bg-[#070709]">
+                        <div className="lg:col-span-5 h-full overflow-y-auto p-6 sm:p-7 space-y-4 bg-[#070707]">
                           <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
                             Tactical Visual or Diagram
                           </span>
@@ -1654,7 +1654,7 @@ export function CourseStudio({
                     {/* ─── SLIDE 2: THE MENTAL MODEL ─────────────────────── */}
                     {activeSlide === 1 && (
                       <>
-                        <div className="lg:col-span-7 h-full overflow-y-auto p-6 sm:p-8 space-y-5 bg-[#0a0a0d]">
+                        <div className="lg:col-span-7 h-full overflow-y-auto p-6 sm:p-8 space-y-5 bg-[#0a0a0a]">
                           <span className="font-mono text-[11px] font-semibold tracking-[0.2em] uppercase text-white block border-b border-white/[0.06] pb-3">
                             02 // THE TACTICAL LAW
                           </span>
@@ -1729,7 +1729,7 @@ export function CourseStudio({
                           </div>
                         </div>
 
-                        <div className="lg:col-span-5 h-full overflow-y-auto p-6 sm:p-7 space-y-4 bg-[#070709]">
+                        <div className="lg:col-span-5 h-full overflow-y-auto p-6 sm:p-7 space-y-4 bg-[#070707]">
                           <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
                             3-Step Execution Pipeline
                           </span>
@@ -1741,7 +1741,7 @@ export function CourseStudio({
                             ]).map((st, sIdx) => (
                               <div
                                 key={sIdx}
-                                className="rounded-xl border border-white/10 bg-[#0d0d12] p-3 space-y-1"
+                                className="rounded-xl border border-white/10 bg-[#121212] p-3 space-y-1"
                               >
                                 <div className="flex items-center gap-2">
                                   <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-white/[0.08] font-mono text-[10px] font-bold text-white">
@@ -1828,12 +1828,12 @@ export function CourseStudio({
                     {/* ─── SLIDE 3: THE TAPE BREAKDOWN ───────────────────── */}
                     {activeSlide === 2 && (
                       <>
-                        <div className="lg:col-span-6 h-full overflow-y-auto p-6 sm:p-8 space-y-5 bg-[#0a0a0d]">
+                        <div className="lg:col-span-6 h-full overflow-y-auto p-6 sm:p-8 space-y-5 bg-[#0a0a0a]">
                           <span className="font-mono text-[11px] font-semibold tracking-[0.2em] uppercase text-white block border-b border-white/[0.06] pb-3">
                             03 // THE ARENA TAPE
                           </span>
 
-                          <div className="rounded-xl border border-white/10 bg-[#121216] p-4 space-y-1.5">
+                          <div className="rounded-xl border border-white/10 bg-[#121212] p-4 space-y-1.5">
                             <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-300">
                               Incoming Question from {roomConfig.personaName}
                             </span>
@@ -1883,9 +1883,9 @@ export function CourseStudio({
                           </div>
                         </div>
 
-                        <div className="lg:col-span-6 h-full overflow-y-auto p-6 space-y-3.5 bg-[#070709]">
+                        <div className="lg:col-span-6 h-full overflow-y-auto p-6 space-y-3.5 bg-[#070707]">
                           {/* Weak Response Card */}
-                          <div className="rounded-xl border border-white/10 bg-[#101014] p-3.5 space-y-2">
+                          <div className="rounded-xl border border-white/10 bg-[#121212] p-3.5 space-y-2">
                             <div className="flex items-center justify-between text-xs font-bold text-neutral-300">
                               <span className="flex items-center gap-1.5">
                                 <XCircle className="h-3.5 w-3.5" />
@@ -1999,7 +1999,7 @@ export function CourseStudio({
                     {/* ─── CUSTOM INSIGHT SLIDE ──────────────────────────── */}
                     {activeExtraSlide && activeExtraIdx >= 0 && (
                       <>
-                        <div className="lg:col-span-7 h-full overflow-y-auto p-6 sm:p-8 space-y-5 bg-[#0a0a0d]">
+                        <div className="lg:col-span-7 h-full overflow-y-auto p-6 sm:p-8 space-y-5 bg-[#0a0a0a]">
                           <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] pb-3">
                             <span className="font-mono text-[11px] font-semibold tracking-[0.2em] uppercase text-white">
                               INSIGHT // TACTICAL DEEP-DIVE
@@ -2061,7 +2061,7 @@ export function CourseStudio({
                           </div>
                         </div>
 
-                        <div className="lg:col-span-5 h-full overflow-y-auto p-6 sm:p-7 space-y-4 bg-[#070709]">
+                        <div className="lg:col-span-5 h-full overflow-y-auto p-6 sm:p-7 space-y-4 bg-[#070707]">
                           <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
                             Core Breakdown Points
                           </span>
@@ -2069,7 +2069,7 @@ export function CourseStudio({
                             {(activeExtraSlide.bullets ?? ["", "", ""]).map((b, bIdx) => (
                               <div
                                 key={bIdx}
-                                className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#0d0d12] p-2.5"
+                                className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#121212] p-2.5"
                               >
                                 <span className="font-mono text-[10px] text-neutral-400">0{bIdx + 1}</span>
                                 <input
@@ -2106,7 +2106,7 @@ export function CourseStudio({
                     {/* ─── SLIDE 4: CHAMBER BRIEFING ─────────────────────── */}
                     {activeSlide === 3 && (
                       <>
-                        <div className="lg:col-span-7 h-full overflow-y-auto p-6 sm:p-8 space-y-5 bg-[#0a0a0d]">
+                        <div className="lg:col-span-7 h-full overflow-y-auto p-6 sm:p-8 space-y-5 bg-[#0a0a0a]">
                           <span className="font-mono text-[11px] font-semibold tracking-[0.2em] uppercase text-white block border-b border-white/[0.06] pb-3">
                             04 // SIMULATION BRIEFING
                           </span>
@@ -2160,8 +2160,8 @@ export function CourseStudio({
                           </div>
                         </div>
 
-                        <div className="lg:col-span-5 h-full overflow-y-auto p-6 sm:p-7 space-y-4 bg-[#070709]">
-                          <div className="rounded-xl border border-white/10 bg-[#0d0d12] p-4 space-y-2">
+                        <div className="lg:col-span-5 h-full overflow-y-auto p-6 sm:p-7 space-y-4 bg-[#070707]">
+                          <div className="rounded-xl border border-white/10 bg-[#121212] p-4 space-y-2">
                             <div className="flex items-center gap-3">
                               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white/[0.06] text-sm font-bold text-white">
                                 {roomConfig.personaName.charAt(0)}
@@ -2209,7 +2209,7 @@ export function CourseStudio({
                     {/* ─── SLIDE 5: SPAR SIGNATURE REAL-WORLD TRANSFER ───── */}
                     {activeSlide === 4 && (
                       <>
-                        <div className="lg:col-span-7 h-full overflow-y-auto p-6 sm:p-8 space-y-5 bg-[#0a0a0d]">
+                        <div className="lg:col-span-7 h-full overflow-y-auto p-6 sm:p-8 space-y-5 bg-[#0a0a0a]">
                           <span className="font-mono text-[11px] font-semibold tracking-[0.2em] uppercase text-white block border-b border-white/[0.06] pb-3">
                             SPAR MANIFESTO // REAL-WORLD PROTOCOL
                           </span>
@@ -2246,16 +2246,16 @@ export function CourseStudio({
                           </div>
                         </div>
 
-                        <div className="lg:col-span-5 h-full overflow-y-auto p-6 sm:p-7 space-y-3 bg-[#070709]">
+                        <div className="lg:col-span-5 h-full overflow-y-auto p-6 sm:p-7 space-y-3 bg-[#070707]">
                           <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
                             The 3-Phase Progression
                           </span>
                           <div className="space-y-2 text-xs">
-                            <div className="rounded-xl border border-white/10 bg-[#0d0d12] p-3">
+                            <div className="rounded-xl border border-white/10 bg-[#121212] p-3">
                               <span className="font-mono text-[10px] text-neutral-400">01 · SPOT THE TRAP</span>
                               <p className="mt-0.5 font-semibold text-white">Recognize the instinct under pressure</p>
                             </div>
-                            <div className="rounded-xl border border-white/10 bg-[#0d0d12] p-3">
+                            <div className="rounded-xl border border-white/10 bg-[#121212] p-3">
                               <span className="font-mono text-[10px] text-neutral-300">02 · WIRE THE REFLEX</span>
                               <p className="mt-0.5 font-semibold text-white">Spar in the chamber with {roomConfig.personaName}</p>
                             </div>
@@ -2270,7 +2270,7 @@ export function CourseStudio({
                   </div>
 
                   {/* Pinned Bottom Architectural Folio Bar */}
-                  <footer className="h-14 shrink-0 border-t border-white/[0.08] bg-[#0e0e13] px-5 sm:px-7 flex items-center justify-between">
+                  <footer className="h-14 shrink-0 border-t border-white/[0.08] bg-[#0e0e0e] px-5 sm:px-7 flex items-center justify-between">
                     <Button
                       type="button"
                       variant="ghost"
@@ -2361,7 +2361,7 @@ export function CourseStudio({
               </div>
 
               {/* Card 1: Activity Type & Pacing */}
-              <section className="rounded-2xl border border-white/10 bg-[#101014] p-6 space-y-4">
+              <section className="rounded-2xl border border-white/10 bg-[#121212] p-6 space-y-4">
                 <p className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
                   Step 1 · Choose Lesson Activity Type
                 </p>
@@ -2385,7 +2385,7 @@ export function CourseStudio({
                             "rounded-xl border px-3 py-2.5 text-xs font-medium transition-all",
                             active
                               ? "border-white bg-white text-black font-semibold"
-                              : "border-white/10 bg-[#09090c] text-neutral-300 hover:border-white/25"
+                              : "border-white/10 bg-[#0a0a0a] text-neutral-300 hover:border-white/25"
                           )}
                         >
                           {ACTIVITY_TYPE_LABELS[typeKey]}
@@ -2397,7 +2397,7 @@ export function CourseStudio({
               </section>
 
               {/* Card 2: Cast the AI Partner & Pressure */}
-              <section className="rounded-2xl border border-white/10 bg-[#101014] p-6 space-y-5">
+              <section className="rounded-2xl border border-white/10 bg-[#121212] p-6 space-y-5">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-semibold uppercase tracking-wider text-neutral-300 flex items-center gap-1.5">
                     <UserCheck className="h-4 w-4 text-white" />
@@ -2427,7 +2427,7 @@ export function CourseStudio({
                           "flex items-center gap-3 rounded-xl border p-3.5 text-left transition-all",
                           selected
                             ? "border-white bg-white/10 text-white"
-                            : "border-white/10 bg-[#09090c] text-neutral-300 hover:border-white/25"
+                            : "border-white/10 bg-[#0a0a0a] text-neutral-300 hover:border-white/25"
                         )}
                       >
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/[0.06] text-sm font-bold text-white">
@@ -2462,7 +2462,7 @@ export function CourseStudio({
                           },
                         }))
                       }
-                      className="border-white/10 bg-[#09090c] text-xs text-white"
+                      className="border-white/10 bg-[#0a0a0a] text-xs text-white"
                     />
                   </div>
 
@@ -2486,7 +2486,7 @@ export function CourseStudio({
                           },
                         }));
                       }}
-                      className="h-9 w-full rounded-md border border-white/10 bg-[#09090c] px-3 text-xs text-white"
+                      className="h-9 w-full rounded-md border border-white/10 bg-[#0a0a0a] px-3 text-xs text-white"
                     >
                       <option value="open_spar">Open Q&amp;A Sparring</option>
                       <option value="drill">Targeted Vocal Habit Drill</option>
@@ -2510,7 +2510,7 @@ export function CourseStudio({
                           },
                         }))
                       }
-                      className="h-9 w-full rounded-md border border-white/10 bg-[#09090c] px-3 text-xs text-white"
+                      className="h-9 w-full rounded-md border border-white/10 bg-[#0a0a0a] px-3 text-xs text-white"
                     >
                       {DRILL_TARGETS.map((t) => (
                         <option key={t.id} value={t.id}>
@@ -2547,7 +2547,7 @@ export function CourseStudio({
                             "rounded-xl border p-3 text-left transition-all",
                             active
                               ? "border-white bg-white text-black"
-                              : "border-white/10 bg-[#09090c] text-neutral-300 hover:border-white/25"
+                              : "border-white/10 bg-[#0a0a0a] text-neutral-300 hover:border-white/25"
                           )}
                         >
                           <p className="text-xs font-bold">{b.label}</p>
@@ -2567,7 +2567,7 @@ export function CourseStudio({
               </section>
 
               {/* Card 3: The Questions */}
-              <section className="rounded-2xl border border-white/10 bg-[#101014] p-6 space-y-4">
+              <section className="rounded-2xl border border-white/10 bg-[#121212] p-6 space-y-4">
                 <p className="text-xs font-semibold uppercase tracking-wider text-neutral-300 flex items-center gap-1.5">
                   <Flame className="h-4 w-4 text-white" />
                   Step 3 · Write the Challenge Questions
@@ -2612,7 +2612,7 @@ export function CourseStudio({
                         },
                       }))
                     }
-                    className="border-white/10 bg-[#09090c] text-xs text-white"
+                    className="border-white/10 bg-[#0a0a0a] text-xs text-white"
                   />
                 </div>
 
@@ -2635,13 +2635,13 @@ export function CourseStudio({
                         },
                       }))
                     }
-                    className="border-white/10 bg-[#09090c] text-xs text-white"
+                    className="border-white/10 bg-[#0a0a0a] text-xs text-white"
                   />
                 </div>
               </section>
 
               {/* Card 4: Pass Criteria & Live Test */}
-              <section className="rounded-2xl border border-white/10 bg-[#101014] p-6 space-y-4">
+              <section className="rounded-2xl border border-white/10 bg-[#121212] p-6 space-y-4">
                 <p className="text-xs font-semibold uppercase tracking-wider text-neutral-300 flex items-center gap-1.5">
                   <Target className="h-4 w-4 text-white" />
                   Step 4 · Set the Pass Criteria
@@ -2665,7 +2665,7 @@ export function CourseStudio({
                         },
                       }))
                     }
-                    className="border-white/10 bg-[#09090c] text-xs text-white"
+                    className="border-white/10 bg-[#0a0a0a] text-xs text-white"
                   />
                 </div>
 
@@ -2693,7 +2693,7 @@ export function CourseStudio({
                         },
                       }))
                     }
-                    className="border-white/10 bg-[#09090c] text-xs text-white"
+                    className="border-white/10 bg-[#0a0a0a] text-xs text-white"
                   />
                 </div>
 

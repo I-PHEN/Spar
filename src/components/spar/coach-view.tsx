@@ -630,9 +630,9 @@ export function ExecutiveBriefingDeck({
       : null;
 
   return (
-    <div className="w-full max-w-[1040px] h-[640px] flex flex-col rounded-2xl border border-white/15 bg-[#0e0e10] overflow-hidden shadow-[0_32px_100px_rgba(0,0,0,0.8)] mx-auto">
+    <div className="w-full max-w-[1040px] h-[640px] flex flex-col rounded-2xl border border-white/10 bg-[#121212] overflow-hidden shadow-[0_32px_100px_rgba(0,0,0,0.8)] mx-auto">
       {/* Top Stage Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] bg-[#131316] px-5 py-4 sm:px-7">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] bg-[#121212] px-5 py-4 sm:px-7">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded bg-white/[0.06] px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.16em] text-neutral-300">
@@ -669,7 +669,7 @@ export function ExecutiveBriefingDeck({
       <div
         role="tablist"
         aria-label="Lesson briefing slides"
-        className="flex overflow-x-auto border-b border-white/[0.07] bg-[#0a0a0c]"
+        className="flex overflow-x-auto border-b border-white/[0.07] bg-[#0e0e0e]"
       >
         {deckSteps.map((step, pos) => {
           const active = currentSlide === step.index;
@@ -782,7 +782,7 @@ export function ExecutiveBriefingDeck({
                     </div>
 
                     {slides.trap.instinctQuote && (
-                      <div className="rounded-xl border border-white/10 bg-[#09090b] p-4">
+                      <div className="rounded-xl border border-white/10 bg-[#0e0e0e] p-4">
                         <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
                           The Fatal Impulse (What Speakers Blurt Out)
                         </p>
@@ -854,7 +854,7 @@ export function ExecutiveBriefingDeck({
                     {slides.mentalModel.steps.map((s) => (
                       <div
                         key={s.step}
-                        className="relative rounded-xl border border-white/10 bg-[#141418] p-4"
+                        className="relative rounded-xl border border-white/10 bg-[#141414] p-4"
                       >
                         <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.07] font-mono text-xs font-bold text-white">
                           0{s.step}
@@ -890,7 +890,7 @@ export function ExecutiveBriefingDeck({
                 </div>
 
                 {/* Incoming Hostile Prompt Banner */}
-                <div className="rounded-xl border border-white/12 bg-[#09090b] p-4 sm:p-5">
+                <div className="rounded-xl border border-white/10 bg-[#0e0e0e] p-4 sm:p-5">
                   <div className="flex items-center justify-between gap-2">
                     <span className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-neutral-400">
                       <Radio className="h-3.5 w-3.5" />
@@ -907,7 +907,7 @@ export function ExecutiveBriefingDeck({
                 {/* Side-by-Side Split Film Comparison */}
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                   {/* Amateur / Weak Tape */}
-                  <div className="flex flex-col justify-between rounded-xl border border-white/10 bg-[#101014] p-5">
+                  <div className="flex flex-col justify-between rounded-xl border border-white/10 bg-[#101010] p-5">
                     <div>
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5 text-xs font-bold text-neutral-300 line-through">
@@ -1009,7 +1009,7 @@ export function ExecutiveBriefingDeck({
                     {activeExtraSlide.bullets.map((b, bIdx) => (
                       <div
                         key={bIdx}
-                        className="rounded-xl border border-white/10 bg-[#141418] p-4"
+                        className="rounded-xl border border-white/10 bg-[#141414] p-4"
                       >
                         <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.08] font-mono text-xs font-bold text-white">
                           0{bIdx + 1}
@@ -1058,7 +1058,7 @@ export function ExecutiveBriefingDeck({
 
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
                   {/* Opponent Fighter Dossier */}
-                  <div className="lg:col-span-5 rounded-xl border border-white/12 bg-[#141418] p-5 flex flex-col justify-between">
+                  <div className="lg:col-span-5 rounded-xl border border-white/10 bg-[#141414] p-5 flex flex-col justify-between">
                     <div>
                       <p className="text-[10px] font-mono font-semibold uppercase tracking-wider text-neutral-400">
                         Assigned Panelist
@@ -1103,7 +1103,7 @@ export function ExecutiveBriefingDeck({
                   </div>
 
                   {/* Opening Attack Prompt Preview */}
-                  <div className="lg:col-span-7 rounded-xl border border-white/15 bg-[#121216] p-5 flex flex-col justify-between">
+                  <div className="lg:col-span-7 rounded-xl border border-white/10 bg-[#121212] p-5 flex flex-col justify-between">
                     <div>
                       <div className="flex items-center justify-between gap-2">
                         <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-white">
@@ -1179,7 +1179,7 @@ export function ExecutiveBriefingDeck({
 
                 {/* 3-Step Transfer Bridge */}
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <div className="rounded-xl border border-white/10 bg-[#141418] p-4">
+                  <div className="rounded-xl border border-white/10 bg-[#141414] p-4">
                     <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
                       01 · Learn the Frame
                     </span>
@@ -1190,7 +1190,7 @@ export function ExecutiveBriefingDeck({
                       Internalize the Golden Rule so you know what structure replaces rambling.
                     </p>
                   </div>
-                  <div className="rounded-xl border border-white/10 bg-[#141418] p-4">
+                  <div className="rounded-xl border border-white/10 bg-[#141414] p-4">
                     <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-300">
                       02 · Spar in the Room
                     </span>
@@ -1215,7 +1215,7 @@ export function ExecutiveBriefingDeck({
                 </div>
 
                 {/* 24-Hour Real-World Mission Callout */}
-                <div className="rounded-2xl border border-white/20 bg-gradient-to-br from-white/[0.05] via-[#101014] to-[#0a0a0c] p-5 sm:p-6">
+                <div className="rounded-2xl border border-white/20 bg-gradient-to-br from-white/[0.05] via-[#121212] to-[#0a0a0a] p-5 sm:p-6">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.2em] text-neutral-300">
                       Your 24-Hour Real-World Challenge

@@ -40,7 +40,7 @@ export function LessonFeedback({
   return (
     <div className="space-y-4">
       {/* Response Preview Block (Compact) */}
-      <div className="rounded-xl border border-white/10 bg-[#0d0d11] p-3.5 space-y-1">
+      <div className="rounded-xl border border-white/10 bg-[#0e0e0e] p-3.5 space-y-1">
         <div className="flex items-center justify-between text-[11px] font-mono text-neutral-400">
           <span>YOUR RESPONSE</span>
           <span className="tabular-nums">{wordCount} words</span>
@@ -52,7 +52,7 @@ export function LessonFeedback({
 
       {/* 4 Measured Dimensions in a tight 4-col strip */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <div className="rounded-xl border border-white/[0.08] bg-[#111114] p-2.5">
+        <div className="rounded-xl border border-white/10 bg-[#111111] p-2.5">
           <p className="text-[10px] font-mono uppercase text-neutral-400">Directness</p>
           <p
             className={cn(
@@ -64,7 +64,7 @@ export function LessonFeedback({
           </p>
         </div>
 
-        <div className="rounded-xl border border-white/[0.08] bg-[#111114] p-2.5">
+        <div className="rounded-xl border border-white/10 bg-[#111111] p-2.5">
           <p className="text-[10px] font-mono uppercase text-neutral-400">Economy</p>
           <p
             className={cn(
@@ -76,7 +76,7 @@ export function LessonFeedback({
           </p>
         </div>
 
-        <div className="rounded-xl border border-white/[0.08] bg-[#111114] p-2.5">
+        <div className="rounded-xl border border-white/10 bg-[#111111] p-2.5">
           <p className="text-[10px] font-mono uppercase text-neutral-400">Fillers</p>
           <p
             className={cn(
@@ -88,7 +88,7 @@ export function LessonFeedback({
           </p>
         </div>
 
-        <div className="rounded-xl border border-white/[0.08] bg-[#111114] p-2.5">
+        <div className="rounded-xl border border-white/10 bg-[#111111] p-2.5">
           <p className="text-[10px] font-mono uppercase text-neutral-400">Evidence</p>
           <p
             className={cn(
@@ -110,7 +110,7 @@ export function LessonFeedback({
           <p className="text-xs text-white leading-relaxed line-clamp-2">{didWell}</p>
         </div>
 
-        <div className="rounded-xl border border-white/10 bg-[#111114] p-3 space-y-1">
+        <div className="rounded-xl border border-white/10 bg-[#141414] p-3 space-y-1">
           <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-400 font-semibold">
             Adjustment
           </p>
@@ -119,7 +119,7 @@ export function LessonFeedback({
       </div>
 
       {/* Suggested Rewrite (Compact) */}
-      <div className="rounded-xl border border-white/12 bg-[#0a0a0e] p-3 space-y-1">
+      <div className="rounded-xl border border-white/10 bg-[#0a0a0a] p-3 space-y-1">
         <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
           Executive Benchmark
         </span>

@@ -152,7 +152,7 @@ export function CourseCatalog({
               return (
                 <div
                   key={course.id}
-                  className="flex flex-col justify-between gap-4 rounded-2xl border border-white/12 bg-[#131316] p-5 sm:flex-row sm:items-center"
+                  className="flex flex-col justify-between gap-4 rounded-2xl border border-white/10 bg-[#121212] p-5 sm:flex-row sm:items-center hover:border-white/20 transition-all"
                 >
                   <div className="min-w-0 flex-1 space-y-2">
                     <div className="flex items-center gap-2 text-xs text-neutral-400">
@@ -238,7 +238,7 @@ export function CourseCatalog({
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search courses and skills"
               aria-label="Search courses and skills"
-              className="w-full rounded-xl border border-white/10 bg-[#111113] py-2 pl-10 pr-8 text-xs text-white placeholder:text-neutral-500 focus:border-white/30 focus:outline-none sm:text-sm"
+              className="w-full rounded-xl border border-white/10 bg-[#0e0e0e] py-2 pl-10 pr-8 text-xs text-white placeholder:text-neutral-500 focus:border-white/30 focus:outline-none sm:text-sm"
             />
             {searchQuery && (
               <button
@@ -270,7 +270,7 @@ export function CourseCatalog({
                       "rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/50",
                       active
                         ? "border-white bg-white text-black font-semibold"
-                        : "border-white/[0.08] bg-[#111113] text-neutral-300 hover:border-white/20 hover:text-white"
+                        : "border-white/10 bg-[#121212] text-neutral-300 hover:border-white/20 hover:text-white"
                     )}
                   >
                     {cat}
@@ -287,7 +287,7 @@ export function CourseCatalog({
                   e.target.value as "All" | CourseDifficulty
                 )
               }
-              className="rounded-lg border border-white/[0.08] bg-[#111113] px-2.5 py-1.5 text-xs text-neutral-300 focus:border-white/30 focus:outline-none"
+              className="rounded-lg border border-white/10 bg-[#121212] px-2.5 py-1.5 text-xs text-neutral-300 focus:border-white/30 focus:outline-none"
             >
               <option value="All">All levels</option>
               <option value="Foundation">Foundation</option>
@@ -299,7 +299,7 @@ export function CourseCatalog({
               aria-label="Sort courses"
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="rounded-lg border border-white/[0.08] bg-[#111113] px-2.5 py-1.5 text-xs text-neutral-300 focus:border-white/30 focus:outline-none"
+              className="rounded-lg border border-white/10 bg-[#121212] px-2.5 py-1.5 text-xs text-neutral-300 focus:border-white/30 focus:outline-none"
             >
               <option value="recommended">Sort: Recommended</option>
               <option value="shortest">Sort: Shortest</option>
@@ -310,7 +310,7 @@ export function CourseCatalog({
 
         {/* Explore Courses Grid */}
         {filteredCourses.length === 0 ? (
-          <div className="rounded-2xl border border-white/[0.08] bg-[#111113] px-6 py-12 text-center">
+          <div className="rounded-2xl border border-white/10 bg-[#0e0e0e] px-6 py-12 text-center">
             <p className="text-sm font-medium text-white">
               No courses match your current search or filters.
             </p>

@@ -222,10 +222,10 @@ export function LessonPlayer({
       role="dialog"
       aria-modal="true"
       aria-label={lesson.title}
-      className="fixed inset-0 z-50 flex flex-col bg-[#070708] overflow-hidden"
+      className="fixed inset-0 z-50 flex flex-col bg-[#070707] overflow-hidden"
     >
       {/* Full-Screen Sticky Theater Top Bar */}
-      <header className="sticky top-0 z-20 border-b border-white/[0.08] bg-[#0a0a0c]/95 backdrop-blur-md shrink-0">
+      <header className="sticky top-0 z-20 border-b border-[#1a1a1a] bg-[#0a0a0a]/95 backdrop-blur-md shrink-0">
         <div className="mx-auto max-w-5xl px-4 py-3 sm:px-6 space-y-2.5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
@@ -316,7 +316,7 @@ export function LessonPlayer({
 
       {/* Centered Presentation Folio with Zero-Scroll Sizing */}
       <div className="mx-auto flex w-full max-w-4xl flex-1 items-center justify-center p-3 sm:p-6 overflow-hidden">
-        <div className="w-full h-full max-h-[620px] rounded-3xl border border-white/12 bg-[#0c0c10] p-5 sm:p-7 flex flex-col justify-between relative shadow-2xl overflow-hidden">
+        <div className="w-full h-full max-h-[620px] rounded-3xl border border-white/10 bg-[#121212] p-5 sm:p-7 flex flex-col justify-between relative shadow-2xl overflow-hidden">
           {/* Zero-Scroll Stage Body */}
           <div className="flex-1 flex flex-col justify-between overflow-hidden pb-3">
             {/* STAGE 0: HOOK & INITIAL ATTEMPT (Think & Speak First) */}
@@ -354,7 +354,7 @@ export function LessonPlayer({
                           "rounded-xl border p-3 text-left text-xs transition-all",
                           initialAttempt === slides.tape.weakResponse
                             ? "border-white bg-white/10 text-white font-medium"
-                            : "border-white/10 bg-[#121216] text-neutral-300 hover:border-white/20 hover:text-white"
+                            : "border-white/10 bg-[#101010] text-neutral-300 hover:border-white/20 hover:bg-[#141414] hover:text-white"
                         )}
                       >
                         <span className="font-mono text-[9px] text-neutral-400 block mb-0.5">
@@ -371,7 +371,7 @@ export function LessonPlayer({
                           "rounded-xl border p-3 text-left text-xs transition-all",
                           initialAttempt === slides.tape.strongResponse
                             ? "border-white bg-white/10 text-white font-medium"
-                            : "border-white/10 bg-[#121216] text-neutral-300 hover:border-white/20 hover:text-white"
+                            : "border-white/10 bg-[#101010] text-neutral-300 hover:border-white/20 hover:bg-[#141414] hover:text-white"
                         )}
                       >
                         <span className="font-mono text-[9px] text-neutral-400 block mb-0.5">
@@ -386,7 +386,7 @@ export function LessonPlayer({
                 )}
 
                 {/* Learner Action: Microphone + Response Input */}
-                <div className="space-y-2 rounded-xl border border-white/10 bg-[#111115] p-3 sm:p-4">
+                <div className="space-y-2 rounded-xl border border-white/10 bg-[#101010] p-3 sm:p-4">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       {micStatus === "listening" ? (
@@ -434,7 +434,7 @@ export function LessonPlayer({
                     rows={2}
                     placeholder="Speak with microphone or type your immediate answer..."
                     aria-label="Your initial response"
-                    className="border-white/10 bg-[#09090c] text-xs sm:text-sm text-white placeholder:text-neutral-500 rounded-lg resize-none"
+                    className="border-white/10 bg-[#0a0a0a] text-xs sm:text-sm text-white placeholder:text-neutral-500 rounded-lg resize-none"
                   />
                 </div>
               </section>
@@ -445,7 +445,7 @@ export function LessonPlayer({
               <section className="flex-1 flex flex-col justify-between space-y-3">
                 {/* Attempt Recap Pill (if provided) */}
                 {initialAttempt.trim().length > 0 && (
-                  <div className="rounded-xl border border-white/10 bg-[#111115] px-3.5 py-2">
+                  <div className="rounded-xl border border-white/10 bg-[#101010] px-3.5 py-2">
                     <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
                       Your Initial Attempt
                     </p>
@@ -484,7 +484,7 @@ export function LessonPlayer({
                     {slides.mentalModel.steps.map((s) => (
                       <div
                         key={s.step}
-                        className="rounded-xl border border-white/[0.08] bg-[#121216] p-3 space-y-0.5"
+                        className="rounded-xl border border-white/10 bg-[#141414] p-3 space-y-0.5"
                       >
                         <span className="font-mono text-[10px] text-neutral-400">
                           0{s.step}
@@ -501,7 +501,7 @@ export function LessonPlayer({
                 )}
 
                 {/* Common Trap Note */}
-                <div className="rounded-xl border border-white/[0.08] bg-[#111114] px-3.5 py-2 text-xs">
+                <div className="rounded-xl border border-white/10 bg-[#101010] px-3.5 py-2 text-xs">
                   <span className="font-mono uppercase tracking-wider text-neutral-300 font-semibold mr-1.5">
                     Trap to avoid:
                   </span>
@@ -526,7 +526,7 @@ export function LessonPlayer({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {/* Ineffective Response */}
-                  <div className="flex flex-col justify-between rounded-xl border border-white/10 bg-[#101014] p-4 space-y-2">
+                  <div className="flex flex-col justify-between rounded-xl border border-white/10 bg-[#101010] p-4 space-y-2">
                     <div>
                       <span className="text-[11px] font-mono uppercase tracking-wider text-neutral-400 line-through">
                         Ineffective response
@@ -559,7 +559,7 @@ export function LessonPlayer({
                 </div>
 
                 {/* Specific Difference Callout */}
-                <div className="rounded-xl border border-white/10 bg-[#121215] px-4 py-2.5">
+                <div className="rounded-xl border border-white/10 bg-[#141414] px-4 py-2.5">
                   <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
                     The Critical Distinction
                   </p>
@@ -589,9 +589,9 @@ export function LessonPlayer({
                       </h2>
                     </div>
 
-                    <div className="space-y-3 rounded-xl border border-white/10 bg-[#111115] p-3.5">
+                    <div className="space-y-3 rounded-xl border border-white/10 bg-[#101010] p-3.5">
                       {/* In-Situ Sparring Partner Pill */}
-                      <div className="flex items-center justify-between gap-2 rounded-lg border border-white/[0.08] bg-[#09090c] p-2.5">
+                      <div className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-[#0a0a0a] p-2.5">
                         <div className="flex items-center gap-2">
                           <div className="flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-white/10 font-mono text-[11px] font-bold text-white">
                             {roomConfig.personaName.slice(0, 1)}
@@ -652,7 +652,7 @@ export function LessonPlayer({
                         rows={2}
                         placeholder="Deliver your response applying the principle..."
                         aria-label="Your retry response"
-                        className="border-white/10 bg-[#09090c] text-xs sm:text-sm text-white placeholder:text-neutral-500 rounded-lg resize-none"
+                        className="border-white/10 bg-[#0a0a0a] text-xs sm:text-sm text-white placeholder:text-neutral-500 rounded-lg resize-none"
                       />
                     </div>
 

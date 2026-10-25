@@ -96,7 +96,7 @@ export function CourseRoadmap({
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-12 items-start">
         {/* LEFT COLUMN: Pinned Course Card (Twin of Brilliant media_1792937364147.png) */}
         <aside className="lg:col-span-5 lg:sticky lg:top-24 space-y-4">
-          <div className="rounded-3xl border border-white/12 bg-[#0d0d12] p-6 sm:p-7 shadow-2xl space-y-5">
+          <div className="rounded-3xl border border-white/10 bg-[#121212] p-6 sm:p-7 shadow-2xl space-y-5">
             {/* Distinctive Illustration / Motif Icon */}
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.05] shadow-inner">
               {getCourseBadgeIcon(course.category)}
@@ -150,7 +150,7 @@ export function CourseRoadmap({
         {/* RIGHT COLUMN: Tactile Meandering 3D Disc Roadmap */}
         <main className="lg:col-span-7 flex flex-col items-center space-y-6">
           {/* Top Level Header Pill (matching Brilliant Screenshot 1 & 2) */}
-          <div className="w-full max-w-md rounded-2xl border border-white/15 bg-[#101015] px-6 py-3.5 text-center shadow-lg">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#141414] px-6 py-3.5 text-center shadow-lg">
             <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400 block">
               LEVEL {selectedLessonIndex}
             </span>
@@ -192,7 +192,7 @@ export function CourseRoadmap({
 
           {/* Bottom Desktop Selected Lesson Action Launcher (matching media_1792937364147.png) */}
           {selectedLesson && (
-            <div className="w-full max-w-md rounded-2xl border border-white/15 bg-[#0f0f14] p-5 sm:p-6 text-center space-y-3.5 shadow-2xl">
+            <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#121212] p-5 sm:p-6 text-center space-y-3.5 shadow-2xl">
               <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight">
                 {selectedLesson.title}
               </h3>
@@ -236,7 +236,7 @@ export function CourseRoadmap({
 
       {/* Floating Bottom Launcher for Phone / Mobile (Fixed in Thumb Zone) */}
       {selectedLesson && (
-        <div className="fixed bottom-0 inset-x-0 z-40 sm:hidden border-t border-white/12 bg-[#0c0c10]/95 backdrop-blur-xl p-3.5 px-4 shadow-2xl flex items-center justify-between gap-3">
+        <div className="fixed bottom-0 inset-x-0 z-40 sm:hidden border-t border-[#1a1a1a] bg-[#0a0a0a]/95 backdrop-blur-xl p-3.5 px-4 shadow-2xl flex items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
             <span className="font-mono text-[9px] uppercase tracking-wider text-neutral-400 block">
               Level {selectedLessonIndex}

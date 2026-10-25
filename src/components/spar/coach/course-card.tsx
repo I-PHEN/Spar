@@ -58,7 +58,7 @@ export function CourseCard({
           onSelectCourse(course.id);
         }
       }}
-      className="group relative flex flex-col justify-between rounded-2xl border border-white/[0.08] bg-[#101014] p-5 sm:p-6 text-left transition-all duration-200 hover:border-white/30 hover:bg-[#141419] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 cursor-pointer shadow-lg"
+      className="group relative flex flex-col justify-between rounded-2xl border border-white/10 bg-[#121212] p-5 sm:p-6 text-left transition-all duration-200 hover:border-white/25 hover:bg-[#161616] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 cursor-pointer shadow-lg"
     >
       <div>
         {/* Top Row: Clean tactile icon badge + Category pill */}
