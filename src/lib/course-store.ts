@@ -45,14 +45,53 @@ function readStore(): CoachStoreFile {
       ? parsed.completions
       : [];
 
-    // Ensure default courses exist unless explicitly edited by ID
+    // Ensure default courses exist and inherit any newly added schema defaults
+    const defaultLessonMap = new Map<string, Course["modules"][number]["lessons"][number]>();
+    for (const def of DEFAULT_COURSES) {
+      for (const mod of def.modules) {
+        for (const les of mod.lessons) {
+          defaultLessonMap.set(les.id, les);
+        }
+      }
+    }
+
     const byId = new Map<string, Course>();
     for (const def of DEFAULT_COURSES) {
       byId.set(def.id, structuredClone(def));
     }
     for (const c of storedCourses) {
       if (c && typeof c.id === "string") {
-        byId.set(c.id, c);
+        const hydratedCourse: Course = {
+          ...c,
+          modules: Array.isArray(c.modules)
+            ? c.modules.map((mod) => ({
+                ...mod,
+                lessons: Array.isArray(mod.lessons)
+                  ? mod.lessons.map((les) => {
+                      const seedLes = defaultLessonMap.get(les.id);
+                      if (!seedLes) return les;
+                      return {
+                        ...seedLes,
+                        ...les,
+                        slides: {
+                          trap: { ...seedLes.slides.trap, ...les.slides?.trap },
+                          mentalModel: {
+                            ...seedLes.slides.mentalModel,
+                            ...les.slides?.mentalModel,
+                          },
+                          tape: { ...seedLes.slides.tape, ...les.slides?.tape },
+                          mission: {
+                            ...seedLes.slides.mission,
+                            ...les.slides?.mission,
+                          },
+                        },
+                      };
+                    })
+                  : [],
+              }))
+            : [],
+        };
+        byId.set(c.id, hydratedCourse);
       }
     }
 

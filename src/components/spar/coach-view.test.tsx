@@ -101,4 +101,24 @@ describe("ExecutiveBriefingDeck (4-Card Lesson Presentation)", () => {
     expect(m).toContain(lesson.slides.mission.passCriteria);
     expect(m).toContain("Enter Drill Chamber");
   });
+
+  test("renders built-in SVG tactical diagrams and custom partner visual URLs", () => {
+    const customLesson = structuredClone(lesson);
+    customLesson.slides.trap.visual = {
+      url: "https://example.com/custom-framework.png",
+      caption: "Custom Partner Framework Figure",
+      layout: "hero",
+    };
+
+    const m = renderToStaticMarkup(
+      <ExecutiveBriefingDeck
+        course={course}
+        lesson={customLesson}
+        activeSlide={0}
+      />
+    );
+    expect(m).toContain("https://example.com/custom-framework.png");
+    expect(m).toContain("Custom Partner Framework Figure");
+  });
 });
+

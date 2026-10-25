@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowLeft,
   ArrowRight,
@@ -8,9 +9,13 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock,
+  Compass,
   Flame,
   GraduationCap,
+  Layers,
+  Lock,
   Play,
+  Radio,
   ShieldAlert,
   Sparkles,
   Swords,
@@ -29,17 +34,445 @@ import {
   getNextIncompleteLesson,
   type Course,
   type CourseLesson,
+  type DiagramPreset,
   type LessonCompletion,
+  type SlideVisualMedia,
 } from "@/lib/courses";
 
 export type BriefingSlideIndex = 0 | 1 | 2 | 3;
 
-const SLIDE_STEPS: Array<{ index: BriefingSlideIndex; label: string; short: string }> = [
-  { index: 0, label: "1. The Trap", short: "The Trap" },
-  { index: 1, label: "2. Mental Model", short: "The Rule" },
-  { index: 2, label: "3. The Tape", short: "The Tape" },
-  { index: 3, label: "4. Chamber Drill", short: "Chamber" },
+const SLIDE_STEPS: Array<{
+  index: BriefingSlideIndex;
+  stepNum: string;
+  label: string;
+  short: string;
+  accent: string;
+}> = [
+  {
+    index: 0,
+    stepNum: "01",
+    label: "1. The Trap",
+    short: "The Trap",
+    accent: "text-rose-400 border-rose-500/40",
+  },
+  {
+    index: 1,
+    stepNum: "02",
+    label: "2. Mental Model",
+    short: "The Rule",
+    accent: "text-emerald-400 border-emerald-500/40",
+  },
+  {
+    index: 2,
+    stepNum: "03",
+    label: "3. The Tape",
+    short: "The Tape",
+    accent: "text-sky-400 border-sky-500/40",
+  },
+  {
+    index: 3,
+    stepNum: "04",
+    label: "4. Chamber Drill",
+    short: "Chamber",
+    accent: "text-amber-400 border-amber-500/40",
+  },
 ];
+
+// ─── Tactical Vector Diagrams & Custom Partner Visual Renderer ──────────────
+
+function BuiltInTacticalDiagram({ preset }: { preset: DiagramPreset }) {
+  switch (preset) {
+    case "bluf-pyramid":
+      return (
+        <svg
+          viewBox="0 0 520 190"
+          className="w-full h-auto select-none"
+          role="img"
+          aria-label="Comparison between chronological buildup and Bottom-Line Up Front pyramid"
+        >
+          <defs>
+            <pattern id="bluf-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+              <path
+                d="M 20 0 L 0 0 0 20"
+                fill="none"
+                stroke="rgba(255,255,255,0.03)"
+                strokeWidth="1"
+              />
+            </pattern>
+          </defs>
+          <rect width="520" height="190" rx="12" fill="#0b0b0c" />
+          <rect width="520" height="190" rx="12" fill="url(#bluf-grid)" />
+
+          {/* Left: The Backstory Spiral */}
+          <g transform="translate(24, 22)">
+            <text x="0" y="12" fill="#f87171" fontSize="10" fontFamily="monospace" fontWeight="700">
+              ✕ CHRONOLOGICAL TRAP
+            </text>
+            <rect
+              x="0"
+              y="24"
+              width="210"
+              height="28"
+              rx="6"
+              fill="rgba(239,68,68,0.08)"
+              stroke="rgba(239,68,68,0.25)"
+            />
+            <text x="12" y="42" fill="#d4d4d8" fontSize="11">
+              0–20s: Historical backstory...
+            </text>
+
+            <rect
+              x="0"
+              y="60"
+              width="210"
+              height="28"
+              rx="6"
+              fill="rgba(239,68,68,0.08)"
+              stroke="rgba(239,68,68,0.25)"
+            />
+            <text x="12" y="78" fill="#d4d4d8" fontSize="11">
+              20–35s: Process excuses...
+            </text>
+
+            <rect
+              x="0"
+              y="96"
+              width="210"
+              height="32"
+              rx="6"
+              fill="rgba(239,68,68,0.18)"
+              stroke="#ef4444"
+              strokeDasharray="4 3"
+            />
+            <text x="12" y="116" fill="#fca5a5" fontSize="11" fontWeight="600">
+              ⚡ Interrupted before point lands
+            </text>
+          </g>
+
+          {/* Divider */}
+          <line x1="260" y1="20" x2="260" y2="170" stroke="rgba(255,255,255,0.08)" />
+
+          {/* Right: BLUF Executive Structure */}
+          <g transform="translate(284, 22)">
+            <text x="0" y="12" fill="#34d399" fontSize="10" fontFamily="monospace" fontWeight="700">
+              ✓ EXECUTIVE BLUF PROTOCOL
+            </text>
+            <rect
+              x="0"
+              y="24"
+              width="212"
+              height="34"
+              rx="6"
+              fill="rgba(16,185,129,0.16)"
+              stroke="#10b981"
+            />
+            <text x="12" y="45" fill="#ffffff" fontSize="11" fontWeight="700">
+              0–5s: Direct Verdict + Exact Metric
+            </text>
+
+            <rect
+              x="16"
+              y="66"
+              width="180"
+              height="28"
+              rx="6"
+              fill="rgba(16,185,129,0.08)"
+              stroke="rgba(16,185,129,0.35)"
+            />
+            <text x="28" y="84" fill="#d1fae5" fontSize="11">
+              5–15s: Two concrete drivers
+            </text>
+
+            <rect
+              x="42"
+              y="102"
+              width="128"
+              height="26"
+              rx="6"
+              fill="rgba(255,255,255,0.04)"
+              stroke="rgba(255,255,255,0.18)"
+            />
+            <text x="58" y="119" fill="#a1a1aa" fontSize="10" fontFamily="monospace">
+              15s: Full Stop (Yield)
+            </text>
+          </g>
+        </svg>
+      );
+
+    case "assumption-floor":
+      return (
+        <svg
+          viewBox="0 0 520 185"
+          className="w-full h-auto select-none"
+          role="img"
+          aria-label="Break-even downside floor compared against live pilot baseline"
+        >
+          <rect width="520" height="185" rx="12" fill="#0b0b0c" />
+          <g transform="translate(28, 24)">
+            <text x="0" y="10" fill="#38bdf8" fontSize="10" fontFamily="monospace" fontWeight="700">
+              DOWNSIDE BUFFER GEOMETRY · ENTERPRISE CONVERSION
+            </text>
+
+            {/* Pilot Baseline Bar */}
+            <text x="0" y="44" fill="#e4e4e7" fontSize="11" fontWeight="600">
+              Live Pilot Cohort (n=40)
+            </text>
+            <rect x="165" y="30" width="260" height="22" rx="4" fill="rgba(16,185,129,0.2)" stroke="#10b981" />
+            <text x="435" y="45" fill="#34d399" fontSize="12" fontFamily="monospace" fontWeight="700">
+              34%
+            </text>
+
+            {/* Model Target Bar */}
+            <text x="0" y="82" fill="#a1a1aa" fontSize="11">
+              Plan Assumption
+            </text>
+            <rect x="165" y="68" width="225" height="22" rx="4" fill="rgba(56,189,248,0.15)" stroke="#38bdf8" />
+            <text x="400" y="83" fill="#7dd3fc" fontSize="12" fontFamily="monospace">
+              30%
+            </text>
+
+            {/* Break-Even Floor Bar */}
+            <text x="0" y="120" fill="#fca5a5" fontSize="11" fontWeight="600">
+              Break-Even Downside Floor
+            </text>
+            <rect x="165" y="106" width="108" height="22" rx="4" fill="rgba(244,63,94,0.18)" stroke="#f43f5e" />
+            <text x="282" y="121" fill="#fda4af" fontSize="12" fontFamily="monospace" fontWeight="700">
+              14% (Floor)
+            </text>
+
+            {/* Safety Buffer Bracket */}
+            <path d="M 273 136 L 425 136" stroke="#10b981" strokeWidth="1.5" strokeDasharray="3 3" />
+            <text x="305" y="150" fill="#34d399" fontSize="10" fontFamily="monospace">
+              ▲ 2.4x Safety Buffer Above Floor
+            </text>
+          </g>
+        </svg>
+      );
+
+    case "stakeholder-delta":
+      return (
+        <svg
+          viewBox="0 0 520 175"
+          className="w-full h-auto select-none"
+          role="img"
+          aria-label="Stakeholder value bridge translating technical features into quantified delta"
+        >
+          <rect width="520" height="175" rx="12" fill="#0b0b0c" />
+          <g transform="translate(22, 26)">
+            <rect x="0" y="16" width="142" height="96" rx="10" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.12)" />
+            <text x="14" y="40" fill="#a1a1aa" fontSize="9" fontFamily="monospace">
+              01 · STAKEHOLDER
+            </text>
+            <text x="14" y="64" fill="#ffffff" fontSize="13" fontWeight="700">
+              Bank Compliance
+            </text>
+            <text x="14" y="82" fill="#d4d4d8" fontSize="11">
+              Mid-market audit lead
+            </text>
+
+            <path d="M 148 64 L 178 64" stroke="#f59e0b" strokeWidth="2" />
+
+            <rect x="184" y="16" width="142" height="96" rx="10" fill="rgba(239,68,68,0.07)" stroke="rgba(239,68,68,0.3)" />
+            <text x="198" y="40" fill="#fca5a5" fontSize="9" fontFamily="monospace">
+              02 · BASELINE PAIN
+            </text>
+            <text x="198" y="66" fill="#f87171" fontSize="18" fontFamily="monospace" fontWeight="700">
+              18 hrs/wk
+            </text>
+            <text x="198" y="86" fill="#d4d4d8" fontSize="11">
+              Manual wire log review
+            </text>
+
+            <path d="M 332 64 L 362 64" stroke="#10b981" strokeWidth="2" />
+
+            <rect x="368" y="16" width="130" height="96" rx="10" fill="rgba(16,185,129,0.12)" stroke="#10b981" />
+            <text x="382" y="40" fill="#6ee7b7" fontSize="9" fontFamily="monospace">
+              03 · AFTER DELTA
+            </text>
+            <text x="382" y="66" fill="#34d399" fontSize="18" fontFamily="monospace" fontWeight="700">
+              20 mins
+            </text>
+            <text x="382" y="86" fill="#e4e4e7" fontSize="11">
+              0 false negatives
+            </text>
+          </g>
+        </svg>
+      );
+
+    case "zero-cushion":
+      return (
+        <svg
+          viewBox="0 0 520 170"
+          className="w-full h-auto select-none"
+          role="img"
+          aria-label="Removing verbal qualifiers increases executive conviction"
+        >
+          <rect width="520" height="170" rx="12" fill="#0b0b0c" />
+          <g transform="translate(24, 24)">
+            <text x="0" y="12" fill="#f87171" fontSize="10" fontFamily="monospace" fontWeight="700">
+              BEFORE · HEDGED SIGNAL (CREDIBILITY LOSS)
+            </text>
+            <rect x="0" y="22" width="472" height="38" rx="8" fill="rgba(239,68,68,0.08)" stroke="rgba(239,68,68,0.25)" />
+            <text x="14" y="45" fill="#fca5a5" fontSize="12" textDecoration="line-through">
+              “I think we should probably be fine because we sort of tested...”
+            </text>
+
+            <text x="0" y="86" fill="#34d399" fontSize="10" fontFamily="monospace" fontWeight="700">
+              AFTER · SURGICAL DECLARATIVE
+            </text>
+            <rect x="0" y="96" width="472" height="40" rx="8" fill="rgba(16,185,129,0.14)" stroke="#10b981" />
+            <text x="14" y="121" fill="#ffffff" fontSize="12" fontWeight="700">
+              “Yes. We load-tested all core endpoints at 15x peak volume with zero lag.”
+            </text>
+          </g>
+        </svg>
+      );
+
+    case "word-ceiling":
+      return (
+        <svg
+          viewBox="0 0 520 175"
+          className="w-full h-auto select-none"
+          role="img"
+          aria-label="15-word executive attention ceiling curve"
+        >
+          <rect width="520" height="175" rx="12" fill="#0b0b0c" />
+          <g transform="translate(28, 22)">
+            <text x="0" y="12" fill="#fbbf24" fontSize="10" fontFamily="monospace" fontWeight="700">
+              BOARDROOM ATTENTION DECAY BY WORD COUNT
+            </text>
+            {/* Optimal Zone */}
+            <rect x="0" y="26" width="215" height="98" rx="8" fill="rgba(16,185,129,0.09)" stroke="rgba(16,185,129,0.35)" />
+            <text x="14" y="48" fill="#34d399" fontSize="11" fontFamily="monospace" fontWeight="700">
+              1–15 WORDS · PEAK AUTHORITY
+            </text>
+            <text x="14" y="70" fill="#e4e4e7" fontSize="11">
+              Subject → Active Verb → Metric
+            </text>
+            <text x="14" y="92" fill="#a1a1aa" fontSize="10">
+              Clean full stop invites pull questions
+            </text>
+
+            {/* Ramble Zone */}
+            <rect x="230" y="26" width="234" height="98" rx="8" fill="rgba(239,68,68,0.08)" stroke="rgba(239,68,68,0.28)" />
+            <text x="244" y="48" fill="#f87171" fontSize="11" fontFamily="monospace" fontWeight="700">
+              25+ WORDS · INTERRUPTION ZONE
+            </text>
+            <text x="244" y="70" fill="#d4d4d8" fontSize="11">
+              Thinking out loud &amp; multi-topic drift
+            </text>
+            <text x="244" y="92" fill="#fca5a5" fontSize="10">
+              Timekeeper cuts mic &amp; resets frame
+            </text>
+          </g>
+        </svg>
+      );
+
+    case "steelman-moat":
+      return (
+        <svg
+          viewBox="0 0 520 175"
+          className="w-full h-auto select-none"
+          role="img"
+          aria-label="Conceding surface layer to anchor on deep structural moat"
+        >
+          <rect width="520" height="175" rx="12" fill="#0b0b0c" />
+          <g transform="translate(24, 22)">
+            <rect x="0" y="14" width="472" height="44" rx="8" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.15)" strokeDasharray="4 3" />
+            <text x="16" y="34" fill="#a1a1aa" fontSize="10" fontFamily="monospace">
+              SURFACE LAYER (CONCEDE QUICKLY)
+            </text>
+            <text x="16" y="50" fill="#e4e4e7" fontSize="12">
+              “The workflow UI is easy to copy in 60 days...”
+            </text>
+
+            <rect x="0" y="70" width="472" height="62" rx="8" fill="rgba(56,189,248,0.12)" stroke="#38bdf8" />
+            <text x="16" y="92" fill="#7dd3fc" fontSize="10" fontFamily="monospace" fontWeight="700">
+              STRUCTURAL MOAT (IRREPLACEABLE ASSET)
+            </text>
+            <text x="16" y="114" fill="#ffffff" fontSize="12" fontWeight="700">
+              “...but our dataset comes from 400 exclusive clinics (18-month lock-in).”
+            </text>
+          </g>
+        </svg>
+      );
+
+    case "onset-latency":
+      return (
+        <svg
+          viewBox="0 0 520 165"
+          className="w-full h-auto select-none"
+          role="img"
+          aria-label="Two-second vocal onset window timeline"
+        >
+          <rect width="520" height="165" rx="12" fill="#0b0b0c" />
+          <g transform="translate(24, 24)">
+            <text x="0" y="12" fill="#34d399" fontSize="10" fontFamily="monospace" fontWeight="700">
+              VOCAL ONSET LATENCY WINDOW
+            </text>
+            <rect x="0" y="28" width="120" height="54" rx="8" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.15)" />
+            <text x="14" y="50" fill="#a1a1aa" fontSize="10" fontFamily="monospace">
+              0.0s – 1.0s
+            </text>
+            <text x="14" y="68" fill="#ffffff" fontSize="12" fontWeight="600">
+              Silent Breath
+            </text>
+
+            <rect x="132" y="28" width="175" height="54" rx="8" fill="rgba(16,185,129,0.16)" stroke="#10b981" />
+            <text x="146" y="50" fill="#6ee7b7" fontSize="10" fontFamily="monospace" fontWeight="700">
+              1.0s – 2.0s · ONSET
+            </text>
+            <text x="146" y="68" fill="#ffffff" fontSize="12" fontWeight="700">
+              Lead with Anchor Noun
+            </text>
+
+            <rect x="319" y="28" width="153" height="54" rx="8" fill="rgba(239,68,68,0.1)" stroke="rgba(239,68,68,0.3)" />
+            <text x="331" y="50" fill="#fca5a5" fontSize="10" fontFamily="monospace">
+              &gt; 3.5s · DANGER
+            </text>
+            <text x="331" y="68" fill="#f87171" fontSize="11">
+              “Um, great question...”
+            </text>
+          </g>
+        </svg>
+      );
+
+    default:
+      return null;
+  }
+}
+
+export function SlideVisualBlock({ visual }: { visual?: SlideVisualMedia }) {
+  const hasUrl = Boolean(visual?.url && visual.url.trim().length > 0);
+  const hasPreset = Boolean(
+    visual?.preset && visual.preset !== "none"
+  );
+
+  if (!hasUrl && !hasPreset) return null;
+
+  return (
+    <figure className="overflow-hidden rounded-xl border border-white/10 bg-[#0a0a0b] shadow-inner">
+      <div className="p-3 sm:p-4">
+        {hasUrl ? (
+          <img
+            src={visual!.url!.trim()}
+            alt={visual?.altText || visual?.caption || "Lesson tactical diagram"}
+            className="max-h-[260px] w-full rounded-lg object-contain bg-[#080809]"
+          />
+        ) : (
+          <BuiltInTacticalDiagram preset={visual!.preset!} />
+        )}
+      </div>
+      {visual?.caption && (
+        <figcaption className="border-t border-white/[0.06] bg-white/[0.02] px-4 py-2 text-[11px] font-mono text-neutral-400">
+          {visual.caption}
+        </figcaption>
+      )}
+    </figure>
+  );
+}
+
+// ─── 4-Stage Executive Briefing Deck ────────────────────────────────────────
 
 export interface ExecutiveBriefingDeckProps {
   course: Pick<Course, "id" | "title" | "category">;
@@ -54,13 +487,6 @@ export interface ExecutiveBriefingDeckProps {
   previewMode?: boolean;
 }
 
-/**
- * 4-Card Interactive Executive Briefing Deck:
- *   Slide 0: The Trap (What fails under pressure)
- *   Slide 1: The Mental Model (The tactical rule)
- *   Slide 2: The Tape (Weak vs. Executive side-by-side)
- *   Slide 3: Chamber Mission (Opponent + Opening attack + Launch button)
- */
 export function ExecutiveBriefingDeck({
   course,
   lesson,
@@ -73,16 +499,20 @@ export function ExecutiveBriefingDeck({
   onClose,
   previewMode = false,
 }: ExecutiveBriefingDeckProps) {
+  const prefersReducedMotion = useReducedMotion();
   const [slideState, setSlideState] = useState<{
     lessonId: string;
     slide: BriefingSlideIndex;
-  }>({ lessonId: lesson.id, slide: 0 });
+    direction: number;
+  }>({ lessonId: lesson.id, slide: 0, direction: 1 });
+
   const internalSlide: BriefingSlideIndex =
     slideState.lessonId === lesson.id ? slideState.slide : 0;
   const currentSlide = controlledSlide ?? internalSlide;
 
   function setSlide(next: BriefingSlideIndex) {
-    setSlideState({ lessonId: lesson.id, slide: next });
+    const dir = next >= currentSlide ? 1 : -1;
+    setSlideState({ lessonId: lesson.id, slide: next, direction: dir });
     onSlideChange?.(next);
   }
 
@@ -90,23 +520,40 @@ export function ExecutiveBriefingDeck({
   const archetypeDef = ARCHETYPES[roomConfig.archetype] ?? ARCHETYPES.skeptic;
   const modeLabel = sessionLabel(roomConfig.experience);
 
+  const trapVisualLayout = slides.trap.visual?.layout ?? "split";
+  const modelVisualLayout = slides.mentalModel.visual?.layout ?? "hero";
+  const hasTrapVisual = Boolean(
+    slides.trap.visual?.url?.trim() ||
+      (slides.trap.visual?.preset && slides.trap.visual.preset !== "none")
+  );
+
+  const ruleThemeClasses =
+    slides.mentalModel.ruleTheme === "amber"
+      ? "border-amber-500/35 bg-gradient-to-br from-amber-500/[0.12] via-[#131210] to-[#0e0e0f] text-amber-300"
+      : slides.mentalModel.ruleTheme === "cyan"
+      ? "border-sky-500/35 bg-gradient-to-br from-sky-500/[0.12] via-[#101316] to-[#0e0e0f] text-sky-300"
+      : "border-emerald-500/35 bg-gradient-to-br from-emerald-500/[0.12] via-[#101513] to-[#0e0e0f] text-emerald-300";
+
   return (
-    <div className="rounded-2xl border border-white/10 bg-[#111111] overflow-hidden shadow-2xl">
-      {/* Top Deck Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.06] bg-[#141414] px-5 py-3.5">
+    <div className="rounded-2xl border border-white/12 bg-[#0e0e10] overflow-hidden shadow-[0_24px_80px_rgba(0,0,0,0.65)]">
+      {/* Top Stage Header */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] bg-[#131316] px-5 py-4 sm:px-7">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-neutral-400">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded bg-white/[0.06] px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.16em] text-neutral-300">
               {course.title}
             </span>
+            <span className="text-[11px] font-mono text-neutral-500">
+              · {lesson.durationMinutes} min masterclass
+            </span>
             {isCompleted && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-400">
                 <CheckCircle2 className="h-3 w-3" />
                 Mastered
               </span>
             )}
           </div>
-          <h3 className="truncate text-base font-semibold tracking-tight text-white sm:text-lg">
+          <h3 className="mt-1 truncate text-lg font-bold tracking-tight text-white sm:text-xl">
             {lesson.title}
           </h3>
         </div>
@@ -115,18 +562,19 @@ export function ExecutiveBriefingDeck({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-neutral-300 transition-colors hover:bg-white/[0.08] hover:text-white"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-3.5 py-2 text-xs font-medium text-neutral-300 transition-colors hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
           >
-            Back to syllabus
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to roadmap
           </button>
         )}
       </div>
 
-      {/* 4-Step Progress Stepper */}
+      {/* 4-Stage Interactive Stepper */}
       <div
         role="tablist"
         aria-label="Lesson briefing slides"
-        className="grid grid-cols-4 border-b border-white/[0.06] bg-[#0d0d0d]"
+        className="grid grid-cols-4 border-b border-white/[0.07] bg-[#0a0a0c]"
       >
         {SLIDE_STEPS.map((step) => {
           const active = currentSlide === step.index;
@@ -139,16 +587,28 @@ export function ExecutiveBriefingDeck({
               aria-selected={active}
               onClick={() => setSlide(step.index)}
               className={cn(
-                "relative flex items-center justify-center gap-1.5 px-2 py-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40",
+                "group relative flex items-center justify-center gap-2 px-2 py-3.5 text-xs transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40",
                 active
-                  ? "bg-white/[0.05] text-white font-semibold"
+                  ? "bg-white/[0.04] text-white font-semibold"
                   : passed
                   ? "text-neutral-300 hover:bg-white/[0.02]"
                   : "text-neutral-500 hover:bg-white/[0.02] hover:text-neutral-300"
               )}
             >
-              <span className="hidden sm:inline">{step.label}</span>
-              <span className="sm:hidden">{step.short}</span>
+              <span
+                className={cn(
+                  "hidden h-5 w-5 items-center justify-center rounded-full border text-[10px] font-mono sm:inline-flex",
+                  active
+                    ? step.accent
+                    : passed
+                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                    : "border-white/10 text-neutral-500"
+                )}
+              >
+                {passed ? "✓" : step.stepNum}
+              </span>
+              <span className="hidden md:inline">{step.label}</span>
+              <span className="md:hidden">{step.short}</span>
               {active && (
                 <span className="absolute inset-x-0 bottom-0 h-0.5 bg-white" />
               )}
@@ -157,224 +617,433 @@ export function ExecutiveBriefingDeck({
         })}
       </div>
 
-      {/* Active Slide Content */}
-      <div className="p-6 sm:p-8 min-h-[320px] flex flex-col justify-between">
-        {currentSlide === 0 && (
-          <div className="space-y-5">
-            <div className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-300">
-              <ShieldAlert className="h-3.5 w-3.5" />
-              Slide 1 of 4 · The Common Trap
-            </div>
-
-            <div>
-              <h4 className="text-xl font-bold tracking-tight text-white sm:text-2xl">
-                {slides.trap.headline}
-              </h4>
-              <p className="mt-3 text-sm leading-relaxed text-neutral-300 sm:text-base">
-                {slides.trap.body}
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-red-500/20 bg-red-500/[0.06] p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-red-300">
-                Why this costs you the room
-              </p>
-              <p className="mt-1 text-xs leading-relaxed text-neutral-200 sm:text-sm">
-                {slides.trap.costOfFailure}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {currentSlide === 1 && (
-          <div className="space-y-5">
-            <div className="inline-flex items-center gap-1.5 rounded-md border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-blue-300">
-              <Sparkles className="h-3.5 w-3.5" />
-              Slide 2 of 4 · The Mental Model
-            </div>
-
-            <div>
-              <h4 className="text-xl font-bold tracking-tight text-white sm:text-2xl">
-                {slides.mentalModel.headline}
-              </h4>
-              <p className="mt-3 text-sm leading-relaxed text-neutral-300 sm:text-base">
-                {slides.mentalModel.body}
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-white/15 bg-white/[0.04] p-4 sm:p-5">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-400">
-                The Golden Rule
-              </p>
-              <p className="mt-1.5 text-sm font-semibold leading-relaxed text-white sm:text-base">
-                “{slides.mentalModel.goldenRule}”
-              </p>
-            </div>
-          </div>
-        )}
-
-        {currentSlide === 2 && (
-          <div className="space-y-5">
-            <div className="inline-flex items-center gap-1.5 rounded-md border border-purple-500/20 bg-purple-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-purple-300">
-              <BookOpen className="h-3.5 w-3.5" />
-              Slide 3 of 4 · The Tape Breakdown
-            </div>
-
-            <div>
-              <h4 className="text-lg font-bold tracking-tight text-white sm:text-xl">
-                {slides.tape.headline}
-              </h4>
-              <div className="mt-2 rounded-lg border border-white/10 bg-[#0c0c0c] px-3.5 py-2.5 text-xs text-neutral-300">
-                <span className="font-semibold text-neutral-400">Panelist Question: </span>
-                “{slides.tape.prompt}”
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              {/* Weak Tape */}
-              <div className="rounded-xl border border-red-500/20 bg-red-500/[0.04] p-4">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-red-400">
-                  <XCircle className="h-4 w-4" />
-                  Weak / Defensive Tape
+      {/* Animated Stage Body */}
+      <div className="p-6 sm:p-8 min-h-[380px] flex flex-col justify-between bg-gradient-to-b from-[#111114] to-[#0c0c0e]">
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={`${lesson.id}-slide-${currentSlide}`}
+            initial={
+              prefersReducedMotion
+                ? { opacity: 1 }
+                : { opacity: 0, x: slideState.direction * 18 }
+            }
+            animate={{ opacity: 1, x: 0 }}
+            exit={
+              prefersReducedMotion
+                ? { opacity: 1 }
+                : { opacity: 0, x: slideState.direction * -18 }
+            }
+            transition={{ duration: 0.2, ease: "easeOut" }}
+          >
+            {/* SLIDE 1: THE TRAP */}
+            {currentSlide === 0 && (
+              <div className="space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-rose-300">
+                    <ShieldAlert className="h-3.5 w-3.5" />
+                    Slide 1 of 4 · The Executive Autopsy
+                  </div>
+                  {slides.trap.flaws && slides.trap.flaws.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {slides.trap.flaws.map((flaw) => (
+                        <span
+                          key={flaw}
+                          className="rounded-md border border-rose-500/20 bg-rose-500/[0.06] px-2 py-0.5 text-[10px] font-mono text-rose-300"
+                        >
+                          ✕ {flaw}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <p className="mt-2 text-xs italic leading-relaxed text-neutral-300 sm:text-sm">
-                  “{slides.tape.weakResponse}”
-                </p>
-                <p className="mt-2.5 border-t border-red-500/15 pt-2 text-[11px] text-neutral-400">
-                  <span className="font-semibold text-red-300">Critique: </span>
-                  {slides.tape.weakCritique}
-                </p>
-              </div>
 
-              {/* Strong Tape */}
-              <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/[0.05] p-4">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
-                  <CheckCircle2 className="h-4 w-4" />
-                  Executive Tape
-                </div>
-                <p className="mt-2 text-xs leading-relaxed text-white font-medium sm:text-sm">
-                  “{slides.tape.strongResponse}”
-                </p>
-                <p className="mt-2.5 border-t border-emerald-500/15 pt-2 text-[11px] text-neutral-300">
-                  <span className="font-semibold text-emerald-400">Why it works: </span>
-                  {slides.tape.strongWhy}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+                {trapVisualLayout === "hero" && hasTrapVisual && (
+                  <SlideVisualBlock visual={slides.trap.visual} />
+                )}
 
-        {currentSlide === 3 && (
-          <div className="space-y-5">
-            <div className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
-              <Swords className="h-3.5 w-3.5" />
-              Slide 4 of 4 · Chamber Mission
-            </div>
-
-            <div>
-              <h4 className="text-xl font-bold tracking-tight text-white sm:text-2xl">
-                Put It on the Tape
-              </h4>
-              <p className="mt-2 text-xs leading-relaxed text-neutral-300 sm:text-sm">
-                {slides.mission.briefing}
-              </p>
-            </div>
-
-            {/* Opponent & Opening Attack Card */}
-            <div className="rounded-xl border border-white/10 bg-[#161616] p-4 space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2.5">
-                  <span
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white ring-1 ring-white/20"
-                    style={{ backgroundColor: archetypeDef.accentHue }}
+                <div
+                  className={cn(
+                    "grid gap-6 items-start",
+                    trapVisualLayout === "split" && hasTrapVisual
+                      ? "grid-cols-1 lg:grid-cols-12"
+                      : "grid-cols-1"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "space-y-4",
+                      trapVisualLayout === "split" && hasTrapVisual
+                        ? "lg:col-span-6"
+                        : ""
+                    )}
                   >
-                    {roomConfig.personaName.charAt(0).toUpperCase()}
+                    <div>
+                      <h4 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                        {slides.trap.headline}
+                      </h4>
+                      <p className="mt-3 text-sm leading-relaxed text-neutral-300 sm:text-base">
+                        {slides.trap.body}
+                      </p>
+                    </div>
+
+                    {slides.trap.instinctQuote && (
+                      <div className="rounded-xl border border-white/10 bg-[#09090b] p-4">
+                        <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
+                          The Fatal Impulse (What Speakers Blurt Out)
+                        </p>
+                        <p className="mt-1.5 text-xs italic leading-relaxed text-neutral-300 sm:text-sm">
+                          {slides.trap.instinctQuote}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="rounded-xl border border-rose-500/25 bg-rose-500/[0.07] p-4">
+                      <p className="text-[10px] font-mono font-semibold uppercase tracking-wider text-rose-300">
+                        Why this costs you the room
+                      </p>
+                      <p className="mt-1.5 text-xs leading-relaxed text-neutral-100 sm:text-sm">
+                        {slides.trap.costOfFailure}
+                      </p>
+                    </div>
+                  </div>
+
+                  {trapVisualLayout === "split" && hasTrapVisual && (
+                    <div className="lg:col-span-6">
+                      <SlideVisualBlock visual={slides.trap.visual} />
+                    </div>
+                  )}
+                </div>
+
+                {trapVisualLayout === "card" && hasTrapVisual && (
+                  <SlideVisualBlock visual={slides.trap.visual} />
+                )}
+              </div>
+            )}
+
+            {/* SLIDE 2: THE MENTAL MODEL */}
+            {currentSlide === 1 && (
+              <div className="space-y-6">
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-emerald-300">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Slide 2 of 4 · The Tactical Law
+                </div>
+
+                <div>
+                  <h4 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                    {slides.mentalModel.headline}
+                  </h4>
+                  <p className="mt-2.5 text-sm leading-relaxed text-neutral-300 sm:text-base max-w-3xl">
+                    {slides.mentalModel.body}
+                  </p>
+                </div>
+
+                {/* Embossed Golden Rule Law Card */}
+                <div
+                  className={cn(
+                    "rounded-2xl border p-5 sm:p-6 shadow-lg",
+                    ruleThemeClasses
+                  )}
+                >
+                  <div className="flex items-center gap-2 text-[10px] font-mono font-semibold uppercase tracking-[0.2em]">
+                    <Compass className="h-3.5 w-3.5" />
+                    The Golden Rule
+                  </div>
+                  <p className="mt-2 text-base font-bold leading-snug text-white sm:text-xl">
+                    “{slides.mentalModel.goldenRule}”
+                  </p>
+                </div>
+
+                {/* 3-Step Tactical Pipeline */}
+                {slides.mentalModel.steps && slides.mentalModel.steps.length > 0 && (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    {slides.mentalModel.steps.map((s) => (
+                      <div
+                        key={s.step}
+                        className="relative rounded-xl border border-white/10 bg-[#141418] p-4"
+                      >
+                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.07] font-mono text-xs font-bold text-white">
+                          0{s.step}
+                        </span>
+                        <h5 className="mt-2.5 text-xs font-bold text-white sm:text-sm">
+                          {s.label}
+                        </h5>
+                        <p className="mt-1 text-xs leading-relaxed text-neutral-400">
+                          {s.detail}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {modelVisualLayout && (
+                  <SlideVisualBlock visual={slides.mentalModel.visual} />
+                )}
+              </div>
+            )}
+
+            {/* SLIDE 3: THE TAPE BREAKDOWN */}
+            {currentSlide === 2 && (
+              <div className="space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-sky-300">
+                    <BookOpen className="h-3.5 w-3.5" />
+                    Slide 3 of 4 · Film Room Breakdown
+                  </div>
+                  <span className="text-[11px] font-mono text-neutral-400">
+                    {slides.tape.headline}
                   </span>
-                  <div>
-                    <p className="text-xs font-semibold text-white">
-                      {roomConfig.personaName}{" "}
-                      <span className="font-normal text-neutral-400">
-                        · {archetypeDef.tagline}
+                </div>
+
+                {/* Incoming Hostile Prompt Banner */}
+                <div className="rounded-xl border border-white/12 bg-[#09090b] p-4 sm:p-5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-amber-400">
+                      <Radio className="h-3.5 w-3.5" />
+                      Incoming Prompt · {slides.tape.speakerName || `${roomConfig.personaName} (${archetypeDef.tagline})`}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm font-semibold text-white sm:text-base">
+                    “{slides.tape.prompt}”
+                  </p>
+                </div>
+
+                <SlideVisualBlock visual={slides.tape.visual} />
+
+                {/* Side-by-Side Split Film Comparison */}
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  {/* Amateur / Weak Tape */}
+                  <div className="flex flex-col justify-between rounded-xl border border-rose-500/25 bg-rose-500/[0.04] p-5">
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-rose-400">
+                          <XCircle className="h-4 w-4" />
+                          Weak / Defensive Tape
+                        </div>
+                        <span className="rounded bg-rose-500/15 px-2 py-0.5 text-[10px] font-mono text-rose-300">
+                          Loses Authority
+                        </span>
+                      </div>
+
+                      {slides.tape.weakBadges && slides.tape.weakBadges.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {slides.tape.weakBadges.map((b) => (
+                            <span
+                              key={b}
+                              className="rounded border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 text-[10px] font-mono text-rose-200"
+                            >
+                              ✕ {b}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      <p className="mt-3.5 text-xs italic leading-relaxed text-neutral-300 sm:text-sm">
+                        “{slides.tape.weakResponse}”
+                      </p>
+                    </div>
+
+                    <div className="mt-4 border-t border-rose-500/15 pt-3 text-xs text-neutral-300">
+                      <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-rose-300">
+                        Coach Critique:{" "}
                       </span>
-                    </p>
-                    <p className="text-[11px] text-neutral-400 capitalize">
-                      Mode: {modeLabel}
-                      {roomConfig.drillTarget ? ` (${roomConfig.drillTarget})` : ""} · Tone:{" "}
-                      {roomConfig.behaviorStyle}
-                    </p>
+                      {slides.tape.weakCritique}
+                    </div>
+                  </div>
+
+                  {/* Executive Standard Tape */}
+                  <div className="flex flex-col justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-5">
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
+                          <CheckCircle2 className="h-4 w-4" />
+                          Executive Tape
+                        </div>
+                        <span className="rounded bg-emerald-500/15 px-2 py-0.5 text-[10px] font-mono text-emerald-300">
+                          Commands Room
+                        </span>
+                      </div>
+
+                      {slides.tape.strongBadges && slides.tape.strongBadges.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {slides.tape.strongBadges.map((b) => (
+                            <span
+                              key={b}
+                              className="rounded border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-mono text-emerald-200"
+                            >
+                              ✓ {b}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      <p className="mt-3.5 text-xs font-medium leading-relaxed text-white sm:text-sm">
+                        “{slides.tape.strongResponse}”
+                      </p>
+                    </div>
+
+                    <div className="mt-4 border-t border-emerald-500/20 pt-3 text-xs text-neutral-200">
+                      <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
+                        Why it works:{" "}
+                      </span>
+                      {slides.tape.strongWhy}
+                    </div>
                   </div>
                 </div>
-                <span className="rounded bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-300">
-                  {modeLabel}
-                </span>
               </div>
+            )}
 
-              <div className="rounded-lg border border-white/[0.06] bg-black/40 p-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
-                  Opening Attack Line
-                </p>
-                <p className="mt-1 text-xs font-medium leading-relaxed text-white sm:text-sm">
-                  “{slides.mission.openingAttack}”
-                </p>
+            {/* SLIDE 4: CHAMBER MISSION (ARENA PRE-FLIGHT) */}
+            {currentSlide === 3 && (
+              <div className="space-y-6">
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-amber-300">
+                  <Swords className="h-3.5 w-3.5" />
+                  Slide 4 of 4 · Chamber Mission Pre-Flight
+                </div>
+
+                <div>
+                  <h4 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                    Prove It Live Against {roomConfig.personaName}
+                  </h4>
+                  <p className="mt-2 text-sm leading-relaxed text-neutral-300">
+                    {slides.mission.briefing}
+                  </p>
+                </div>
+
+                <SlideVisualBlock visual={slides.mission.visual} />
+
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+                  {/* Opponent Fighter Dossier */}
+                  <div className="lg:col-span-5 rounded-xl border border-white/12 bg-[#141418] p-5 flex flex-col justify-between">
+                    <div>
+                      <p className="text-[10px] font-mono font-semibold uppercase tracking-wider text-neutral-400">
+                        Assigned Panelist
+                      </p>
+                      <div className="mt-3 flex items-center gap-3.5">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/15 bg-white/[0.06] text-lg font-bold text-white">
+                          {roomConfig.personaName.slice(0, 1).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-base font-bold text-white">
+                            {roomConfig.personaName} · {archetypeDef.tagline}
+                          </p>
+                          <p className="text-xs text-neutral-400 capitalize">
+                            {modeLabel} · {roomConfig.behaviorStyle} demeanor
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 border-t border-white/[0.07] pt-3">
+                      <p className="text-[10px] font-mono uppercase tracking-wider text-emerald-400">
+                        Pass Directives
+                      </p>
+                      <p className="mt-1.5 text-xs font-medium text-white">
+                        {slides.mission.passCriteria}
+                      </p>
+                      {slides.mission.passCriteriaList &&
+                        slides.mission.passCriteriaList.length > 0 && (
+                          <ul className="mt-2.5 space-y-1.5 border-t border-white/[0.06] pt-2">
+                            {slides.mission.passCriteriaList.map((item) => (
+                              <li
+                                key={item}
+                                className="flex items-start gap-2 text-xs text-neutral-300"
+                              >
+                                <Target className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                                <span>{item}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                    </div>
+                  </div>
+
+                  {/* Opening Attack Prompt Preview */}
+                  <div className="lg:col-span-7 rounded-xl border border-amber-500/25 bg-gradient-to-br from-amber-500/[0.08] via-[#131316] to-[#0d0d0f] p-5 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-amber-300">
+                          <Flame className="h-3.5 w-3.5" />
+                          Opening Challenge Line
+                        </span>
+                        <span className="rounded bg-white/[0.06] px-2 py-0.5 text-[10px] font-mono text-neutral-400">
+                          Round 1 Audio Prompt
+                        </span>
+                      </div>
+                      <p className="mt-4 text-base font-semibold italic leading-relaxed text-white sm:text-lg">
+                        “{slides.mission.openingAttack}”
+                      </p>
+                    </div>
+
+                    <div className="mt-5 rounded-lg border border-white/[0.08] bg-black/40 px-3.5 py-2.5 text-[11px] font-mono text-neutral-300">
+                      Rule in play: “{slides.mentalModel.goldenRule}”
+                    </div>
+                  </div>
+                </div>
+
+                {/* Launch Chamber CTA Bar */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                  {onLaunchDrill && (
+                    <Button
+                      onClick={() => onLaunchDrill(course, lesson)}
+                      disabled={launching}
+                      className="bg-white text-black hover:bg-neutral-200 font-bold text-xs sm:text-sm px-6 py-3 h-auto shadow-[0_0_25px_rgba(255,255,255,0.2)]"
+                    >
+                      <Play className="mr-2 h-4 w-4 fill-current" />
+                      {launching
+                        ? "Opening Sparring Chamber..."
+                        : previewMode
+                        ? "Test Drill in Chamber →"
+                        : "Enter Drill Chamber →"}
+                    </Button>
+                  )}
+
+                  {!previewMode && onMarkComplete && !isCompleted && (
+                    <button
+                      type="button"
+                      onClick={() => onMarkComplete(course.id, lesson.id)}
+                      className="text-xs font-medium text-neutral-400 underline-offset-4 hover:text-white hover:underline"
+                    >
+                      Mark lesson mastered without drill
+                    </button>
+                  )}
+                </div>
               </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
 
-              <div className="flex items-center gap-2 text-xs text-emerald-400">
-                <Target className="h-3.5 w-3.5 flex-shrink-0" />
-                <span>
-                  <strong className="font-semibold">Pass Criteria:</strong>{" "}
-                  {slides.mission.passCriteria}
-                </span>
-              </div>
-            </div>
-
-            {/* Launch & Complete Controls */}
-            <div className="flex flex-wrap items-center gap-3 pt-1">
-              {onLaunchDrill && (
-                <Button
-                  onClick={() => onLaunchDrill(course, lesson)}
-                  disabled={launching}
-                  className="bg-white text-black hover:bg-neutral-200 font-semibold text-xs sm:text-sm px-5 py-2.5 h-auto"
-                >
-                  <Play className="mr-1.5 h-3.5 w-3.5 fill-black" />
-                  {launching
-                    ? "Opening Sparring Chamber..."
-                    : previewMode
-                    ? "Test Drill in Chamber →"
-                    : "Enter Drill Chamber →"}
-                </Button>
-              )}
-
-              {onMarkComplete && !isCompleted && !previewMode && (
-                <Button
-                  variant="outline"
-                  onClick={() => onMarkComplete(course.id, lesson.id)}
-                  className="border-white/15 bg-white/[0.03] text-xs text-neutral-200 hover:bg-white/[0.08]"
-                >
-                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-emerald-400" />
-                  Mark Lesson Mastered
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Footer Slide Navigation */}
-        <div className="mt-8 flex items-center justify-between border-t border-white/[0.06] pt-4">
+        {/* Bottom Deck Navigation */}
+        <div className="mt-8 flex items-center justify-between border-t border-white/[0.07] pt-4">
           <button
             type="button"
+            disabled={currentSlide === 0}
             onClick={() =>
               setSlide(Math.max(0, currentSlide - 1) as BriefingSlideIndex)
             }
-            disabled={currentSlide === 0}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-neutral-400 transition-colors hover:text-white disabled:opacity-30 disabled:pointer-events-none"
+            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-neutral-300 transition-colors hover:bg-white/[0.06] hover:text-white disabled:opacity-30 disabled:pointer-events-none"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
-            Previous card
+            Previous slide
           </button>
 
-          <span className="text-[11px] font-mono text-neutral-500 tabular-nums">
-            Card {currentSlide + 1} / 4
-          </span>
+          <div className="flex items-center gap-2">
+            {SLIDE_STEPS.map((s) => (
+              <button
+                key={s.index}
+                type="button"
+                aria-label={`Go to ${s.label}`}
+                onClick={() => setSlide(s.index)}
+                className={cn(
+                  "h-1.5 rounded-full transition-all",
+                  currentSlide === s.index
+                    ? "w-6 bg-white"
+                    : currentSlide > s.index
+                    ? "w-2 bg-emerald-400/60"
+                    : "w-2 bg-white/20"
+                )}
+              />
+            ))}
+          </div>
 
           {currentSlide < 3 ? (
             <button
@@ -382,14 +1051,14 @@ export function ExecutiveBriefingDeck({
               onClick={() =>
                 setSlide(Math.min(3, currentSlide + 1) as BriefingSlideIndex)
               }
-              className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-1.5 text-xs font-semibold text-black transition-colors hover:bg-neutral-200"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-white px-4 py-2 text-xs font-semibold text-black transition-colors hover:bg-neutral-200"
             >
-              Next card
+              Next: {SLIDE_STEPS[currentSlide + 1].short}
               <ArrowRight className="h-3.5 w-3.5" />
             </button>
           ) : (
-            <span className="text-xs font-medium text-emerald-400">
-              Ready for chamber
+            <span className="text-[11px] font-mono text-emerald-400">
+              Ready for Chamber
             </span>
           )}
         </div>
@@ -398,14 +1067,19 @@ export function ExecutiveBriefingDeck({
   );
 }
 
-// ─── Learner Coach View ─────────────────────────────────────────────────────
+// ─── Learner-Facing Coach View (Brilliant-Style Stepping Roadmap) ───────────
+
+export interface ActiveCourseLessonContext {
+  courseId: string;
+  lessonId: string;
+}
 
 export interface CoachViewProps {
   onSessionCreated: (
     sessionId: string,
-    exp: ExperienceKey,
-    target: DrillTarget | null,
-    lessonMeta?: { courseId: string; lessonId: string }
+    experience: ExperienceKey,
+    drillTarget: DrillTarget | null,
+    courseLesson?: ActiveCourseLessonContext
   ) => void;
   initialCourses?: Course[];
   initialCompletions?: LessonCompletion[];
@@ -413,37 +1087,55 @@ export interface CoachViewProps {
 
 export function CoachView({
   onSessionCreated,
-  initialCourses = DEFAULT_COURSES,
-  initialCompletions = [],
+  initialCourses,
+  initialCompletions,
 }: CoachViewProps) {
-  const [courses, setCourses] = useState<Course[]>(initialCourses);
-  const [completions, setCompletions] =
-    useState<LessonCompletion[]>(initialCompletions);
+  const [courses, setCourses] = useState<Course[]>(
+    initialCourses ?? DEFAULT_COURSES
+  );
+  const [completions, setCompletions] = useState<LessonCompletion[]>(
+    initialCompletions ?? []
+  );
   const [selectedCourseId, setSelectedCourseId] = useState<string>(
-    initialCourses[0]?.id ?? ""
+    (initialCourses ?? DEFAULT_COURSES)[0]?.id ?? "defending-under-fire"
   );
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/coach/courses")
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data.courses) && data.courses.length > 0) {
-          setCourses(data.courses);
-          setSelectedCourseId((prev) =>
-            data.courses.some((c: Course) => c.id === prev)
-              ? prev
-              : data.courses[0].id
-          );
+    if (initialCourses && initialCompletions) return;
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const [coursesRes, progressRes] = await Promise.all([
+          fetch("/api/coach/courses"),
+          fetch("/api/coach/progress"),
+        ]);
+        if (cancelled) return;
+        if (coursesRes.ok) {
+          const cData = await coursesRes.json();
+          if (Array.isArray(cData.courses) && cData.courses.length > 0) {
+            setCourses(cData.courses);
+          }
         }
-        if (Array.isArray(data.completions)) {
-          setCompletions(data.completions);
+        if (progressRes.ok) {
+          const pData = await progressRes.json();
+          if (Array.isArray(pData.completions)) {
+            setCompletions(pData.completions);
+          }
         }
-      })
-      .catch(() => {});
-  }, []);
+      } catch {
+        // Fallback to seeded DEFAULT_COURSES
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [initialCourses, initialCompletions]);
 
   const completedLessonIds = useMemo(
     () => new Set(completions.map((c) => c.lessonId)),
@@ -550,34 +1242,86 @@ export function CoachView({
     );
   }
 
+  let globalLessonCounter = 0;
+
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 pb-32 sm:px-6 sm:py-12 md:pb-16 space-y-8">
-      {/* Academy Header */}
-      <div>
-        <div className="flex items-center gap-2">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-400">
-            Executive Academy · Structured Mastery
-          </p>
+    <div className="mx-auto max-w-5xl px-4 py-8 pb-32 sm:px-6 sm:py-10 md:pb-16 space-y-8">
+      {/* Top Academy Identity + Compact Track Switcher Pills */}
+      <div className="flex flex-col gap-5 border-b border-white/[0.07] pb-6 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            <p className="text-[11px] font-mono font-semibold uppercase tracking-[0.2em] text-neutral-400">
+              Executive Academy · Mastery Roadmap
+            </p>
+          </div>
+          <h1 className="mt-1.5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+            Coach
+          </h1>
         </div>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-          Coach
-        </h1>
-        <p className="mt-1.5 text-xs text-neutral-400 sm:text-sm max-w-2xl">
-          Study tactical communication frameworks in 90-second briefing decks, then test them immediately in a linked Sparring Chamber.
-        </p>
+
+        {/* Streamlined Track Switcher Bar (Replaces competing 3-card grid) */}
+        <div
+          role="tablist"
+          aria-label="Training tracks"
+          className="flex flex-wrap items-center gap-2"
+        >
+          <span className="mr-1 inline-flex items-center gap-1 text-[11px] font-mono uppercase tracking-wider text-neutral-500">
+            <Layers className="h-3.5 w-3.5" />
+            Track:
+          </span>
+          {courses.map((course) => {
+            const lessons = getCourseLessons(course);
+            const done = lessons.filter((l) =>
+              completedLessonIds.has(l.id)
+            ).length;
+            const isSelected = course.id === selectedCourse.id;
+            return (
+              <button
+                key={course.id}
+                type="button"
+                role="tab"
+                aria-selected={isSelected}
+                onClick={() => {
+                  setSelectedCourseId(course.id);
+                  setActiveLessonId(null);
+                }}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40",
+                  isSelected
+                    ? "border-white/30 bg-white text-black font-semibold shadow-sm"
+                    : "border-white/10 bg-[#121215] text-neutral-300 hover:border-white/25 hover:text-white"
+                )}
+              >
+                <span>{course.title}</span>
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 py-0.2 text-[10px] font-mono tabular-nums",
+                    isSelected
+                      ? "bg-black/15 text-black"
+                      : done === lessons.length && lessons.length > 0
+                      ? "bg-emerald-500/20 text-emerald-400"
+                      : "bg-white/[0.06] text-neutral-400"
+                  )}
+                >
+                  {done}/{lessons.length}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {launchError && (
         <div
           role="alert"
-          className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs text-red-300"
+          className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-300"
         >
           {launchError}
         </div>
       )}
 
-      {/* Active Lesson Briefing Deck (When a learner opens a lesson) */}
+      {/* Active Lesson Briefing Stage OR Brilliant-Style Stepping Roadmap */}
       {activeLesson ? (
         <ExecutiveBriefingDeck
           course={selectedCourse}
@@ -589,244 +1333,215 @@ export function CoachView({
           onClose={() => setActiveLessonId(null)}
         />
       ) : (
-        <>
-          {/* Active Course Hero Banner */}
-          <div className="rounded-2xl border border-white/10 bg-[#121212] p-6 sm:p-7">
-            <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
-              <div className="space-y-2 max-w-2xl">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-300">
-                    {selectedCourse.category}
-                  </span>
-                  <span className="rounded border border-white/10 px-2 py-0.5 text-[10px] font-medium text-neutral-400">
-                    {selectedCourse.difficulty}
-                  </span>
-                  <span className="inline-flex items-center gap-1 text-xs text-neutral-400">
-                    <Clock className="h-3 w-3" />
-                    {selectedCourse.estimatedMinutes} min
-                  </span>
-                </div>
-
-                <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
-                  {selectedCourse.title}
-                </h2>
-                <p className="text-xs leading-relaxed text-neutral-400 sm:text-sm">
-                  {selectedCourse.description}
-                </p>
-
-                {/* Progress Bar */}
-                <div className="pt-2">
-                  <div className="flex items-center justify-between text-xs text-neutral-400 mb-1.5">
-                    <span>
-                      <strong className="text-white font-semibold">
-                        {masteredInCourse}
-                      </strong>{" "}
-                      of {allCourseLessons.length} lessons mastered
-                    </span>
-                    <span className="font-mono tabular-nums text-neutral-300">
-                      {progressPct}%
-                    </span>
-                  </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
-                    <div
-                      className="h-full rounded-full bg-emerald-400 transition-all duration-300"
-                      style={{ width: `${progressPct}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {nextLesson && (
-                <div className="flex-shrink-0">
-                  <Button
-                    onClick={() => setActiveLessonId(nextLesson.id)}
-                    className="w-full lg:w-auto bg-white text-black hover:bg-neutral-200 font-semibold text-xs sm:text-sm px-5 py-3 h-auto"
-                  >
-                    {masteredInCourse === 0
-                      ? `Start Lesson 1: ${nextLesson.title}`
-                      : masteredInCourse === allCourseLessons.length
-                      ? `Review Course: ${nextLesson.title}`
-                      : `Continue: ${nextLesson.title}`}
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </div>
-              )}
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 items-start">
+          {/* Left Sticky Track Dossier Card */}
+          <div className="lg:col-span-4 lg:sticky lg:top-8 rounded-2xl border border-white/10 bg-[#111114] p-6 space-y-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded bg-white/[0.07] px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-neutral-200">
+                {selectedCourse.category}
+              </span>
+              <span className="rounded border border-white/10 px-2 py-0.5 text-[10px] font-mono text-neutral-400">
+                {selectedCourse.difficulty}
+              </span>
+              <span className="inline-flex items-center gap-1 text-xs font-mono text-neutral-400">
+                <Clock className="h-3 w-3" />
+                {selectedCourse.estimatedMinutes}m
+              </span>
             </div>
-          </div>
 
-          {/* Course Track Selector (All Published Courses) */}
-          <div>
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-300">
-                Training Tracks ({courses.length})
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight text-white">
+                {selectedCourse.title}
+              </h2>
+              <p className="mt-2 text-xs leading-relaxed text-neutral-400 sm:text-sm">
+                {selectedCourse.description}
               </p>
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {courses.map((course) => {
-                const lessons = getCourseLessons(course);
-                const done = lessons.filter((l) =>
-                  completedLessonIds.has(l.id)
-                ).length;
-                const isSelected = course.id === selectedCourse.id;
-                return (
-                  <button
-                    key={course.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedCourseId(course.id);
-                      setActiveLessonId(null);
-                    }}
-                    className={cn(
-                      "group flex flex-col justify-between rounded-xl border p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40",
-                      isSelected
-                        ? "border-white/30 bg-[#171717]"
-                        : "border-white/[0.08] bg-[#111111] hover:border-white/20 hover:bg-[#141414]"
-                    )}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
-                          {course.category}
-                        </span>
-                        <span className="text-[10px] font-mono text-neutral-400 tabular-nums">
-                          {done}/{lessons.length}
-                        </span>
-                      </div>
-                      <h3 className="mt-1.5 text-sm font-semibold text-white">
-                        {course.title}
-                      </h3>
-                      <p className="mt-1 line-clamp-2 text-xs text-neutral-400">
-                        {course.subtitle}
-                      </p>
-                    </div>
 
-                    <div className="mt-3 flex items-center justify-between border-t border-white/[0.06] pt-2.5 text-[11px] text-neutral-400">
-                      <span>{course.difficulty}</span>
-                      {done === lessons.length && lessons.length > 0 ? (
-                        <span className="inline-flex items-center gap-1 font-semibold text-emerald-400">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Mastered
-                        </span>
-                      ) : (
-                        <span className="group-hover:text-white transition-colors">
-                          View syllabus →
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
+            {/* Track Mastery Progress */}
+            <div className="rounded-xl border border-white/[0.07] bg-[#0b0b0d] p-4">
+              <div className="flex items-center justify-between text-xs text-neutral-400 mb-2">
+                <span>
+                  <strong className="text-white font-semibold">
+                    {masteredInCourse}
+                  </strong>{" "}
+                  of {allCourseLessons.length} lessons mastered
+                </span>
+                <span className="font-mono font-semibold tabular-nums text-emerald-400">
+                  {progressPct}%
+                </span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-white/[0.07]">
+                <div
+                  className="h-full rounded-full bg-emerald-400 transition-all duration-500"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
             </div>
+
+            {nextLesson && (
+              <Button
+                onClick={() => setActiveLessonId(nextLesson.id)}
+                className="w-full bg-white text-black hover:bg-neutral-200 font-bold text-xs sm:text-sm py-3 h-auto"
+              >
+                {masteredInCourse === 0
+                  ? `Start Node 1: ${nextLesson.title}`
+                  : masteredInCourse === allCourseLessons.length
+                  ? `Review Path: ${nextLesson.title}`
+                  : `Continue Path: ${nextLesson.title}`}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            )}
           </div>
 
-          {/* Syllabus & Lesson Progression Tree */}
-          <div className="space-y-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-300">
-              Course Syllabus · {selectedCourse.title}
-            </p>
-
+          {/* Right Column: Brilliant-Style Stepping Milestone Path */}
+          <div className="lg:col-span-8 space-y-8">
             {selectedCourse.modules.map((mod, modIdx) => (
-              <div
-                key={mod.id}
-                className="rounded-2xl border border-white/[0.08] bg-[#111111] overflow-hidden"
-              >
-                <div className="border-b border-white/[0.06] bg-white/[0.02] px-5 py-3.5">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
-                    Module {modIdx + 1}
-                  </p>
-                  <h3 className="text-sm font-semibold text-white sm:text-base">
-                    {mod.title}
-                  </h3>
-                  {mod.description && (
-                    <p className="mt-0.5 text-xs text-neutral-400">
-                      {mod.description}
-                    </p>
-                  )}
+              <div key={mod.id} className="space-y-4">
+                {/* Milestone Chapter Gate Banner */}
+                <div className="flex items-center gap-3 rounded-xl border border-white/[0.08] bg-[#131317] px-4 py-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-white/[0.05] font-mono text-xs font-bold text-white">
+                    M{modIdx + 1}
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-bold text-white">
+                      {mod.title}
+                    </h3>
+                    {mod.description && (
+                      <p className="truncate text-xs text-neutral-400">
+                        {mod.description}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
-                <div className="divide-y divide-white/[0.06]">
+                {/* Connected Stepping Nodes */}
+                <div className="relative pl-4 sm:pl-8 space-y-5">
                   {mod.lessons.map((lesson, lessonIdx) => {
+                    globalLessonCounter += 1;
+                    const nodeNumber = globalLessonCounter;
                     const isDone = completedLessonIds.has(lesson.id);
                     const isUpNext = nextLesson?.id === lesson.id && !isDone;
-                    const modeLabel = sessionLabel(lesson.roomConfig.experience);
+                    const isLastInModule = lessonIdx === mod.lessons.length - 1;
+                    const archetype =
+                      ARCHETYPES[lesson.roomConfig.archetype] ??
+                      ARCHETYPES.skeptic;
+
+                    // Subtle Brilliant-style horizontal stepping rhythm on desktop
+                    const stepOffsetClass =
+                      nodeNumber % 2 === 0 ? "sm:ml-6" : "sm:mr-6";
 
                     return (
                       <div
                         key={lesson.id}
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => setActiveLessonId(lesson.id)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            setActiveLessonId(lesson.id);
-                          }
-                        }}
-                        aria-label={`Open lesson ${lesson.title}`}
-                        className="group flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-white/[0.03] cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40"
+                        className={cn("relative flex items-stretch gap-4", stepOffsetClass)}
                       >
-                        <div className="flex items-start gap-3.5 min-w-0 flex-1">
-                          {/* Step Status Node */}
-                          <div
+                        {/* Vertical Conduit Spine + Medallion Node */}
+                        <div className="relative flex flex-col items-center">
+                          <button
+                            type="button"
+                            onClick={() => setActiveLessonId(lesson.id)}
+                            aria-label={`Open ${lesson.title}`}
                             className={cn(
-                              "mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold",
+                              "relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-2 font-mono text-sm font-bold transition-all",
                               isDone
-                                ? "bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30"
+                                ? "border-emerald-400 bg-emerald-500/15 text-emerald-300 shadow-[0_0_20px_rgba(16,185,129,0.25)]"
                                 : isUpNext
-                                ? "bg-white text-black"
-                                : "bg-white/[0.06] text-neutral-400"
+                                ? "border-white bg-white text-black shadow-[0_0_28px_rgba(255,255,255,0.4)] scale-105"
+                                : "border-white/15 bg-[#141418] text-neutral-400 hover:border-white/35 hover:text-white"
                             )}
                           >
                             {isDone ? (
-                              <CheckCircle2 className="h-4 w-4" />
+                              <CheckCircle2 className="h-5 w-5" />
+                            ) : isUpNext ? (
+                              <Play className="h-5 w-5 fill-current" />
                             ) : (
-                              lessonIdx + 1
+                              <span>{nodeNumber}</span>
                             )}
-                          </div>
+                          </button>
 
-                          <div className="min-w-0 flex-1">
+                          {!isLastInModule && (
+                            <div
+                              className={cn(
+                                "w-0.5 flex-1 my-1",
+                                isDone
+                                  ? "bg-emerald-500/60"
+                                  : "border-l-2 border-dashed border-white/15"
+                              )}
+                            />
+                          )}
+                        </div>
+
+                        {/* Interactive Milestone Node Card */}
+                        <button
+                          type="button"
+                          onClick={() => setActiveLessonId(lesson.id)}
+                          className={cn(
+                            "group flex-1 rounded-2xl border p-5 text-left transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40",
+                            isUpNext
+                              ? "border-white/35 bg-gradient-to-r from-white/[0.07] via-[#151519] to-[#121215] shadow-lg"
+                              : isDone
+                              ? "border-emerald-500/25 bg-[#111413] hover:border-emerald-500/45"
+                              : "border-white/[0.08] bg-[#111114] hover:border-white/20 hover:bg-[#151519]"
+                          )}
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
                             <div className="flex flex-wrap items-center gap-2">
-                              <h4 className="truncate text-sm font-semibold text-white sm:text-base">
-                                {lesson.title}
-                              </h4>
+                              <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
+                                Node 0{nodeNumber}
+                              </span>
                               {isUpNext && (
-                                <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+                                <span className="rounded-full bg-white px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-black">
                                   Up next
+                                </span>
+                              )}
+                              {isDone && (
+                                <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-mono font-semibold text-emerald-400">
+                                  Mastered
+                                </span>
+                              )}
+                              {!isDone && !isUpNext && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-mono text-neutral-500">
+                                  <Lock className="h-2.5 w-2.5" />
+                                  Unlocked for preview
                                 </span>
                               )}
                             </div>
 
-                            <p className="mt-0.5 truncate text-xs text-neutral-400">
-                              {lesson.tagline}
-                            </p>
-
-                            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-neutral-400">
-                              <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-300">
-                                {modeLabel}
-                              </span>
-                              <span>·</span>
-                              <span>
-                                Opponent: {lesson.roomConfig.personaName} (
-                                {lesson.roomConfig.behaviorStyle})
-                              </span>
-                              <span>·</span>
-                              <span>{lesson.durationMinutes} min</span>
-                            </div>
+                            <span className="text-[11px] font-mono text-neutral-400">
+                              {lesson.durationMinutes} min
+                            </span>
                           </div>
-                        </div>
 
-                        <div className="flex flex-shrink-0 items-center gap-3">
-                          {isDone ? (
-                            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-medium text-emerald-400">
-                              Mastered
+                          <h4 className="mt-2 text-base font-bold text-white sm:text-lg group-hover:text-white">
+                            {lesson.title}
+                          </h4>
+                          <p className="mt-1 text-xs text-neutral-400 sm:text-sm">
+                            {lesson.tagline}
+                          </p>
+
+                          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.06] pt-3">
+                            <div className="flex items-center gap-2 text-[11px] text-neutral-300">
+                              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/10 font-mono text-[10px] font-bold text-white">
+                                {lesson.roomConfig.personaName
+                                  .slice(0, 1)
+                                  .toUpperCase()}
+                              </span>
+                              <span>
+                                Chamber vs.{" "}
+                                <strong className="text-white">
+                                  {lesson.roomConfig.personaName}
+                                </strong>{" "}
+                                ({archetype.tagline})
+                              </span>
+                            </div>
+
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-neutral-300 group-hover:text-white">
+                              {isUpNext ? "Start briefing" : "Open deck"}
+                              <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                             </span>
-                          ) : (
-                            <span className="text-xs font-medium text-neutral-400 group-hover:text-white transition-colors">
-                              Open briefing
-                            </span>
-                          )}
-                          <ChevronRight className="h-4 w-4 text-neutral-500 transition-transform group-hover:translate-x-0.5 group-hover:text-white" />
-                        </div>
+                          </div>
+                        </button>
                       </div>
                     );
                   })}
@@ -834,7 +1549,7 @@ export function CoachView({
               </div>
             ))}
           </div>
-        </>
+        </div>
       )}
     </div>
   );

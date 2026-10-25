@@ -25,6 +25,7 @@ import { DRILL_TARGETS, type DrillTarget, type ExperienceKey } from "@/lib/exper
 import type { ArchetypeKey, BehaviorStyle } from "@/lib/types";
 import {
   DEFAULT_COURSES,
+  DIAGRAM_PRESET_LABELS,
   buildLessonSessionPayload,
   createEmptyCourse,
   createEmptyLesson,
@@ -32,6 +33,9 @@ import {
   type Course,
   type CourseDifficulty,
   type CourseLesson,
+  type DiagramPreset,
+  type SlideVisualMedia,
+  type VisualLayout,
 } from "@/lib/courses";
 import {
   CoachView,
@@ -56,6 +60,105 @@ const DIFFICULTIES: CourseDifficulty[] = [
 ];
 
 const BEHAVIORS: BehaviorStyle[] = ["gentle", "moderate", "aggressive"];
+
+const PRESET_KEYS = Object.keys(DIAGRAM_PRESET_LABELS) as DiagramPreset[];
+
+function SlideVisualEditor({
+  visual,
+  onChange,
+}: {
+  visual?: SlideVisualMedia;
+  onChange: (next: SlideVisualMedia) => void;
+}) {
+  const current: SlideVisualMedia = visual ?? {
+    preset: "none",
+    url: "",
+    layout: "split",
+    caption: "",
+  };
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-[#131317] p-3.5 space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-sky-300">
+          Slide Visual / Diagram
+        </span>
+        <span className="text-[10px] text-neutral-500">
+          Built-in SVG or Custom Image URL
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="sm:col-span-2 space-y-1">
+          <Label className="text-[11px] text-neutral-400">
+            Built-in Tactical Diagram
+          </Label>
+          <select
+            value={current.preset ?? "none"}
+            onChange={(e) =>
+              onChange({
+                ...current,
+                preset: e.target.value as DiagramPreset,
+              })
+            }
+            className="w-full rounded-md border border-white/10 bg-[#0c0c0e] px-2.5 py-2 text-xs text-white"
+          >
+            {PRESET_KEYS.map((k) => (
+              <option key={k} value={k}>
+                {DIAGRAM_PRESET_LABELS[k]}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-1">
+          <Label className="text-[11px] text-neutral-400">
+            Visual Layout
+          </Label>
+          <select
+            value={current.layout ?? "split"}
+            onChange={(e) =>
+              onChange({
+                ...current,
+                layout: e.target.value as VisualLayout,
+              })
+            }
+            className="w-full rounded-md border border-white/10 bg-[#0c0c0e] px-2.5 py-2 text-xs text-white"
+          >
+            <option value="hero">Top Banner (Hero)</option>
+            <option value="split">Side-by-Side (Split)</option>
+            <option value="card">Bottom Card</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="space-y-1">
+          <Label className="text-[11px] text-neutral-400">
+            Custom Image / Graphic URL (Optional)
+          </Label>
+          <Input
+            value={current.url ?? ""}
+            onChange={(e) => onChange({ ...current, url: e.target.value })}
+            placeholder="https://... or /diagrams/custom.png"
+            className="h-8 border-white/10 bg-[#0c0c0e] text-xs text-white"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px] text-neutral-400">
+            Figure Caption
+          </Label>
+          <Input
+            value={current.caption ?? ""}
+            onChange={(e) => onChange({ ...current, caption: e.target.value })}
+            placeholder="Fig 1.1 — Executive takeaway..."
+            className="h-8 border-white/10 bg-[#0c0c0e] text-xs text-white"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function CourseStudio({
   initialCourses = DEFAULT_COURSES,
@@ -825,6 +928,57 @@ export function CourseStudio({
                       className="border-white/10 bg-[#141414] text-white"
                     />
                   </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="trap-quote" className="text-xs text-neutral-300">
+                        The Fatal Impulse Quote (What speakers blurt out)
+                      </Label>
+                      <Input
+                        id="trap-quote"
+                        value={activeLesson.slides.trap.instinctQuote ?? ""}
+                        onChange={(e) =>
+                          updateActiveLesson((l) => ({
+                            ...l,
+                            slides: {
+                              ...l.slides,
+                              trap: {
+                                ...l.slides.trap,
+                                instinctQuote: e.target.value,
+                              },
+                            },
+                          }))
+                        }
+                        placeholder="“Well, we had several moving pieces...”"
+                        className="border-white/10 bg-[#141414] text-white text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="trap-flaws" className="text-xs text-rose-300">
+                        Danger / Flaw Tags (comma-separated)
+                      </Label>
+                      <Input
+                        id="trap-flaws"
+                        value={(activeLesson.slides.trap.flaws ?? []).join(", ")}
+                        onChange={(e) =>
+                          updateActiveLesson((l) => ({
+                            ...l,
+                            slides: {
+                              ...l.slides,
+                              trap: {
+                                ...l.slides.trap,
+                                flaws: e.target.value
+                                  .split(",")
+                                  .map((s) => s.trim())
+                                  .filter(Boolean),
+                              },
+                            },
+                          }))
+                        }
+                        placeholder="Chronological Buildup, Buried Lead, Defensive"
+                        className="border-white/10 bg-[#141414] text-white text-xs"
+                      />
+                    </div>
+                  </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="trap-cost" className="text-xs text-neutral-300">
                       Why this costs you the room
@@ -847,33 +1001,74 @@ export function CourseStudio({
                       className="border-white/10 bg-[#141414] text-white"
                     />
                   </div>
+
+                  <SlideVisualEditor
+                    visual={activeLesson.slides.trap.visual}
+                    onChange={(nextVisual) =>
+                      updateActiveLesson((l) => ({
+                        ...l,
+                        slides: {
+                          ...l.slides,
+                          trap: { ...l.slides.trap, visual: nextVisual },
+                        },
+                      }))
+                    }
+                  />
                 </div>
               )}
 
               {/* Slide 1 Editor: The Mental Model */}
               {activeSlide === 1 && (
                 <div className="space-y-4 rounded-xl border border-white/[0.06] bg-[#0e0e0e] p-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="model-headline" className="text-xs text-neutral-300">
-                      Framework / Rule Name
-                    </Label>
-                    <Input
-                      id="model-headline"
-                      value={activeLesson.slides.mentalModel.headline}
-                      onChange={(e) =>
-                        updateActiveLesson((l) => ({
-                          ...l,
-                          slides: {
-                            ...l.slides,
-                            mentalModel: {
-                              ...l.slides.mentalModel,
-                              headline: e.target.value,
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div className="sm:col-span-2 space-y-1.5">
+                      <Label htmlFor="model-headline" className="text-xs text-neutral-300">
+                        Framework / Rule Name
+                      </Label>
+                      <Input
+                        id="model-headline"
+                        value={activeLesson.slides.mentalModel.headline}
+                        onChange={(e) =>
+                          updateActiveLesson((l) => ({
+                            ...l,
+                            slides: {
+                              ...l.slides,
+                              mentalModel: {
+                                ...l.slides.mentalModel,
+                                headline: e.target.value,
+                              },
                             },
-                          },
-                        }))
-                      }
-                      className="border-white/10 bg-[#141414] text-white"
-                    />
+                          }))
+                        }
+                        className="border-white/10 bg-[#141414] text-white"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="model-theme" className="text-xs text-neutral-300">
+                        Golden Rule Card Theme
+                      </Label>
+                      <select
+                        id="model-theme"
+                        value={activeLesson.slides.mentalModel.ruleTheme ?? "emerald"}
+                        onChange={(e) =>
+                          updateActiveLesson((l) => ({
+                            ...l,
+                            slides: {
+                              ...l.slides,
+                              mentalModel: {
+                                ...l.slides.mentalModel,
+                                ruleTheme: e.target.value as "emerald" | "amber" | "cyan",
+                              },
+                            },
+                          }))
+                        }
+                        className="w-full rounded-md border border-white/10 bg-[#141414] px-3 py-2 text-xs text-white"
+                      >
+                        <option value="emerald">Emerald Law</option>
+                        <option value="cyan">Cyan Blueprint</option>
+                        <option value="amber">Amber Alert</option>
+                      </select>
+                    </div>
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="model-body" className="text-xs text-neutral-300">
@@ -881,7 +1076,7 @@ export function CourseStudio({
                     </Label>
                     <Textarea
                       id="model-body"
-                      rows={3}
+                      rows={2}
                       value={activeLesson.slides.mentalModel.body}
                       onChange={(e) =>
                         updateActiveLesson((l) => ({
@@ -920,30 +1115,138 @@ export function CourseStudio({
                       className="border-white/10 bg-[#141414] text-white"
                     />
                   </div>
+
+                  {/* 3-Step Tactical Pipeline Editor */}
+                  <div className="rounded-xl border border-white/10 bg-[#131317] p-3.5 space-y-2.5">
+                    <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-emerald-300">
+                      3-Step Tactical Playbook (Shown on Slide 2)
+                    </span>
+                    <div className="space-y-2">
+                      {(activeLesson.slides.mentalModel.steps ?? [
+                        { step: 1, label: "Step 1", detail: "Action one" },
+                        { step: 2, label: "Step 2", detail: "Action two" },
+                        { step: 3, label: "Step 3", detail: "Action three" },
+                      ]).map((st, sIdx) => (
+                        <div key={sIdx} className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                          <Input
+                            value={st.label}
+                            onChange={(e) => {
+                              const currentSteps = activeLesson.slides.mentalModel.steps ?? [
+                                { step: 1, label: "Step 1", detail: "" },
+                                { step: 2, label: "Step 2", detail: "" },
+                                { step: 3, label: "Step 3", detail: "" },
+                              ];
+                              const nextSteps = currentSteps.map((item, idx) =>
+                                idx === sIdx ? { ...item, label: e.target.value } : item
+                              );
+                              updateActiveLesson((l) => ({
+                                ...l,
+                                slides: {
+                                  ...l.slides,
+                                  mentalModel: {
+                                    ...l.slides.mentalModel,
+                                    steps: nextSteps,
+                                  },
+                                },
+                              }));
+                            }}
+                            placeholder={`Step ${sIdx + 1} Title`}
+                            className="h-8 border-white/10 bg-[#0c0c0e] text-xs text-white"
+                          />
+                          <Input
+                            value={st.detail}
+                            onChange={(e) => {
+                              const currentSteps = activeLesson.slides.mentalModel.steps ?? [
+                                { step: 1, label: "Step 1", detail: "" },
+                                { step: 2, label: "Step 2", detail: "" },
+                                { step: 3, label: "Step 3", detail: "" },
+                              ];
+                              const nextSteps = currentSteps.map((item, idx) =>
+                                idx === sIdx ? { ...item, detail: e.target.value } : item
+                              );
+                              updateActiveLesson((l) => ({
+                                ...l,
+                                slides: {
+                                  ...l.slides,
+                                  mentalModel: {
+                                    ...l.slides.mentalModel,
+                                    steps: nextSteps,
+                                  },
+                                },
+                              }));
+                            }}
+                            placeholder={`Step ${sIdx + 1} explanation`}
+                            className="sm:col-span-2 h-8 border-white/10 bg-[#0c0c0e] text-xs text-white"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <SlideVisualEditor
+                    visual={activeLesson.slides.mentalModel.visual}
+                    onChange={(nextVisual) =>
+                      updateActiveLesson((l) => ({
+                        ...l,
+                        slides: {
+                          ...l.slides,
+                          mentalModel: {
+                            ...l.slides.mentalModel,
+                            visual: nextVisual,
+                          },
+                        },
+                      }))
+                    }
+                  />
                 </div>
               )}
 
               {/* Slide 2 Editor: The Tape Breakdown */}
               {activeSlide === 2 && (
                 <div className="space-y-4 rounded-xl border border-white/[0.06] bg-[#0e0e0e] p-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="tape-prompt" className="text-xs text-neutral-300">
-                      Example Panelist Question
-                    </Label>
-                    <Input
-                      id="tape-prompt"
-                      value={activeLesson.slides.tape.prompt}
-                      onChange={(e) =>
-                        updateActiveLesson((l) => ({
-                          ...l,
-                          slides: {
-                            ...l.slides,
-                            tape: { ...l.slides.tape, prompt: e.target.value },
-                          },
-                        }))
-                      }
-                      className="border-white/10 bg-[#141414] text-white"
-                    />
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="tape-prompt" className="text-xs text-neutral-300">
+                        Example Panelist Question
+                      </Label>
+                      <Input
+                        id="tape-prompt"
+                        value={activeLesson.slides.tape.prompt}
+                        onChange={(e) =>
+                          updateActiveLesson((l) => ({
+                            ...l,
+                            slides: {
+                              ...l.slides,
+                              tape: { ...l.slides.tape, prompt: e.target.value },
+                            },
+                          }))
+                        }
+                        className="border-white/10 bg-[#141414] text-white text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="tape-speaker" className="text-xs text-neutral-300">
+                        Speaker Label
+                      </Label>
+                      <Input
+                        id="tape-speaker"
+                        value={activeLesson.slides.tape.speakerName ?? ""}
+                        onChange={(e) =>
+                          updateActiveLesson((l) => ({
+                            ...l,
+                            slides: {
+                              ...l.slides,
+                              tape: {
+                                ...l.slides.tape,
+                                speakerName: e.target.value,
+                              },
+                            },
+                          }))
+                        }
+                        placeholder="Ada · Lead Board Skeptic"
+                        className="border-white/10 bg-[#141414] text-white text-xs"
+                      />
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -985,6 +1288,27 @@ export function CourseStudio({
                           }))
                         }
                         placeholder="Why this fails..."
+                        className="border-white/10 bg-[#141414] text-white text-xs"
+                      />
+                      <Input
+                        aria-label="Weak response flaw tags"
+                        value={(activeLesson.slides.tape.weakBadges ?? []).join(", ")}
+                        onChange={(e) =>
+                          updateActiveLesson((l) => ({
+                            ...l,
+                            slides: {
+                              ...l.slides,
+                              tape: {
+                                ...l.slides.tape,
+                                weakBadges: e.target.value
+                                  .split(",")
+                                  .map((s) => s.trim())
+                                  .filter(Boolean),
+                              },
+                            },
+                          }))
+                        }
+                        placeholder="Flaw tags (comma-separated)"
                         className="border-white/10 bg-[#141414] text-white text-xs"
                       />
                     </div>
@@ -1029,8 +1353,42 @@ export function CourseStudio({
                         placeholder="Why this works..."
                         className="border-white/10 bg-[#141414] text-white text-xs"
                       />
+                      <Input
+                        aria-label="Executive response strength tags"
+                        value={(activeLesson.slides.tape.strongBadges ?? []).join(", ")}
+                        onChange={(e) =>
+                          updateActiveLesson((l) => ({
+                            ...l,
+                            slides: {
+                              ...l.slides,
+                              tape: {
+                                ...l.slides.tape,
+                                strongBadges: e.target.value
+                                  .split(",")
+                                  .map((s) => s.trim())
+                                  .filter(Boolean),
+                              },
+                            },
+                          }))
+                        }
+                        placeholder="Strength tags (comma-separated)"
+                        className="border-white/10 bg-[#141414] text-white text-xs"
+                      />
                     </div>
                   </div>
+
+                  <SlideVisualEditor
+                    visual={activeLesson.slides.tape.visual}
+                    onChange={(nextVisual) =>
+                      updateActiveLesson((l) => ({
+                        ...l,
+                        slides: {
+                          ...l.slides,
+                          tape: { ...l.slides.tape, visual: nextVisual },
+                        },
+                      }))
+                    }
+                  />
                 </div>
               )}
 
@@ -1081,8 +1439,8 @@ export function CourseStudio({
                                 ...l.roomConfig,
                                 drillTarget: e.target.value as DrillTarget,
                               },
-                            }))
-                          }
+                            })
+                          )}
                           className="w-full rounded-md border border-white/10 bg-[#141414] px-3 py-2 text-xs text-white"
                         >
                           {DRILL_TARGETS.map((t) => (
@@ -1175,7 +1533,7 @@ export function CourseStudio({
 
                   <div className="space-y-1.5">
                     <Label htmlFor="mission-criteria" className="text-xs text-emerald-400">
-                      Pass Criteria (What the coach evaluates)
+                      Pass Criteria Summary
                     </Label>
                     <Input
                       id="mission-criteria"
@@ -1193,6 +1551,34 @@ export function CourseStudio({
                         }))
                       }
                       className="border-white/10 bg-[#141414] text-white"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="mission-directives" className="text-xs text-neutral-300">
+                      Pass Directives Checklist (one objective per line)
+                    </Label>
+                    <Textarea
+                      id="mission-directives"
+                      rows={3}
+                      value={(activeLesson.slides.mission.passCriteriaList ?? []).join("\n")}
+                      onChange={(e) =>
+                        updateActiveLesson((l) => ({
+                          ...l,
+                          slides: {
+                            ...l.slides,
+                            mission: {
+                              ...l.slides.mission,
+                              passCriteriaList: e.target.value
+                                .split("\n")
+                                .map((s) => s.trim())
+                                .filter(Boolean),
+                            },
+                          },
+                        }))
+                      }
+                      placeholder="Answer directly in sentence one&#10;Cite one concrete metric&#10;Zero hedge words"
+                      className="border-white/10 bg-[#141414] text-white text-xs"
                     />
                   </div>
                 </div>
