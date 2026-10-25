@@ -9,7 +9,10 @@ import { HomeView } from "@/components/spar/home-view";
 import { PracticeView } from "@/components/spar/practice-view";
 import { SparringRoom } from "@/components/spar/sparring-room";
 import { DebriefView } from "@/components/spar/debrief-view";
-import { CoachView } from "@/components/spar/coach-view";
+import {
+  CoachView,
+  type ActiveCourseLessonContext,
+} from "@/components/spar/coach-view";
 import { sessionLabel } from "@/lib/session-label";
 import type { ExperienceKey, DrillTarget } from "@/lib/experiences";
 import { TrendingUp, Hammer } from "lucide-react";
@@ -26,10 +29,11 @@ export default function Page() {
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [experience, setExperience] = useState<ExperienceKey>("open_spar");
   const [drillTarget, setDrillTarget] = useState<DrillTarget | null>(null);
-  const [activeCourseLesson, setActiveCourseLesson] = useState<{
-    courseId: string;
-    lessonId: string;
-  } | null>(null);
+  const [activeCourseLesson, setActiveCourseLesson] =
+    useState<ActiveCourseLessonContext | null>(null);
+  const [coachReturnCourseId, setCoachReturnCourseId] = useState<string | null>(
+    null
+  );
 
   // Load user name (for the dashboard after they enter)
   useEffect(() => {
@@ -45,7 +49,12 @@ export default function Page() {
   }, []);
 
   function navigate(v: NavView) {
-    if (v === "coach" || v === "progress") {
+    if (v === "coach") {
+      setCoachReturnCourseId(null);
+      setView("coach");
+      return;
+    }
+    if (v === "progress") {
       setView(v);
       return;
     }
@@ -98,12 +107,13 @@ export default function Page() {
     sessionId: string,
     exp: ExperienceKey,
     target: DrillTarget | null,
-    lessonMeta?: { courseId: string; lessonId: string }
+    lessonMeta?: ActiveCourseLessonContext
   ) {
     setActiveSessionId(sessionId);
     setExperience(exp);
     setDrillTarget(target);
     setActiveCourseLesson(lessonMeta ?? null);
+    setCoachReturnCourseId(lessonMeta?.courseId ?? null);
     setView("sparring");
   }
 
@@ -133,6 +143,7 @@ export default function Page() {
   function handleSparAgain() {
     setActiveSessionId(null);
     if (activeCourseLesson) {
+      setCoachReturnCourseId(activeCourseLesson.courseId);
       setActiveCourseLesson(null);
       setView("coach");
     } else {
@@ -143,6 +154,7 @@ export default function Page() {
   function handleBackHome() {
     setActiveSessionId(null);
     if (activeCourseLesson) {
+      setCoachReturnCourseId(activeCourseLesson.courseId);
       setActiveCourseLesson(null);
       setView("coach");
     } else {
@@ -207,6 +219,7 @@ export default function Page() {
             userName={userName}
             onEnterSparringRoom={() => setView("practice")}
             onOpenDebrief={(sessionId, label) => {
+              setActiveCourseLesson(null);
               setActiveSessionId(sessionId);
               setScenarioLabel(label);
               setView("debrief");
@@ -223,12 +236,18 @@ export default function Page() {
           <DebriefView
             sessionId={activeSessionId}
             scenarioLabel={scenarioLabel}
+            courseContext={activeCourseLesson}
             onBackHome={handleBackHome}
             onSparAgain={handleSparAgain}
           />
         )}
         {view === "coach" && (
-          <CoachView onSessionCreated={handleSessionCreated} />
+          <CoachView
+            key={coachReturnCourseId ?? "catalog"}
+            initialScreen={coachReturnCourseId ? "roadmap" : "catalog"}
+            initialSelectedCourseId={coachReturnCourseId ?? undefined}
+            onSessionCreated={handleSessionCreated}
+          />
         )}
         {view === "progress" && (
           <ComingSoonView

@@ -34,6 +34,13 @@ import type { Variants } from "framer-motion";
 export interface DebriefViewProps {
   sessionId: string;
   scenarioLabel?: string;
+  courseContext?: {
+    courseId: string;
+    lessonId: string;
+    courseTitle?: string;
+    lessonTitle?: string;
+    passCriteria?: string;
+  } | null;
   onBackHome: () => void;
   onSparAgain: () => void;
 }
@@ -79,6 +86,7 @@ export interface DebriefResponse {
 export function DebriefView({
   sessionId,
   scenarioLabel,
+  courseContext,
   onBackHome,
   onSparAgain,
 }: DebriefViewProps) {
@@ -215,6 +223,7 @@ export function DebriefView({
   return (
     <DebriefContent
       scenarioLabel={scenarioLabel}
+      courseContext={courseContext}
       data={data}
       clips={clips}
       playingIndex={playingIndex}
@@ -235,6 +244,7 @@ export function DebriefView({
  */
 export function DebriefContent({
   scenarioLabel,
+  courseContext,
   data,
   clips,
   playingIndex,
@@ -248,6 +258,7 @@ export function DebriefContent({
   onSparAgain,
 }: {
   scenarioLabel?: string;
+  courseContext?: DebriefViewProps["courseContext"];
   data: DebriefResponse;
   clips: Map<number, { url: string; duration: number }>;
   playingIndex: number | null;
@@ -293,13 +304,29 @@ export function DebriefContent({
         className="mb-8 border-b border-white/[0.08] pb-6"
       >
         <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.04] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-300">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            Executive Dossier
-          </span>
-          <span className="rounded-full border border-white/10 bg-neutral-900 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-neutral-400">
-            {scenarioLabel || "Session"}
-          </span>
+          {courseContext ? (
+            <>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                Course Drill Completed
+              </span>
+              {courseContext.courseTitle && (
+                <span className="rounded-full border border-white/10 bg-neutral-900 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-neutral-300">
+                  {courseContext.courseTitle}
+                </span>
+              )}
+            </>
+          ) : (
+            <>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.04] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-300">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                Executive Dossier
+              </span>
+              <span className="rounded-full border border-white/10 bg-neutral-900 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-neutral-400">
+                {scenarioLabel || "Session"}
+              </span>
+            </>
+          )}
           {t && (
             <span className="rounded-full border border-white/5 bg-neutral-950 px-2.5 py-0.5 text-[10px] text-neutral-500 tabular-nums">
               {t.userTurns} {t.userTurns === 1 ? "turn" : "turns"}
@@ -308,11 +335,29 @@ export function DebriefContent({
         </div>
 
         <h1 className="mt-3 text-2xl font-bold tracking-tight text-white sm:text-3xl">
-          The coach&apos;s notes
+          {courseContext?.lessonTitle
+            ? `Lesson Debrief: ${courseContext.lessonTitle}`
+            : "The coach's notes"}
         </h1>
         <p className="mt-1.5 text-xs text-neutral-400">
-          Honest. Specific. Forward-looking. No vanity scores — pure executive development.
+          {courseContext
+            ? "Focused readout on how you applied this lesson's technique under pressure."
+            : "Honest. Specific. Forward-looking. No vanity scores — pure executive development."}
         </p>
+
+        {courseContext?.passCriteria && (
+          <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.05] px-3.5 py-3">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-300">
+                Lesson Target Evaluated
+              </p>
+              <p className="mt-0.5 text-xs leading-relaxed text-neutral-200">
+                {courseContext.passCriteria}
+              </p>
+            </div>
+          </div>
+        )}
       </motion.div>
 
       <motion.div
@@ -489,88 +534,92 @@ export function DebriefContent({
           </DebriefSection>
         </motion.div>
 
-        {/* Section 6 — Telemetry as Bespoke Visual Gauges */}
-        <motion.div variants={itemVariants}>
-          <DebriefSection
-            number={d.presentationEvaluation ? "06" : "05"}
-            icon={<BarChart3 className="h-4 w-4" />}
-            title="Telemetry"
-            accent="slate"
-          >
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-              <TelemetryInsight
-                label="Pace"
-                value={d.telemetryInsights.pace}
-                metric={
-                  t ? `${t.avgWordsPerResponse} words / response` : undefined
-                }
-              />
-              <TelemetryInsight
-                label="Fillers"
-                value={d.telemetryInsights.fillers}
-                metric={
-                  t
-                    ? `${t.hedgeCount} hedges (${t.hedgesPerResponse}/response)`
-                    : undefined
-                }
-              />
-              <TelemetryInsight
-                label="Recovery"
-                value={d.telemetryInsights.recovery}
-                metric={
-                  t ? `${t.deflections} deflections / ${t.userTurns} turns` : undefined
-                }
-              />
-              <TelemetryInsight
-                label="Evidence"
-                value={d.telemetryInsights.evidence}
-                metric={
-                  t ? `${t.evidenceCitations}/${t.userTurns} cited data` : undefined
-                }
-              />
-            </div>
-          </DebriefSection>
-        </motion.div>
+        {/* Section 6 — Telemetry as Bespoke Visual Gauges (Full practice debrief only) */}
+        {!courseContext && (
+          <motion.div variants={itemVariants}>
+            <DebriefSection
+              number={d.presentationEvaluation ? "06" : "05"}
+              icon={<BarChart3 className="h-4 w-4" />}
+              title="Telemetry"
+              accent="slate"
+            >
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                <TelemetryInsight
+                  label="Pace"
+                  value={d.telemetryInsights.pace}
+                  metric={
+                    t ? `${t.avgWordsPerResponse} words / response` : undefined
+                  }
+                />
+                <TelemetryInsight
+                  label="Fillers"
+                  value={d.telemetryInsights.fillers}
+                  metric={
+                    t
+                      ? `${t.hedgeCount} hedges (${t.hedgesPerResponse}/response)`
+                      : undefined
+                  }
+                />
+                <TelemetryInsight
+                  label="Recovery"
+                  value={d.telemetryInsights.recovery}
+                  metric={
+                    t ? `${t.deflections} deflections / ${t.userTurns} turns` : undefined
+                  }
+                />
+                <TelemetryInsight
+                  label="Evidence"
+                  value={d.telemetryInsights.evidence}
+                  metric={
+                    t ? `${t.evidenceCitations}/${t.userTurns} cited data` : undefined
+                  }
+                />
+              </div>
+            </DebriefSection>
+          </motion.div>
+        )}
 
-        {/* Section 7 — Save or Share */}
-        <motion.div variants={itemVariants}>
-          <DebriefSection
-            number={d.presentationEvaluation ? "07" : "06"}
-            icon={<Share2 className="h-4 w-4" />}
-            title="Save or Share"
-            accent="slate"
-          >
-            <div className="rounded-lg border border-white/10 bg-neutral-950 p-4">
-              <p className="mb-2 text-[10px] uppercase tracking-wider text-neutral-500">
-                Executive debrief memo
-              </p>
-              <pre className="whitespace-pre-wrap font-sans text-xs leading-relaxed text-neutral-300">
-                {d.shareableSummary}
-              </pre>
-            </div>
-            <div className="mt-3 flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onCopy}
-                className="border-white/15 bg-white/[0.03] text-neutral-200 hover:bg-white/[0.08] hover:text-white"
-              >
-                {copied ? (
-                  <>
-                    <Check className="h-3.5 w-3.5 mr-1.5 text-emerald-400" /> Copied to clipboard
-                  </>
-                ) : (
-                  <>
-                    <Share2 className="h-3.5 w-3.5 mr-1.5" /> Copy summary
-                  </>
-                )}
-              </Button>
-            </div>
-          </DebriefSection>
-        </motion.div>
+        {/* Section 7 — Save or Share (Full practice debrief only) */}
+        {!courseContext && (
+          <motion.div variants={itemVariants}>
+            <DebriefSection
+              number={d.presentationEvaluation ? "07" : "06"}
+              icon={<Share2 className="h-4 w-4" />}
+              title="Save or Share"
+              accent="slate"
+            >
+              <div className="rounded-lg border border-white/10 bg-neutral-950 p-4">
+                <p className="mb-2 text-[10px] uppercase tracking-wider text-neutral-500">
+                  Executive debrief memo
+                </p>
+                <pre className="whitespace-pre-wrap font-sans text-xs leading-relaxed text-neutral-300">
+                  {d.shareableSummary}
+                </pre>
+              </div>
+              <div className="mt-3 flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onCopy}
+                  className="border-white/15 bg-white/[0.03] text-neutral-200 hover:bg-white/[0.08] hover:text-white"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="h-3.5 w-3.5 mr-1.5 text-emerald-400" /> Copied to clipboard
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="h-3.5 w-3.5 mr-1.5" /> Copy summary
+                    </>
+                  )}
+                </Button>
+              </div>
+            </DebriefSection>
+          </motion.div>
+        )}
 
-        {/* Skill snapshot — subtle baseline bars */}
-        {data.skillSnapshot && (
+        {/* Skill snapshot — subtle baseline bars (Full practice debrief only) */}
+        {!courseContext && data.skillSnapshot && (
           <motion.div variants={itemVariants}>
             <div className="rounded-xl border border-white/[0.08] bg-[#121212] p-5">
               <p className="mb-4 text-[10px] uppercase tracking-wider text-neutral-500">
@@ -676,13 +725,17 @@ export function DebriefContent({
           onClick={onBackHome}
           className="text-neutral-400 hover:text-white"
         >
-          <ArrowLeft className="h-4 w-4 mr-1.5" /> Back to Home
+          <ArrowLeft className="h-4 w-4 mr-1.5" />
+          {courseContext
+            ? `Back to ${courseContext.courseTitle || "Course"} Roadmap`
+            : "Back to Home"}
         </Button>
         <Button
           onClick={onSparAgain}
           className="bg-white text-black hover:bg-neutral-200 font-medium"
         >
-          Spar again <ArrowRight className="h-4 w-4 ml-1.5" />
+          {courseContext ? "Continue Course" : "Spar again"}{" "}
+          <ArrowRight className="h-4 w-4 ml-1.5" />
         </Button>
       </div>
     </div>

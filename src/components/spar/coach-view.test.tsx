@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { DEFAULT_COURSES } from "@/lib/courses";
 import { CoachView, ExecutiveBriefingDeck } from "./coach-view";
+import { DebriefContent } from "./debrief-view";
 
 describe("CoachView (3-Screen Learner Experience)", () => {
   test("Screen A (Catalog): renders 'Build your presence.' discovery header, 'Continue learning' section, and outcome-first course cards without creator controls", () => {
@@ -70,7 +71,7 @@ describe("CoachView (3-Screen Learner Experience)", () => {
     expect(markup).not.toContain("Zero-Hedge Concision");
   });
 
-  test("Screen C (Interactive Lesson Player): renders Hook & Attempt stage for 'Surviving the Friendly Trap' before debrief", () => {
+  test("Screen C (Interactive Lesson Player): renders full-screen theater stage with Hook & Attempt stage and Exit to roadmap action", () => {
     const markup = renderToStaticMarkup(
       <CoachView
         onSessionCreated={() => {}}
@@ -82,10 +83,68 @@ describe("CoachView (3-Screen Learner Experience)", () => {
       />
     );
 
+    expect(markup).toContain("fixed inset-0 z-50");
+    expect(markup).toContain("Exit to roadmap");
     expect(markup).toContain("Surviving the Friendly Trap");
     expect(markup).toContain("1. Scenario &amp; Attempt");
     expect(markup).toContain("Speak response");
     expect(markup).toContain("Submit attempt &amp; see principle");
+  });
+
+  test("Course-Focused Debrief: renders Course Drill Completed banner and direct roadmap return buttons while omitting heavy full-practice telemetry", () => {
+    const markup = renderToStaticMarkup(
+      <DebriefContent
+        scenarioLabel="Drill"
+        courseContext={{
+          courseId: "boardroom-curveballs",
+          lessonId: "bc-lesson-1-ally-pivot",
+          courseTitle: "Boardroom Curveballs",
+          lessonTitle: "Surviving the Friendly Trap",
+          passCriteria: "Bridge back to core strategy in under 20 seconds.",
+        }}
+        data={{
+          debrief: {
+            momentDescription: "You anchored immediately without accepting the false premise.",
+            whatWentWell: ["Named the trade-off cleanly in the first sentence."],
+            thePattern: "Held composure when pressed on timeline.",
+            oneThingToPractice: "Pause one beat before delivering the metric.",
+            telemetryInsights: {
+              pace: "Steady",
+              fillers: "Zero hedges",
+              recovery: "Fast",
+              evidence: "Strong",
+            },
+            shareableSummary: "Summary",
+          },
+          telemetry: null,
+          skillSnapshot: {
+            clarity: 80,
+            recovery: 82,
+            concision: 78,
+            presence: 85,
+            evidence: 79,
+          },
+        }}
+        clips={new Map()}
+        playingIndex={null}
+        showTranscript={false}
+        copied={false}
+        onPlay={() => {}}
+        onPause={() => {}}
+        onCopy={() => {}}
+        onToggleTranscript={() => {}}
+        onBackHome={() => {}}
+        onSparAgain={() => {}}
+      />
+    );
+
+    expect(markup).toContain("Course Drill Completed");
+    expect(markup).toContain("Lesson Debrief: Surviving the Friendly Trap");
+    expect(markup).toContain("Bridge back to core strategy in under 20 seconds.");
+    expect(markup).toContain("Back to Boardroom Curveballs Roadmap");
+    expect(markup).toContain("Continue Course");
+    expect(markup).not.toContain("Skill baseline (this session)");
+    expect(markup).not.toContain("Executive debrief memo");
   });
 });
 

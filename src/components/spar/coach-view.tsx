@@ -1072,6 +1072,9 @@ export type CoachScreen = "catalog" | "roadmap" | "lesson";
 export interface ActiveCourseLessonContext {
   courseId: string;
   lessonId: string;
+  courseTitle?: string;
+  lessonTitle?: string;
+  passCriteria?: string;
 }
 
 export interface CoachViewProps {
@@ -1211,7 +1214,13 @@ export function CoachView({
         data.session.id,
         payload.experience,
         payload.drillTarget,
-        { courseId: course.id, lessonId: lesson.id }
+        {
+          courseId: course.id,
+          lessonId: lesson.id,
+          courseTitle: course.title,
+          lessonTitle: lesson.title,
+          passCriteria: lesson.slides.mission.passCriteria,
+        }
       );
     } catch (err) {
       setLaunchError(

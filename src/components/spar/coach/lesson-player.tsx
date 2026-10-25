@@ -10,6 +10,7 @@ import {
   MicOff,
   Play,
   Square,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -199,91 +200,122 @@ export function LessonPlayer({
     setMicStatus("finished");
   }
 
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        onBackToRoadmap();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onBackToRoadmap]);
+
   const activeResponseToEvaluate =
     retryAttempt.trim() || initialAttempt.trim();
   const evaluation = evaluatePracticeAttempt(activeResponseToEvaluate, lesson);
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8 pb-32 sm:px-6 sm:py-10 md:pb-16 space-y-8">
-      {/* Top Breadcrumb & Lesson Status Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] pb-4">
-        <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs">
-          <button
-            type="button"
-            onClick={onBackToRoadmap}
-            className="inline-flex items-center gap-1.5 font-medium text-neutral-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:underline"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            {course.title}
-          </button>
-          <span className="text-neutral-600">/</span>
-          <span className="font-medium text-neutral-200 truncate">
-            {lesson.title}
-          </span>
-        </nav>
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={lesson.title}
+      className="fixed inset-0 z-50 flex flex-col bg-[#070707] overflow-y-auto"
+    >
+      {/* Full-Screen Sticky Theater Top Bar */}
+      <header className="sticky top-0 z-20 border-b border-white/[0.08] bg-[#0a0a0c]/95 backdrop-blur-md">
+        <div className="mx-auto max-w-4xl px-4 py-3.5 sm:px-6 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <button
+                type="button"
+                onClick={onBackToRoadmap}
+                aria-label="Exit to roadmap"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/12 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-neutral-200 transition-colors hover:border-white/25 hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              >
+                <X className="h-3.5 w-3.5" />
+                <span>Exit to roadmap</span>
+              </button>
 
-        <div className="flex items-center gap-2.5 text-xs text-neutral-400">
-          <span className="rounded-md border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] text-neutral-300">
-            {activityLabel}
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <Clock className="h-3 w-3 text-neutral-500" />
-            {lesson.durationMinutes} min
-          </span>
-          {isCompleted && (
-            <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              Mastered
-            </span>
-          )}
-        </div>
-      </div>
+              <nav
+                aria-label="Breadcrumb"
+                className="hidden sm:flex items-center gap-2 text-xs min-w-0"
+              >
+                <span className="text-neutral-400 truncate">
+                  {course.title}
+                </span>
+                <span className="text-neutral-600">/</span>
+                <span className="font-medium text-white truncate">
+                  {lesson.title}
+                </span>
+              </nav>
+            </div>
 
-      {/* Predictable 4-Step Lesson Progress Bar */}
-      <div
-        role="tablist"
-        aria-label="Lesson stages"
-        className="grid grid-cols-4 gap-2"
-      >
-        {LESSON_STAGES.map((s) => {
-          const active = stage === s.index;
-          const passed = stage > s.index;
-          return (
-            <button
-              key={s.index}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setStage(s.index)}
-              className={cn(
-                "flex flex-col gap-1.5 text-left transition-colors focus-visible:outline-none",
-                active
-                  ? "text-white font-semibold"
-                  : passed
-                  ? "text-neutral-300"
-                  : "text-neutral-500 hover:text-neutral-300"
+            <div className="flex items-center gap-2.5 text-xs text-neutral-300">
+              <span className="rounded-md border border-white/15 bg-white/[0.04] px-2.5 py-0.5 text-xs font-medium text-neutral-200">
+                {activityLabel}
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Clock className="h-3.5 w-3.5 text-neutral-400" />
+                {lesson.durationMinutes} min
+              </span>
+              {isCompleted && (
+                <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Completed
+                </span>
               )}
-            >
-              <div
-                className={cn(
-                  "h-1 w-full rounded-full transition-colors",
-                  active
-                    ? "bg-white"
-                    : passed
-                    ? "bg-emerald-400/70"
-                    : "bg-white/10"
-                )}
-              />
-              <span className="text-xs hidden sm:inline">{s.label}</span>
-              <span className="text-xs sm:hidden">{s.short}</span>
-            </button>
-          );
-        })}
-      </div>
+            </div>
+          </div>
 
-      {/* STAGE 0: HOOK & INITIAL ATTEMPT (Think & Speak First) */}
-      {stage === 0 && (
-        <section className="space-y-8 pt-2">
+          {/* Predictable 4-Step Lesson Progress Bar */}
+          <div
+            role="tablist"
+            aria-label="Lesson stages"
+            className="grid grid-cols-4 gap-2"
+          >
+            {LESSON_STAGES.map((s) => {
+              const active = stage === s.index;
+              const passed = stage > s.index;
+              return (
+                <button
+                  key={s.index}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setStage(s.index)}
+                  className={cn(
+                    "flex flex-col gap-1.5 text-left transition-colors focus-visible:outline-none",
+                    active
+                      ? "text-white font-semibold"
+                      : passed
+                      ? "text-neutral-300"
+                      : "text-neutral-500 hover:text-neutral-300"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "h-1.5 w-full rounded-full transition-colors",
+                      active
+                        ? "bg-white"
+                        : passed
+                        ? "bg-emerald-400/80"
+                        : "bg-white/10"
+                    )}
+                  />
+                  <span className="text-xs hidden sm:inline">{s.label}</span>
+                  <span className="text-xs sm:hidden">{s.short}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </header>
+
+      {/* Centered Full-Screen Lesson Stage Body */}
+      <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-4 py-8 pb-20 sm:px-6 sm:py-12">
+        {/* STAGE 0: HOOK & INITIAL ATTEMPT (Think & Speak First) */}
+        {stage === 0 && (
+          <section className="space-y-8">
           {/* Context & Main Prompt */}
           <div className="space-y-3">
             <p className="text-xs font-medium text-neutral-400">
@@ -672,6 +704,7 @@ export function LessonPlayer({
           )}
         </section>
       )}
+      </div>
     </div>
   );
 }
