@@ -93,7 +93,7 @@ export function CourseCard({
             <div className="flex items-center justify-between text-xs text-neutral-400 mb-1.5">
               <span>
                 {isCompleted ? (
-                  <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">
+                  <span className="inline-flex items-center gap-1 text-white font-medium">
                     <CheckCircle2 className="h-3.5 w-3.5" />
                     Completed ({completedCount}/{totalCount})
                   </span>
@@ -109,7 +109,7 @@ export function CourseCard({
             </div>
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.07]">
               <div
-                className="h-full rounded-full bg-emerald-400 transition-all"
+                className="h-full rounded-full bg-white transition-all"
                 style={{ width: `${progressPct}%` }}
               />
             </div>
@@ -145,14 +145,7 @@ export function CourseCard({
           )}
         </div>
 
-        <span
-          className={cn(
-            "inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-xs font-semibold transition-colors",
-            isStarted
-              ? "text-emerald-400 group-hover:text-emerald-300"
-              : "text-white group-hover:text-neutral-200"
-          )}
-        >
+        <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-xs font-semibold text-white group-hover:text-neutral-200 transition-colors">
           {actionLabel}
           <ArrowRight className="h-3.5 w-3.5 shrink-0 transition-transform group-hover:translate-x-0.5" />
         </span>

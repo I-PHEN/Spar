@@ -176,9 +176,9 @@ export function CourseCatalog({
                     </button>
 
                     {done > 0 && (
-                      <p className="truncate text-xs text-emerald-400/90">
+                      <p className="truncate text-xs text-neutral-400">
                         Mastered:{" "}
-                        <span className="text-neutral-300">
+                        <span className="text-neutral-200">
                           {lessons.filter((l) => completedLessonIds.has(l.id)).at(-1)?.title}
                         </span>
                       </p>
@@ -192,7 +192,7 @@ export function CourseCatalog({
 
                     <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-white/[0.08]">
                       <div
-                        className="h-full rounded-full bg-emerald-400 transition-all"
+                        className="h-full rounded-full bg-white transition-all"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
@@ -404,7 +404,7 @@ export function CourseCatalog({
                         key={outcome}
                         className="flex items-start gap-2 text-xs text-neutral-300"
                       >
-                        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white" />
                         <span>{outcome}</span>
                       </li>
                     ))}

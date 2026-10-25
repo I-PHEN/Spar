@@ -179,7 +179,7 @@ function OnSlideVisualCanvas({
           className={cn(
             "group relative rounded-2xl border bg-[#09090c] p-2 transition-all",
             isDragging
-              ? "border-emerald-400 bg-emerald-500/10"
+              ? "border-white bg-white/10"
               : "border-white/12 hover:border-white/25"
           )}
         >
@@ -235,7 +235,7 @@ function OnSlideVisualCanvas({
                   onChange({ ...current, url: "", preset: "none" })
                 }
                 title="Remove visual from slide"
-                className="ml-1 rounded p-1 text-neutral-400 hover:bg-rose-500/15 hover:text-rose-300"
+                className="ml-1 rounded p-1 text-neutral-400 hover:bg-white/10 hover:text-white"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
@@ -267,7 +267,7 @@ function OnSlideVisualCanvas({
           className={cn(
             "flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed p-6 text-center transition-all",
             isDragging
-              ? "border-emerald-400 bg-emerald-500/10"
+              ? "border-white bg-white/10"
               : "border-white/15 bg-white/[0.02] hover:border-white/25 hover:bg-white/[0.04]"
           )}
         >
@@ -697,7 +697,7 @@ export function CourseStudio({
       <div className="flex min-h-screen flex-col items-center justify-center bg-[#0a0a0a] px-4 py-16">
         <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#121212] p-7 shadow-2xl">
           <div className="flex items-center gap-2 text-neutral-400">
-            <Lock className="h-4 w-4 text-amber-400" />
+            <Lock className="h-4 w-4 text-neutral-400" />
             <span className="text-[10px] font-semibold uppercase tracking-[0.2em]">
               Creator Portal · Restricted Access
             </span>
@@ -783,7 +783,7 @@ export function CourseStudio({
       badge: `0${slideNumber++}`,
       title: "The Trap",
       subtitle: activeLesson.slides.trap.headline,
-      accentClass: "border-l-rose-400",
+      accentClass: "border-l-white/40",
       removableKey: "trap",
     });
   }
@@ -793,7 +793,7 @@ export function CourseStudio({
       badge: `0${slideNumber++}`,
       title: "Mental Model",
       subtitle: activeLesson.slides.mentalModel.headline,
-      accentClass: "border-l-emerald-400",
+      accentClass: "border-l-white/40",
       removableKey: "mentalModel",
     });
   }
@@ -803,7 +803,7 @@ export function CourseStudio({
       badge: `0${slideNumber++}`,
       title: "The Tape",
       subtitle: activeLesson.slides.tape.headline,
-      accentClass: "border-l-sky-400",
+      accentClass: "border-l-white/40",
       removableKey: "tape",
     });
   }
@@ -814,7 +814,7 @@ export function CourseStudio({
       badge: `0${slideNumber++}`,
       title: extra.label || `Insight ${idx + 1}`,
       subtitle: extra.headline,
-      accentClass: "border-l-violet-400",
+      accentClass: "border-l-white/40",
       removableExtraIdx: idx,
     });
   });
@@ -824,7 +824,7 @@ export function CourseStudio({
     badge: `0${slideNumber++}`,
     title: "Chamber Briefing",
     subtitle: `vs. ${activeLesson.roomConfig.personaName}`,
-    accentClass: "border-l-amber-400",
+    accentClass: "border-l-white/40",
   });
 
   filmstripItems.push({
@@ -832,7 +832,7 @@ export function CourseStudio({
     badge: "✦",
     title: "Real-World Transfer",
     subtitle: "Spar Signature Slide",
-    accentClass: "border-l-emerald-300",
+    accentClass: "border-l-white/40",
   });
 
   const currentFilmPos = Math.max(
@@ -866,7 +866,7 @@ export function CourseStudio({
             </Link>
 
             <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-amber-400" />
+              <Sparkles className="h-4 w-4 text-white" />
               <span className="text-sm font-semibold tracking-tight text-white">
                 Course Studio
               </span>
@@ -998,7 +998,7 @@ export function CourseStudio({
       </header>
 
       {saveBanner && (
-        <div className="border-b border-emerald-500/20 bg-emerald-500/10 px-6 py-2 text-center text-xs font-medium text-emerald-300">
+        <div className="border-b border-white/15 bg-white/[0.05] px-6 py-2 text-center text-xs font-medium text-white">
           <CheckCircle2 className="mr-1.5 inline h-3.5 w-3.5" />
           {saveBanner}
         </div>
@@ -1107,7 +1107,7 @@ export function CourseStudio({
 
                 {/* Learning Outcomes */}
                 <div className="space-y-2 border-t border-white/[0.07] pt-4">
-                  <Label className="text-xs font-medium text-emerald-300">
+                  <Label className="text-xs font-medium text-neutral-300">
                     “By the end you&apos;ll be able to…” (one outcome per line)
                   </Label>
                   <Textarea
@@ -1257,7 +1257,7 @@ export function CourseStudio({
                               }}
                               className="h-8 border-white/12 bg-white/[0.03] text-xs text-neutral-200 hover:bg-white/[0.08]"
                             >
-                              <Swords className="mr-1.5 h-3.5 w-3.5 text-amber-400" />
+                              <Swords className="mr-1.5 h-3.5 w-3.5 text-neutral-400" />
                               AI Room
                             </Button>
 
@@ -1266,7 +1266,7 @@ export function CourseStudio({
                                 type="button"
                                 onClick={() => handleDeleteLesson(mIdx, lIdx)}
                                 aria-label={`Delete ${les.title}`}
-                                className="p-1.5 text-neutral-500 hover:text-rose-400"
+                                className="p-1.5 text-neutral-500 hover:text-white"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </button>
@@ -1332,8 +1332,8 @@ export function CourseStudio({
                       className={cn(
                         "rounded-full border px-2 py-0.5 text-[10px] font-mono font-semibold",
                         contentSlideCount <= 4
-                          ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
-                          : "border-amber-500/30 bg-amber-500/10 text-amber-300"
+                          ? "border-white/20 bg-white/[0.06] text-white"
+                          : "border-white/15 bg-white/[0.03] text-neutral-300"
                       )}
                     >
                       {contentSlideCount <= 4 ? "Optimal Pacing" : "Near Max (6)"}
@@ -1386,7 +1386,7 @@ export function CourseStudio({
                                   handleRemoveExtraSlide(item.removableExtraIdx);
                                 }
                               }}
-                              className="p-1 text-neutral-500 hover:text-rose-400"
+                              className="p-1 text-neutral-500 hover:text-white"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </button>
@@ -1430,7 +1430,7 @@ export function CourseStudio({
                 {/* Subtle Studio Bar Above Slide */}
                 <div className="flex flex-wrap items-center justify-between gap-2 px-1">
                   <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                    <span className="h-2 w-2 rounded-full bg-white" />
                     <span className="text-xs font-semibold text-neutral-200">
                       Live Learner Preview &amp; Direct Slide Canvas
                     </span>
@@ -1442,7 +1442,7 @@ export function CourseStudio({
                   <button
                     type="button"
                     onClick={() => setStudioStep("room")}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-300 hover:bg-amber-500/20"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-white hover:bg-white/[0.08]"
                   >
                     <Swords className="h-3.5 w-3.5" />
                     Configure AI Sparring Room →
@@ -1461,37 +1461,37 @@ export function CourseStudio({
 
                     <div className="flex items-center gap-2">
                       {activeSlide === 0 && (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-rose-300">
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/[0.05] px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-neutral-300">
                           <ShieldAlert className="h-3 w-3" />
                           Chapter 01 · Diagnostic Pattern
                         </span>
                       )}
                       {activeSlide === 1 && (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-emerald-300">
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/[0.05] px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-neutral-300">
                           <Sparkles className="h-3 w-3" />
                           Chapter 02 · Foundational Model
                         </span>
                       )}
                       {activeSlide === 2 && (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/30 bg-sky-500/10 px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-sky-300">
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/[0.05] px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-neutral-300">
                           <BookOpen className="h-3 w-3" />
                           Chapter 03 · Field Breakdown
                         </span>
                       )}
                       {activeExtraSlide && (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-violet-300">
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/[0.05] px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-neutral-300">
                           <Sparkles className="h-3 w-3" />
                           {activeExtraSlide.label || "Tactical Deep-Dive"}
                         </span>
                       )}
                       {activeSlide === 3 && (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-amber-300">
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/[0.05] px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-neutral-300">
                           <Swords className="h-3 w-3" />
                           Chapter 04 · Simulation Briefing
                         </span>
                       )}
                       {activeSlide === 4 && (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/35 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-[0.16em] text-emerald-300">
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/[0.05] px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-[0.16em] text-white">
                           <Sparkles className="h-3 w-3" />
                           Spar Signature · Reality Transfer
                         </span>
@@ -1509,7 +1509,7 @@ export function CourseStudio({
                       <>
                         <div className="lg:col-span-7 h-full overflow-y-auto p-6 sm:p-8 space-y-4 bg-[#0a0a0d]">
                           <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] pb-3">
-                            <span className="font-mono text-[11px] font-semibold tracking-[0.2em] uppercase text-rose-400">
+                            <span className="font-mono text-[11px] font-semibold tracking-[0.2em] uppercase text-white">
                               01 // THE PATTERN TO BREAK
                             </span>
                             <input
@@ -1531,7 +1531,7 @@ export function CourseStudio({
                                 }))
                               }
                               placeholder="Flaw tags (comma-separated)..."
-                              className="w-48 rounded border border-rose-500/20 bg-rose-500/[0.06] px-2 py-0.5 font-mono text-[10px] text-rose-200 focus:outline-none"
+                              className="w-48 rounded border border-white/15 bg-white/[0.03] px-2 py-0.5 font-mono text-[10px] text-neutral-300 focus:outline-none"
                             />
                           </div>
 
@@ -1603,8 +1603,8 @@ export function CourseStudio({
                           </div>
 
                           {/* Autopsy: Why this loses the room */}
-                          <div className="border-l-2 border-rose-500/50 bg-rose-500/[0.05] p-3.5 rounded-r-xl space-y-1">
-                            <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-rose-300">
+                          <div className="border-l-2 border-white/30 bg-white/[0.03] p-3.5 rounded-r-xl space-y-1">
+                            <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-neutral-300">
                               Why this costs you the room
                             </span>
                             <input
@@ -1655,7 +1655,7 @@ export function CourseStudio({
                     {activeSlide === 1 && (
                       <>
                         <div className="lg:col-span-7 h-full overflow-y-auto p-6 sm:p-8 space-y-5 bg-[#0a0a0d]">
-                          <span className="font-mono text-[11px] font-semibold tracking-[0.2em] uppercase text-emerald-400 block border-b border-white/[0.06] pb-3">
+                          <span className="font-mono text-[11px] font-semibold tracking-[0.2em] uppercase text-white block border-b border-white/[0.06] pb-3">
                             02 // THE TACTICAL LAW
                           </span>
 
@@ -1702,8 +1702,8 @@ export function CourseStudio({
                           </div>
 
                           {/* The Golden Rule Plate */}
-                          <div className="rounded-2xl border border-emerald-500/35 bg-gradient-to-br from-emerald-500/[0.12] via-[#0f1412] to-[#0a0a0d] p-5 space-y-1.5">
-                            <div className="flex items-center gap-2 text-[10px] font-mono font-semibold uppercase tracking-[0.2em] text-emerald-300">
+                          <div className="rounded-2xl border border-white/20 bg-white/[0.03] p-5 space-y-1.5">
+                            <div className="flex items-center gap-2 text-[10px] font-mono font-semibold uppercase tracking-[0.2em] text-neutral-300">
                               <Compass className="h-3.5 w-3.5" />
                               The Golden Rule Law
                             </div>
@@ -1829,12 +1829,12 @@ export function CourseStudio({
                     {activeSlide === 2 && (
                       <>
                         <div className="lg:col-span-6 h-full overflow-y-auto p-6 sm:p-8 space-y-5 bg-[#0a0a0d]">
-                          <span className="font-mono text-[11px] font-semibold tracking-[0.2em] uppercase text-sky-400 block border-b border-white/[0.06] pb-3">
+                          <span className="font-mono text-[11px] font-semibold tracking-[0.2em] uppercase text-white block border-b border-white/[0.06] pb-3">
                             03 // THE ARENA TAPE
                           </span>
 
-                          <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.05] p-4 space-y-1.5">
-                            <span className="text-[10px] font-mono uppercase tracking-wider text-amber-300">
+                          <div className="rounded-xl border border-white/10 bg-[#121216] p-4 space-y-1.5">
+                            <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-300">
                               Incoming Question from {roomConfig.personaName}
                             </span>
                             <textarea
@@ -1885,13 +1885,13 @@ export function CourseStudio({
 
                         <div className="lg:col-span-6 h-full overflow-y-auto p-6 space-y-3.5 bg-[#070709]">
                           {/* Weak Response Card */}
-                          <div className="rounded-xl border border-rose-500/25 bg-rose-500/[0.04] p-3.5 space-y-2">
-                            <div className="flex items-center justify-between text-xs font-bold text-rose-400">
+                          <div className="rounded-xl border border-white/10 bg-[#101014] p-3.5 space-y-2">
+                            <div className="flex items-center justify-between text-xs font-bold text-neutral-300">
                               <span className="flex items-center gap-1.5">
                                 <XCircle className="h-3.5 w-3.5" />
                                 Ineffective Response
                               </span>
-                              <span className="font-mono text-[10px] text-rose-300">Loses room</span>
+                              <span className="font-mono text-[10px] text-neutral-400">Loses room</span>
                             </div>
                             <textarea
                               rows={2}
@@ -1928,18 +1928,18 @@ export function CourseStudio({
                                 }))
                               }
                               placeholder="Why it fails..."
-                              className="w-full rounded border-t border-rose-500/15 pt-1.5 bg-transparent text-[11px] text-neutral-400 focus:outline-none"
+                              className="w-full rounded border-t border-white/10 pt-1.5 bg-transparent text-[11px] text-neutral-400 focus:outline-none"
                             />
                           </div>
 
                           {/* Strong Response Card */}
-                          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-3.5 space-y-2">
-                            <div className="flex items-center justify-between text-xs font-bold text-emerald-400">
+                          <div className="rounded-xl border border-white/20 bg-white/[0.03] p-3.5 space-y-2">
+                            <div className="flex items-center justify-between text-xs font-bold text-white">
                               <span className="flex items-center gap-1.5">
                                 <CheckCircle2 className="h-3.5 w-3.5" />
                                 Strong Executive Response
                               </span>
-                              <span className="font-mono text-[10px] text-emerald-300">Commands room</span>
+                              <span className="font-mono text-[10px] text-neutral-300">Commands room</span>
                             </div>
                             <textarea
                               rows={2}
@@ -1976,7 +1976,7 @@ export function CourseStudio({
                                 }))
                               }
                               placeholder="Why it works..."
-                              className="w-full rounded border-t border-emerald-500/20 pt-1.5 bg-transparent text-[11px] text-emerald-200 focus:outline-none"
+                              className="w-full rounded border-t border-white/10 pt-1.5 bg-transparent text-[11px] text-neutral-200 focus:outline-none"
                             />
                           </div>
 
@@ -2001,13 +2001,13 @@ export function CourseStudio({
                       <>
                         <div className="lg:col-span-7 h-full overflow-y-auto p-6 sm:p-8 space-y-5 bg-[#0a0a0d]">
                           <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] pb-3">
-                            <span className="font-mono text-[11px] font-semibold tracking-[0.2em] uppercase text-violet-400">
+                            <span className="font-mono text-[11px] font-semibold tracking-[0.2em] uppercase text-white">
                               INSIGHT // TACTICAL DEEP-DIVE
                             </span>
                             <button
                               type="button"
                               onClick={() => handleRemoveExtraSlide(activeExtraIdx)}
-                              className="inline-flex items-center gap-1 text-xs text-rose-400 hover:text-rose-300"
+                              className="inline-flex items-center gap-1 text-xs text-neutral-400 hover:text-white"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                               Delete Slide
@@ -2042,8 +2042,8 @@ export function CourseStudio({
                             />
                           </div>
 
-                          <div className="border-l-2 border-violet-500/50 bg-violet-500/[0.06] p-4 rounded-r-xl space-y-1">
-                            <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.2em] text-violet-300">
+                          <div className="border-l-2 border-white/30 bg-white/[0.03] p-4 rounded-r-xl space-y-1">
+                            <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.2em] text-neutral-300">
                               Key Takeaway
                             </span>
                             <input
@@ -2071,7 +2071,7 @@ export function CourseStudio({
                                 key={bIdx}
                                 className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#0d0d12] p-2.5"
                               >
-                                <span className="font-mono text-[10px] text-violet-400">0{bIdx + 1}</span>
+                                <span className="font-mono text-[10px] text-neutral-400">0{bIdx + 1}</span>
                                 <input
                                   type="text"
                                   value={b}
@@ -2107,7 +2107,7 @@ export function CourseStudio({
                     {activeSlide === 3 && (
                       <>
                         <div className="lg:col-span-7 h-full overflow-y-auto p-6 sm:p-8 space-y-5 bg-[#0a0a0d]">
-                          <span className="font-mono text-[11px] font-semibold tracking-[0.2em] uppercase text-amber-400 block border-b border-white/[0.06] pb-3">
+                          <span className="font-mono text-[11px] font-semibold tracking-[0.2em] uppercase text-white block border-b border-white/[0.06] pb-3">
                             04 // SIMULATION BRIEFING
                           </span>
 
@@ -2135,8 +2135,8 @@ export function CourseStudio({
                             />
                           </div>
 
-                          <div className="border-l-2 border-amber-400 bg-amber-500/[0.06] p-4 rounded-r-xl space-y-1.5">
-                            <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-amber-300">
+                          <div className="border-l-2 border-white/30 bg-white/[0.03] p-4 rounded-r-xl space-y-1.5">
+                            <span className="text-[10px] font-mono font-semibold uppercase tracking-wider text-neutral-300">
                               Opening Attack Line from {roomConfig.personaName}
                             </span>
                             <textarea
@@ -2163,7 +2163,7 @@ export function CourseStudio({
                         <div className="lg:col-span-5 h-full overflow-y-auto p-6 sm:p-7 space-y-4 bg-[#070709]">
                           <div className="rounded-xl border border-white/10 bg-[#0d0d12] p-4 space-y-2">
                             <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-amber-400/30 bg-amber-500/15 text-sm font-bold text-amber-300">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/20 bg-white/[0.06] text-sm font-bold text-white">
                                 {roomConfig.personaName.charAt(0)}
                               </div>
                               <div className="min-w-0">
@@ -2172,7 +2172,7 @@ export function CourseStudio({
                               </div>
                             </div>
                             <div className="border-t border-white/[0.08] pt-2 space-y-1">
-                              <span className="text-[10px] font-mono text-emerald-300">Pass Criteria:</span>
+                              <span className="text-[10px] font-mono text-neutral-300">Pass Criteria:</span>
                               <input
                                 type="text"
                                 value={slides.mission.passCriteria}
@@ -2198,7 +2198,7 @@ export function CourseStudio({
                             type="button"
                             size="sm"
                             onClick={() => setStudioStep("room")}
-                            className="w-full bg-amber-400 text-black hover:bg-amber-300 text-xs font-semibold"
+                            className="w-full bg-white text-black hover:bg-neutral-200 text-xs font-semibold"
                           >
                             Open Full AI Room Builder →
                           </Button>
@@ -2210,7 +2210,7 @@ export function CourseStudio({
                     {activeSlide === 4 && (
                       <>
                         <div className="lg:col-span-7 h-full overflow-y-auto p-6 sm:p-8 space-y-5 bg-[#0a0a0d]">
-                          <span className="font-mono text-[11px] font-semibold tracking-[0.2em] uppercase text-emerald-400 block border-b border-white/[0.06] pb-3">
+                          <span className="font-mono text-[11px] font-semibold tracking-[0.2em] uppercase text-white block border-b border-white/[0.06] pb-3">
                             SPAR MANIFESTO // REAL-WORLD PROTOCOL
                           </span>
 
@@ -2223,8 +2223,8 @@ export function CourseStudio({
                             </p>
                           </div>
 
-                          <div className="rounded-2xl border border-emerald-500/35 bg-gradient-to-br from-emerald-500/[0.12] via-[#101614] to-[#0b0d0c] p-5 space-y-2">
-                            <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.2em] text-emerald-300">
+                          <div className="rounded-2xl border border-white/20 bg-white/[0.03] p-5 space-y-2">
+                            <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.2em] text-neutral-300">
                               Your 24-Hour Real-World Challenge
                             </span>
                             <textarea
@@ -2255,12 +2255,12 @@ export function CourseStudio({
                               <span className="font-mono text-[10px] text-neutral-400">01 · SPOT THE TRAP</span>
                               <p className="mt-0.5 font-semibold text-white">Recognize the instinct under pressure</p>
                             </div>
-                            <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.06] p-3">
-                              <span className="font-mono text-[10px] text-amber-300">02 · WIRE THE REFLEX</span>
+                            <div className="rounded-xl border border-white/10 bg-[#0d0d12] p-3">
+                              <span className="font-mono text-[10px] text-neutral-300">02 · WIRE THE REFLEX</span>
                               <p className="mt-0.5 font-semibold text-white">Spar in the chamber with {roomConfig.personaName}</p>
                             </div>
-                            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.08] p-3">
-                              <span className="font-mono text-[10px] text-emerald-300">03 · REAL-WORLD DEPLOYMENT</span>
+                            <div className="rounded-xl border border-white/15 bg-white/[0.04] p-3">
+                              <span className="font-mono text-[10px] text-white">03 · REAL-WORLD DEPLOYMENT</span>
                               <p className="mt-0.5 font-semibold text-white">Apply with real stakeholders within 24h</p>
                             </div>
                           </div>
@@ -2319,7 +2319,7 @@ export function CourseStudio({
                         type="button"
                         size="sm"
                         onClick={() => setStudioStep("room")}
-                        className="bg-amber-400 text-black hover:bg-amber-300 text-xs font-semibold"
+                        className="bg-white text-black hover:bg-neutral-200 text-xs font-semibold"
                       >
                         Next: AI Sparring Room →
                       </Button>
@@ -2337,7 +2337,7 @@ export function CourseStudio({
             <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 space-y-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <span className="text-[11px] font-mono font-semibold uppercase tracking-[0.18em] text-amber-300">
+                  <span className="text-[11px] font-mono font-semibold uppercase tracking-[0.18em] text-neutral-400">
                     3. Edit Lesson Slides &amp; Linked Chamber
                   </span>
                   <h2 className="mt-1 text-2xl font-bold text-white">
@@ -2400,7 +2400,7 @@ export function CourseStudio({
               <section className="rounded-2xl border border-white/10 bg-[#101014] p-6 space-y-5">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-semibold uppercase tracking-wider text-neutral-300 flex items-center gap-1.5">
-                    <UserCheck className="h-4 w-4 text-amber-400" />
+                    <UserCheck className="h-4 w-4 text-white" />
                     Step 2 · Cast the AI Sparring Partner
                   </p>
                 </div>
@@ -2426,7 +2426,7 @@ export function CourseStudio({
                         className={cn(
                           "flex items-center gap-3 rounded-xl border p-3.5 text-left transition-all",
                           selected
-                            ? "border-amber-400 bg-amber-500/15 text-white"
+                            ? "border-white bg-white/10 text-white"
                             : "border-white/10 bg-[#09090c] text-neutral-300 hover:border-white/25"
                         )}
                       >
@@ -2569,7 +2569,7 @@ export function CourseStudio({
               {/* Card 3: The Questions */}
               <section className="rounded-2xl border border-white/10 bg-[#101014] p-6 space-y-4">
                 <p className="text-xs font-semibold uppercase tracking-wider text-neutral-300 flex items-center gap-1.5">
-                  <Flame className="h-4 w-4 text-amber-400" />
+                  <Flame className="h-4 w-4 text-white" />
                   Step 3 · Write the Challenge Questions
                 </p>
 
@@ -2617,7 +2617,7 @@ export function CourseStudio({
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-amber-300">
+                  <Label className="text-xs text-neutral-300">
                     2. Live Sparring Room Opening Question (What {activeLesson.roomConfig.personaName} asks first)
                   </Label>
                   <Textarea
@@ -2643,12 +2643,12 @@ export function CourseStudio({
               {/* Card 4: Pass Criteria & Live Test */}
               <section className="rounded-2xl border border-white/10 bg-[#101014] p-6 space-y-4">
                 <p className="text-xs font-semibold uppercase tracking-wider text-neutral-300 flex items-center gap-1.5">
-                  <Target className="h-4 w-4 text-emerald-400" />
+                  <Target className="h-4 w-4 text-white" />
                   Step 4 · Set the Pass Criteria
                 </p>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-emerald-300">
+                  <Label className="text-xs text-neutral-300">
                     One-Line Pass Target
                   </Label>
                   <Input

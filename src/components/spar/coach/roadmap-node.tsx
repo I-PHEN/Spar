@@ -85,8 +85,8 @@ export function RoadmapNode({
     activityType === "simulation";
 
   return (
-    <div className="relative flex items-stretch gap-4 sm:gap-5">
-      {/* Left Straight Vertical Timeline Axis (Circle + Continuous Connector) */}
+    <div className="relative flex items-stretch gap-4 sm:gap-6">
+      {/* Left Vertical Timeline Axis (Tactile Circle + Continuous Hairline Connector) */}
       <div className="flex flex-col items-center shrink-0">
         <button
           type="button"
@@ -94,12 +94,12 @@ export function RoadmapNode({
           aria-label={`${lessonNumber}. ${lesson.title} (${statusLabel})`}
           aria-expanded={isSelected}
           className={cn(
-            "relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 font-mono text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white",
+            "relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full font-mono text-xs font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white shadow-lg",
             status === "completed"
-              ? "border-emerald-400 bg-emerald-500/15 text-emerald-300"
+              ? "border border-white/25 bg-[#16161a] text-white hover:border-white/40"
               : status === "current"
-              ? "border-white bg-white text-black ring-4 ring-white/10"
-              : "border-white/20 bg-[#141418] text-neutral-300 hover:border-white/40 hover:text-white"
+              ? "border-2 border-white bg-white text-black ring-4 ring-white/10 scale-105"
+              : "border border-white/10 bg-[#0e0e12] text-neutral-400 hover:border-white/25 hover:text-white"
           )}
         >
           {status === "completed" ? (
@@ -111,19 +111,19 @@ export function RoadmapNode({
           )}
         </button>
 
-        {/* Continuous straight vertical connector joining this circle to the next */}
+        {/* Continuous hairline connector joining this circle to the next */}
         {!isLast && (
           <div
             className={cn(
-              "w-0.5 flex-1 my-1.5 transition-colors",
-              status === "completed" ? "bg-emerald-400/60" : "bg-white/15"
+              "w-0.5 flex-1 my-2 transition-colors",
+              status === "completed" ? "bg-white/30" : "bg-white/10"
             )}
           />
         )}
       </div>
 
-      {/* Right Full-Width Lesson Card */}
-      <div className={cn("min-w-0 flex-1", !isLast ? "pb-6" : "pb-1")}>
+      {/* Right Lesson Card (Brilliant-Style Minimalist Floating Panel) */}
+      <div className={cn("min-w-0 flex-1", !isLast ? "pb-8" : "pb-2")}>
         <div
           role="button"
           tabIndex={0}
@@ -135,63 +135,63 @@ export function RoadmapNode({
             }
           }}
           className={cn(
-            "w-full rounded-2xl border p-5 text-left transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
+            "w-full rounded-2xl border p-5 text-left transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40",
             status === "current"
-              ? "border-white/30 bg-[#141418]"
+              ? "border-white/30 bg-[#121216] shadow-md"
               : status === "completed"
-              ? "border-emerald-500/25 bg-[#111413] hover:border-emerald-500/40"
+              ? "border-white/15 bg-[#0f0f13] hover:border-white/25"
               : isSelected
-              ? "border-white/25 bg-[#131317]"
-              : "border-white/10 bg-[#111114] hover:border-white/20 hover:bg-[#141418]"
+              ? "border-white/25 bg-[#121216]"
+              : "border-white/[0.08] bg-[#0c0c10] hover:border-white/15 hover:bg-[#101014]"
           )}
         >
-          {/* Top Metadata Row: Activity Chip · Duration · Status Badge */}
+          {/* Top Metadata Row: Activity Badge · Duration · Status */}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2.5 text-xs">
-              <span className="font-mono font-medium text-neutral-300">
-                0{lessonNumber}
+              <span className="font-mono font-medium text-neutral-400">
+                LEVEL 0{lessonNumber}
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-md border border-white/15 bg-white/[0.04] px-2.5 py-0.5 text-xs font-medium text-neutral-200">
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[11px] font-medium text-neutral-300">
                 {getActivityIcon(activityType)}
                 {activityLabel}
               </span>
-              <span className="inline-flex items-center gap-1 text-xs text-neutral-300">
-                <Clock className="h-3.5 w-3.5 text-neutral-400" />
+              <span className="inline-flex items-center gap-1 text-[11px] text-neutral-400">
+                <Clock className="h-3 w-3 text-neutral-500" />
                 {lesson.durationMinutes} min
               </span>
             </div>
 
             <span
               className={cn(
-                "rounded-full px-2.5 py-0.5 text-xs font-medium",
+                "rounded-full px-2.5 py-0.5 text-[10px] font-mono uppercase tracking-wider",
                 status === "completed"
-                  ? "border border-emerald-500/35 bg-emerald-500/15 text-emerald-300"
+                  ? "border border-white/20 bg-white/[0.06] text-neutral-200"
                   : status === "current"
                   ? "bg-white font-semibold text-black"
-                  : "border border-white/10 bg-white/[0.03] text-neutral-300"
+                  : "border border-white/10 bg-white/[0.02] text-neutral-400"
               )}
             >
               {statusLabel}
             </span>
           </div>
 
-          {/* Lesson Title & Concise Skill Purpose */}
-          <h4 className="mt-2.5 text-base font-semibold tracking-tight text-white sm:text-lg">
+          {/* Lesson Title & Concise Tagline */}
+          <h4 className="mt-2 text-base font-semibold tracking-tight text-white sm:text-lg">
             {lesson.title}
           </h4>
           <p className="mt-1 text-xs leading-relaxed text-neutral-300 sm:text-sm">
             {lesson.tagline}
           </p>
 
-          {/* Consistent 1-Line Room / Skill Preview across all nodes */}
-          <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.07] pt-3 text-xs text-neutral-300">
+          {/* Partner & Target Info */}
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.06] pt-3 text-xs text-neutral-300">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <span>
                 <span className="text-neutral-400">Partner in room: </span>
                 <strong className="font-semibold text-white">
                   {lesson.roomConfig.personaName}
                 </strong>{" "}
-                <span className="text-neutral-300">({archetype.tagline})</span>
+                <span className="text-neutral-400">({archetype.tagline})</span>
               </span>
               {isCheckpointOrDrill && lesson.slides.mission.passCriteria && (
                 <span className="text-neutral-300">
@@ -210,16 +210,20 @@ export function RoadmapNode({
             )}
           </div>
 
-          {/* Expanded Actions when Node is Selected / Current */}
+          {/* Floating Action Popover when Node is Selected / Current (Brilliant Screenshot 2 Style) */}
           {isSelected && (
             <div
               onClick={(e) => e.stopPropagation()}
-              className="mt-3.5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#0c0c0e] px-4 py-3"
+              className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/12 bg-[#09090c] p-4 shadow-inner"
             >
-              <p className="text-xs text-neutral-300 max-w-md">
-                <span className="font-medium text-white">Core rule: </span>“
-                {lesson.slides.mentalModel.goldenRule}”
-              </p>
+              <div className="min-w-0 max-w-md space-y-0.5">
+                <span className="text-[10px] font-mono tracking-wider uppercase text-neutral-400">
+                  Operational Law
+                </span>
+                <p className="text-xs text-white font-medium leading-relaxed">
+                  “{lesson.slides.mentalModel.goldenRule}”
+                </p>
+              </div>
 
               <div className="flex flex-wrap items-center gap-2 shrink-0">
                 {onApplyInRoom && (
@@ -228,7 +232,7 @@ export function RoadmapNode({
                     size="sm"
                     disabled={launchingChamber}
                     onClick={() => onApplyInRoom(lesson)}
-                    className="border-white/15 bg-white/[0.03] text-xs font-medium text-neutral-200 hover:bg-white/[0.08] hover:text-white"
+                    className="border-white/15 bg-white/[0.04] text-xs font-medium text-neutral-200 hover:bg-white/[0.08] hover:text-white h-9"
                   >
                     <Swords className="mr-1.5 h-3.5 w-3.5" />
                     {launchingChamber ? "Opening room..." : "Apply in the room"}
@@ -238,7 +242,7 @@ export function RoadmapNode({
                 <Button
                   size="sm"
                   onClick={() => onLaunchLesson(lesson.id)}
-                  className="bg-white text-black hover:bg-neutral-200 text-xs font-semibold"
+                  className="bg-white text-black hover:bg-neutral-200 text-xs font-bold px-4 h-9 shadow-md"
                 >
                   {status === "completed" ? (
                     <>

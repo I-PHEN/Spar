@@ -54,35 +54,35 @@ const SLIDE_STEPS: Array<{
     stepNum: "01",
     label: "1. The Trap",
     short: "The Trap",
-    accent: "text-rose-400 border-rose-500/40",
+    accent: "text-neutral-300 border-white/20",
   },
   {
     index: 1,
     stepNum: "02",
     label: "2. Mental Model",
     short: "The Rule",
-    accent: "text-emerald-400 border-emerald-500/40",
+    accent: "text-white border-white/30",
   },
   {
     index: 2,
     stepNum: "03",
     label: "3. The Tape",
     short: "The Tape",
-    accent: "text-sky-400 border-sky-500/40",
+    accent: "text-neutral-200 border-white/20",
   },
   {
     index: 3,
     stepNum: "04",
     label: "4. Chamber Drill",
     short: "Chamber",
-    accent: "text-amber-400 border-amber-500/40",
+    accent: "text-white border-white/30",
   },
   {
     index: 4,
     stepNum: "✦",
     label: "5. Real-World Transfer",
     short: "Real World",
-    accent: "text-emerald-300 border-emerald-400/50",
+    accent: "text-white border-white/40",
   },
 ];
 
@@ -539,7 +539,7 @@ export function ExecutiveBriefingDeck({
         stepNum: `0${num++}`,
         label: "1. The Trap",
         short: "The Trap",
-        accent: "text-rose-400 border-rose-500/40",
+        accent: "text-neutral-300 border-white/20",
       });
     }
     if (!hiddenCore.has("mentalModel")) {
@@ -548,7 +548,7 @@ export function ExecutiveBriefingDeck({
         stepNum: `0${num++}`,
         label: "2. Mental Model",
         short: "The Rule",
-        accent: "text-emerald-400 border-emerald-500/40",
+        accent: "text-white border-white/30",
       });
     }
     if (!hiddenCore.has("tape")) {
@@ -557,7 +557,7 @@ export function ExecutiveBriefingDeck({
         stepNum: `0${num++}`,
         label: "3. The Tape",
         short: "The Tape",
-        accent: "text-sky-400 border-sky-500/40",
+        accent: "text-neutral-200 border-white/20",
       });
     }
 
@@ -567,7 +567,7 @@ export function ExecutiveBriefingDeck({
         stepNum: `0${num++}`,
         label: extra.label || `Insight ${idx + 1}`,
         short: extra.label || `Slide ${num - 1}`,
-        accent: "text-violet-300 border-violet-500/40",
+        accent: "text-neutral-200 border-white/20",
       });
     });
 
@@ -576,7 +576,7 @@ export function ExecutiveBriefingDeck({
       stepNum: `0${num++}`,
       label: "4. Chamber Drill",
       short: "Chamber",
-      accent: "text-amber-400 border-amber-500/40",
+      accent: "text-white border-white/30",
     });
 
     if (lesson.realWorldTransfer?.enabled !== false) {
@@ -585,7 +585,7 @@ export function ExecutiveBriefingDeck({
         stepNum: "✦",
         label: "Real-World Transfer",
         short: "Real World",
-        accent: "text-emerald-300 border-emerald-400/50",
+        accent: "text-white border-white/40",
       });
     }
 
@@ -619,10 +619,10 @@ export function ExecutiveBriefingDeck({
 
   const ruleThemeClasses =
     slides.mentalModel.ruleTheme === "amber"
-      ? "border-amber-500/35 bg-gradient-to-br from-amber-500/[0.12] via-[#131210] to-[#0e0e0f] text-amber-300"
+      ? "border-white/25 bg-gradient-to-br from-white/[0.08] via-[#121215] to-[#0e0e0f] text-white"
       : slides.mentalModel.ruleTheme === "cyan"
-      ? "border-sky-500/35 bg-gradient-to-br from-sky-500/[0.12] via-[#101316] to-[#0e0e0f] text-sky-300"
-      : "border-emerald-500/35 bg-gradient-to-br from-emerald-500/[0.12] via-[#101513] to-[#0e0e0f] text-emerald-300";
+      ? "border-white/25 bg-gradient-to-br from-white/[0.08] via-[#121215] to-[#0e0e0f] text-white"
+      : "border-white/25 bg-gradient-to-br from-white/[0.08] via-[#121215] to-[#0e0e0f] text-white";
 
   const activeExtraSlide =
     currentSlide >= 100
@@ -642,7 +642,7 @@ export function ExecutiveBriefingDeck({
               · {lesson.durationMinutes} min masterclass
             </span>
             {isCompleted && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-400">
+              <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/[0.06] px-2.5 py-0.5 text-[10px] font-semibold text-white">
                 <CheckCircle2 className="h-3 w-3" />
                 Mastered
               </span>
@@ -696,7 +696,7 @@ export function ExecutiveBriefingDeck({
                   active
                     ? step.accent
                     : passed
-                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                    ? "border-white/40 bg-white/10 text-white"
                     : "border-white/10 text-neutral-500"
                 )}
               >
@@ -734,7 +734,7 @@ export function ExecutiveBriefingDeck({
             {currentSlide === 0 && (
               <div className="space-y-6">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-rose-300">
+                  <div className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/[0.05] px-3 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-neutral-300">
                     <ShieldAlert className="h-3.5 w-3.5" />
                     Slide 1 of 4 · The Executive Autopsy
                   </div>
@@ -743,7 +743,7 @@ export function ExecutiveBriefingDeck({
                       {slides.trap.flaws.map((flaw) => (
                         <span
                           key={flaw}
-                          className="rounded-md border border-rose-500/20 bg-rose-500/[0.06] px-2 py-0.5 text-[10px] font-mono text-rose-300"
+                          className="rounded-md border border-white/15 bg-white/[0.03] px-2 py-0.5 text-[10px] font-mono text-neutral-300"
                         >
                           ✕ {flaw}
                         </span>
@@ -792,8 +792,8 @@ export function ExecutiveBriefingDeck({
                       </div>
                     )}
 
-                    <div className="rounded-xl border border-rose-500/25 bg-rose-500/[0.07] p-4">
-                      <p className="text-[10px] font-mono font-semibold uppercase tracking-wider text-rose-300">
+                    <div className="rounded-xl border border-white/15 bg-white/[0.03] p-4">
+                      <p className="text-[10px] font-mono font-semibold uppercase tracking-wider text-neutral-300">
                         Why this costs you the room
                       </p>
                       <p className="mt-1.5 text-xs leading-relaxed text-neutral-100 sm:text-sm">
@@ -818,7 +818,7 @@ export function ExecutiveBriefingDeck({
             {/* SLIDE 2: THE MENTAL MODEL */}
             {currentSlide === 1 && (
               <div className="space-y-6">
-                <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-emerald-300">
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/[0.05] px-3 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-neutral-300">
                   <Sparkles className="h-3.5 w-3.5" />
                   Slide 2 of 4 · The Tactical Law
                 </div>
@@ -839,7 +839,7 @@ export function ExecutiveBriefingDeck({
                     ruleThemeClasses
                   )}
                 >
-                  <div className="flex items-center gap-2 text-[10px] font-mono font-semibold uppercase tracking-[0.2em]">
+                  <div className="flex items-center gap-2 text-[10px] font-mono font-semibold uppercase tracking-[0.2em] text-neutral-400">
                     <Compass className="h-3.5 w-3.5" />
                     The Golden Rule
                   </div>
@@ -880,7 +880,7 @@ export function ExecutiveBriefingDeck({
             {currentSlide === 2 && (
               <div className="space-y-6">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-sky-300">
+                  <div className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/[0.05] px-3 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-neutral-300">
                     <BookOpen className="h-3.5 w-3.5" />
                     Slide 3 of 4 · Film Room Breakdown
                   </div>
@@ -892,7 +892,7 @@ export function ExecutiveBriefingDeck({
                 {/* Incoming Hostile Prompt Banner */}
                 <div className="rounded-xl border border-white/12 bg-[#09090b] p-4 sm:p-5">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-amber-400">
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-neutral-400">
                       <Radio className="h-3.5 w-3.5" />
                       Incoming Prompt · {slides.tape.speakerName || `${roomConfig.personaName} (${archetypeDef.tagline})`}
                     </span>
@@ -907,14 +907,14 @@ export function ExecutiveBriefingDeck({
                 {/* Side-by-Side Split Film Comparison */}
                 <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                   {/* Amateur / Weak Tape */}
-                  <div className="flex flex-col justify-between rounded-xl border border-rose-500/25 bg-rose-500/[0.04] p-5">
+                  <div className="flex flex-col justify-between rounded-xl border border-white/10 bg-[#101014] p-5">
                     <div>
                       <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-rose-400">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-neutral-300 line-through">
                           <XCircle className="h-4 w-4" />
                           Weak / Defensive Tape
                         </div>
-                        <span className="rounded bg-rose-500/15 px-2 py-0.5 text-[10px] font-mono text-rose-300">
+                        <span className="rounded bg-white/[0.06] px-2 py-0.5 text-[10px] font-mono text-neutral-400">
                           Loses Authority
                         </span>
                       </div>
@@ -924,7 +924,7 @@ export function ExecutiveBriefingDeck({
                           {slides.tape.weakBadges.map((b) => (
                             <span
                               key={b}
-                              className="rounded border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 text-[10px] font-mono text-rose-200"
+                              className="rounded border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[10px] font-mono text-neutral-400"
                             >
                               ✕ {b}
                             </span>
@@ -937,8 +937,8 @@ export function ExecutiveBriefingDeck({
                       </p>
                     </div>
 
-                    <div className="mt-4 border-t border-rose-500/15 pt-3 text-xs text-neutral-300">
-                      <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-rose-300">
+                    <div className="mt-4 border-t border-white/[0.06] pt-3 text-xs text-neutral-400">
+                      <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                         Coach Critique:{" "}
                       </span>
                       {slides.tape.weakCritique}
@@ -946,14 +946,14 @@ export function ExecutiveBriefingDeck({
                   </div>
 
                   {/* Executive Standard Tape */}
-                  <div className="flex flex-col justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-5">
+                  <div className="flex flex-col justify-between rounded-xl border border-white/20 bg-white/[0.03] p-5 shadow-sm">
                     <div>
                       <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-white">
                           <CheckCircle2 className="h-4 w-4" />
                           Executive Tape
                         </div>
-                        <span className="rounded bg-emerald-500/15 px-2 py-0.5 text-[10px] font-mono text-emerald-300">
+                        <span className="rounded bg-white/[0.08] px-2 py-0.5 text-[10px] font-mono text-white">
                           Commands Room
                         </span>
                       </div>
@@ -963,7 +963,7 @@ export function ExecutiveBriefingDeck({
                           {slides.tape.strongBadges.map((b) => (
                             <span
                               key={b}
-                              className="rounded border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-mono text-emerald-200"
+                              className="rounded border border-white/20 bg-white/[0.06] px-2 py-0.5 text-[10px] font-mono text-white"
                             >
                               ✓ {b}
                             </span>
@@ -976,8 +976,8 @@ export function ExecutiveBriefingDeck({
                       </p>
                     </div>
 
-                    <div className="mt-4 border-t border-emerald-500/20 pt-3 text-xs text-neutral-200">
-                      <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
+                    <div className="mt-4 border-t border-white/10 pt-3 text-xs text-neutral-200">
+                      <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-white">
                         Why it works:{" "}
                       </span>
                       {slides.tape.strongWhy}
@@ -990,7 +990,7 @@ export function ExecutiveBriefingDeck({
             {/* EXTRA CUSTOM SLIDES (Creator-Added Insight Slides) */}
             {activeExtraSlide && (
               <div className="space-y-6">
-                <div className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-violet-300">
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/[0.05] px-3 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-neutral-300">
                   <Sparkles className="h-3.5 w-3.5" />
                   {activeExtraSlide.label || "Executive Insight"}
                 </div>
@@ -1011,7 +1011,7 @@ export function ExecutiveBriefingDeck({
                         key={bIdx}
                         className="rounded-xl border border-white/10 bg-[#141418] p-4"
                       >
-                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-violet-500/15 font-mono text-xs font-bold text-violet-300">
+                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-white/[0.08] font-mono text-xs font-bold text-white">
                           0{bIdx + 1}
                         </span>
                         <p className="mt-2.5 text-xs font-medium leading-relaxed text-neutral-200">
@@ -1023,8 +1023,8 @@ export function ExecutiveBriefingDeck({
                 )}
 
                 {activeExtraSlide.takeaway && (
-                  <div className="rounded-2xl border border-violet-500/30 bg-violet-500/[0.08] p-5">
-                    <p className="text-[10px] font-mono font-semibold uppercase tracking-[0.2em] text-violet-300">
+                  <div className="rounded-2xl border border-white/20 bg-white/[0.04] p-5">
+                    <p className="text-[10px] font-mono font-semibold uppercase tracking-[0.2em] text-neutral-300">
                       Key Takeaway
                     </p>
                     <p className="mt-1.5 text-sm font-semibold text-white sm:text-base">
@@ -1040,7 +1040,7 @@ export function ExecutiveBriefingDeck({
             {/* SLIDE 4: CHAMBER MISSION (ARENA PRE-FLIGHT) */}
             {currentSlide === 3 && (
               <div className="space-y-6">
-                <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-amber-300">
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/[0.05] px-3 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-neutral-300">
                   <Swords className="h-3.5 w-3.5" />
                   Slide 4 of 4 · Chamber Mission Pre-Flight
                 </div>
@@ -1079,7 +1079,7 @@ export function ExecutiveBriefingDeck({
                     </div>
 
                     <div className="mt-5 border-t border-white/[0.07] pt-3">
-                      <p className="text-[10px] font-mono uppercase tracking-wider text-emerald-400">
+                      <p className="text-[10px] font-mono uppercase tracking-wider text-white font-semibold">
                         Pass Directives
                       </p>
                       <p className="mt-1.5 text-xs font-medium text-white">
@@ -1093,7 +1093,7 @@ export function ExecutiveBriefingDeck({
                                 key={item}
                                 className="flex items-start gap-2 text-xs text-neutral-300"
                               >
-                                <Target className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                                <Target className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white" />
                                 <span>{item}</span>
                               </li>
                             ))}
@@ -1103,10 +1103,10 @@ export function ExecutiveBriefingDeck({
                   </div>
 
                   {/* Opening Attack Prompt Preview */}
-                  <div className="lg:col-span-7 rounded-xl border border-amber-500/25 bg-gradient-to-br from-amber-500/[0.08] via-[#131316] to-[#0d0d0f] p-5 flex flex-col justify-between">
+                  <div className="lg:col-span-7 rounded-xl border border-white/15 bg-[#121216] p-5 flex flex-col justify-between">
                     <div>
                       <div className="flex items-center justify-between gap-2">
-                        <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-amber-300">
+                        <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-white">
                           <Flame className="h-3.5 w-3.5" />
                           Opening Challenge Line
                         </span>
@@ -1159,7 +1159,7 @@ export function ExecutiveBriefingDeck({
             {currentSlide === 4 && (
               <div className="space-y-6">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/35 bg-emerald-500/10 px-3 py-1 text-[10px] font-mono font-semibold uppercase tracking-[0.18em] text-emerald-300">
+                  <div className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/[0.05] px-3 py-1 text-[10px] font-mono font-semibold uppercase tracking-[0.18em] text-white">
                     <Sparkles className="h-3.5 w-3.5" />
                     Spar Signature Principle · Real-World Transfer
                   </div>
@@ -1191,7 +1191,7 @@ export function ExecutiveBriefingDeck({
                     </p>
                   </div>
                   <div className="rounded-xl border border-white/10 bg-[#141418] p-4">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-amber-300">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-300">
                       02 · Spar in the Room
                     </span>
                     <p className="mt-1.5 text-sm font-semibold text-white">
@@ -1201,8 +1201,8 @@ export function ExecutiveBriefingDeck({
                       Use the AI Sparring Room with {roomConfig.personaName} to practice until your first sentence is automatic.
                     </p>
                   </div>
-                  <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.07] p-4">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300">
+                  <div className="rounded-xl border border-white/15 bg-white/[0.03] p-4">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-white">
                       03 · Use It Live Today
                     </span>
                     <p className="mt-1.5 text-sm font-semibold text-white">
@@ -1215,9 +1215,9 @@ export function ExecutiveBriefingDeck({
                 </div>
 
                 {/* 24-Hour Real-World Mission Callout */}
-                <div className="rounded-2xl border border-emerald-500/35 bg-gradient-to-br from-emerald-500/[0.12] via-[#101614] to-[#0b0d0c] p-5 sm:p-6">
+                <div className="rounded-2xl border border-white/20 bg-gradient-to-br from-white/[0.05] via-[#101014] to-[#0a0a0c] p-5 sm:p-6">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.2em] text-emerald-300">
+                    <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.2em] text-neutral-300">
                       Your 24-Hour Real-World Challenge
                     </span>
                     {lesson.realWorldTransfer?.contextHint && (
@@ -1259,7 +1259,7 @@ export function ExecutiveBriefingDeck({
                   currentSlide === s.index
                     ? "w-6 bg-white"
                     : currentStepPos > pos
-                    ? "w-2 bg-emerald-400/60"
+                    ? "w-2 bg-white/60"
                     : "w-2 bg-white/20"
                 )}
               />
@@ -1276,7 +1276,7 @@ export function ExecutiveBriefingDeck({
               <ArrowRight className="h-3.5 w-3.5" />
             </button>
           ) : (
-            <span className="text-[11px] font-mono text-emerald-400">
+            <span className="text-[11px] font-mono text-white font-medium">
               Ready for Real World
             </span>
           )}
@@ -1470,7 +1470,7 @@ export function CoachView({
       {launchError && (
         <div
           role="alert"
-          className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-xs text-rose-300"
+          className="rounded-xl border border-white/20 bg-white/[0.05] px-4 py-3 text-xs text-neutral-300"
         >
           {launchError}
         </div>
