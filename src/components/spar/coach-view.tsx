@@ -25,8 +25,11 @@ import { sessionLabel } from "@/lib/session-label";
 import type { ExperienceKey, DrillTarget } from "@/lib/experiences";
 import {
   DEFAULT_COURSES,
+  SPAR_SIGNATURE_HEADLINE,
+  SPAR_SIGNATURE_MANIFESTO,
   buildLessonSessionPayload,
   getCourseLessons,
+  getRealWorldChallenge,
   type Course,
   type CourseLesson,
   type DiagramPreset,
@@ -37,7 +40,7 @@ import { CourseCatalog } from "./coach/course-catalog";
 import { CourseRoadmap } from "./coach/course-roadmap";
 import { LessonPlayer } from "./coach/lesson-player";
 
-export type BriefingSlideIndex = 0 | 1 | 2 | 3;
+export type BriefingSlideIndex = number;
 
 const SLIDE_STEPS: Array<{
   index: BriefingSlideIndex;
@@ -73,6 +76,13 @@ const SLIDE_STEPS: Array<{
     label: "4. Chamber Drill",
     short: "Chamber",
     accent: "text-amber-400 border-amber-500/40",
+  },
+  {
+    index: 4,
+    stepNum: "✦",
+    label: "5. Real-World Transfer",
+    short: "Real World",
+    accent: "text-emerald-300 border-emerald-400/50",
   },
 ];
 
@@ -508,11 +518,93 @@ export function ExecutiveBriefingDeck({
     slideState.lessonId === lesson.id ? slideState.slide : 0;
   const currentSlide = controlledSlide ?? internalSlide;
 
+  const hiddenCore = useMemo(
+    () => new Set(lesson.hiddenCoreSlides ?? []),
+    [lesson.hiddenCoreSlides]
+  );
+
+  const deckSteps = useMemo(() => {
+    const list: Array<{
+      index: BriefingSlideIndex;
+      stepNum: string;
+      label: string;
+      short: string;
+      accent: string;
+    }> = [];
+
+    let num = 1;
+    if (!hiddenCore.has("trap")) {
+      list.push({
+        index: 0,
+        stepNum: `0${num++}`,
+        label: "1. The Trap",
+        short: "The Trap",
+        accent: "text-rose-400 border-rose-500/40",
+      });
+    }
+    if (!hiddenCore.has("mentalModel")) {
+      list.push({
+        index: 1,
+        stepNum: `0${num++}`,
+        label: "2. Mental Model",
+        short: "The Rule",
+        accent: "text-emerald-400 border-emerald-500/40",
+      });
+    }
+    if (!hiddenCore.has("tape")) {
+      list.push({
+        index: 2,
+        stepNum: `0${num++}`,
+        label: "3. The Tape",
+        short: "The Tape",
+        accent: "text-sky-400 border-sky-500/40",
+      });
+    }
+
+    (lesson.extraSlides ?? []).forEach((extra, idx) => {
+      list.push({
+        index: 100 + idx,
+        stepNum: `0${num++}`,
+        label: extra.label || `Insight ${idx + 1}`,
+        short: extra.label || `Slide ${num - 1}`,
+        accent: "text-violet-300 border-violet-500/40",
+      });
+    });
+
+    list.push({
+      index: 3,
+      stepNum: `0${num++}`,
+      label: "4. Chamber Drill",
+      short: "Chamber",
+      accent: "text-amber-400 border-amber-500/40",
+    });
+
+    if (lesson.realWorldTransfer?.enabled !== false) {
+      list.push({
+        index: 4,
+        stepNum: "✦",
+        label: "Real-World Transfer",
+        short: "Real World",
+        accent: "text-emerald-300 border-emerald-400/50",
+      });
+    }
+
+    return list;
+  }, [hiddenCore, lesson.extraSlides, lesson.realWorldTransfer?.enabled]);
+
   function setSlide(next: BriefingSlideIndex) {
     const dir = next >= currentSlide ? 1 : -1;
     setSlideState({ lessonId: lesson.id, slide: next, direction: dir });
     onSlideChange?.(next);
   }
+
+  const currentStepPos = Math.max(
+    0,
+    deckSteps.findIndex((s) => s.index === currentSlide)
+  );
+  const prevStep = currentStepPos > 0 ? deckSteps[currentStepPos - 1] : null;
+  const nextStep =
+    currentStepPos < deckSteps.length - 1 ? deckSteps[currentStepPos + 1] : null;
 
   const { slides, roomConfig } = lesson;
   const archetypeDef = ARCHETYPES[roomConfig.archetype] ?? ARCHETYPES.skeptic;
@@ -531,6 +623,11 @@ export function ExecutiveBriefingDeck({
       : slides.mentalModel.ruleTheme === "cyan"
       ? "border-sky-500/35 bg-gradient-to-br from-sky-500/[0.12] via-[#101316] to-[#0e0e0f] text-sky-300"
       : "border-emerald-500/35 bg-gradient-to-br from-emerald-500/[0.12] via-[#101513] to-[#0e0e0f] text-emerald-300";
+
+  const activeExtraSlide =
+    currentSlide >= 100
+      ? (lesson.extraSlides ?? [])[currentSlide - 100] ?? null
+      : null;
 
   return (
     <div className="rounded-2xl border border-white/12 bg-[#0e0e10] overflow-hidden shadow-[0_24px_80px_rgba(0,0,0,0.65)]">
@@ -568,15 +665,15 @@ export function ExecutiveBriefingDeck({
         )}
       </div>
 
-      {/* 4-Stage Interactive Stepper */}
+      {/* Interactive Slide Stepper */}
       <div
         role="tablist"
         aria-label="Lesson briefing slides"
-        className="grid grid-cols-4 border-b border-white/[0.07] bg-[#0a0a0c]"
+        className="flex overflow-x-auto border-b border-white/[0.07] bg-[#0a0a0c]"
       >
-        {SLIDE_STEPS.map((step) => {
+        {deckSteps.map((step, pos) => {
           const active = currentSlide === step.index;
-          const passed = currentSlide > step.index;
+          const passed = currentStepPos > pos;
           return (
             <button
               key={step.index}
@@ -585,7 +682,7 @@ export function ExecutiveBriefingDeck({
               aria-selected={active}
               onClick={() => setSlide(step.index)}
               className={cn(
-                "group relative flex items-center justify-center gap-2 px-2 py-3.5 text-xs transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40",
+                "group relative flex flex-1 min-w-[110px] items-center justify-center gap-2 px-3 py-3.5 text-xs transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40",
                 active
                   ? "bg-white/[0.04] text-white font-semibold"
                   : passed
@@ -595,7 +692,7 @@ export function ExecutiveBriefingDeck({
             >
               <span
                 className={cn(
-                  "hidden h-5 w-5 items-center justify-center rounded-full border text-[10px] font-mono sm:inline-flex",
+                  "hidden h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-mono sm:inline-flex",
                   active
                     ? step.accent
                     : passed
@@ -605,8 +702,8 @@ export function ExecutiveBriefingDeck({
               >
                 {passed ? "✓" : step.stepNum}
               </span>
-              <span className="hidden md:inline">{step.label}</span>
-              <span className="md:hidden">{step.short}</span>
+              <span className="hidden md:inline truncate">{step.label}</span>
+              <span className="md:hidden truncate">{step.short}</span>
               {active && (
                 <span className="absolute inset-x-0 bottom-0 h-0.5 bg-white" />
               )}
@@ -616,7 +713,7 @@ export function ExecutiveBriefingDeck({
       </div>
 
       {/* Animated Stage Body */}
-      <div className="p-6 sm:p-8 min-h-[380px] flex flex-col justify-between bg-gradient-to-b from-[#111114] to-[#0c0c0e]">
+      <div className="p-6 sm:p-8 min-h-[400px] flex flex-col justify-between bg-gradient-to-b from-[#111114] to-[#0c0c0e]">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={`${lesson.id}-slide-${currentSlide}`}
@@ -890,6 +987,56 @@ export function ExecutiveBriefingDeck({
               </div>
             )}
 
+            {/* EXTRA CUSTOM SLIDES (Creator-Added Insight Slides) */}
+            {activeExtraSlide && (
+              <div className="space-y-6">
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-violet-300">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  {activeExtraSlide.label || "Executive Insight"}
+                </div>
+
+                <div>
+                  <h4 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                    {activeExtraSlide.headline}
+                  </h4>
+                  <p className="mt-2.5 text-sm leading-relaxed text-neutral-300 sm:text-base max-w-3xl">
+                    {activeExtraSlide.body}
+                  </p>
+                </div>
+
+                {activeExtraSlide.bullets && activeExtraSlide.bullets.length > 0 && (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    {activeExtraSlide.bullets.map((b, bIdx) => (
+                      <div
+                        key={bIdx}
+                        className="rounded-xl border border-white/10 bg-[#141418] p-4"
+                      >
+                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-violet-500/15 font-mono text-xs font-bold text-violet-300">
+                          0{bIdx + 1}
+                        </span>
+                        <p className="mt-2.5 text-xs font-medium leading-relaxed text-neutral-200">
+                          {b}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {activeExtraSlide.takeaway && (
+                  <div className="rounded-2xl border border-violet-500/30 bg-violet-500/[0.08] p-5">
+                    <p className="text-[10px] font-mono font-semibold uppercase tracking-[0.2em] text-violet-300">
+                      Key Takeaway
+                    </p>
+                    <p className="mt-1.5 text-sm font-semibold text-white sm:text-base">
+                      “{activeExtraSlide.takeaway}”
+                    </p>
+                  </div>
+                )}
+
+                <SlideVisualBlock visual={activeExtraSlide.visual} />
+              </div>
+            )}
+
             {/* SLIDE 4: CHAMBER MISSION (ARENA PRE-FLIGHT) */}
             {currentSlide === 3 && (
               <div className="space-y-6">
@@ -1007,6 +1154,84 @@ export function ExecutiveBriefingDeck({
                 </div>
               </div>
             )}
+
+            {/* SLIDE 5: SPAR SIGNATURE SLIDE — REAL-WORLD TRANSFER */}
+            {currentSlide === 4 && (
+              <div className="space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/35 bg-emerald-500/10 px-3 py-1 text-[10px] font-mono font-semibold uppercase tracking-[0.18em] text-emerald-300">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Spar Signature Principle · Real-World Transfer
+                  </div>
+                  <span className="text-[11px] font-mono text-neutral-400">
+                    Beyond the Simulator
+                  </span>
+                </div>
+
+                <div>
+                  <h4 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                    {SPAR_SIGNATURE_HEADLINE}
+                  </h4>
+                  <p className="mt-3 max-w-3xl text-sm leading-relaxed text-neutral-300 sm:text-base">
+                    {SPAR_SIGNATURE_MANIFESTO}
+                  </p>
+                </div>
+
+                {/* 3-Step Transfer Bridge */}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="rounded-xl border border-white/10 bg-[#141418] p-4">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
+                      01 · Learn the Frame
+                    </span>
+                    <p className="mt-1.5 text-sm font-semibold text-white">
+                      Spot the conversational trap
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-neutral-400">
+                      Internalize the Golden Rule so you know what structure replaces rambling.
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-white/10 bg-[#141418] p-4">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-amber-300">
+                      02 · Spar in the Room
+                    </span>
+                    <p className="mt-1.5 text-sm font-semibold text-white">
+                      Wire the reflex under pressure
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-neutral-400">
+                      Use the AI Sparring Room with {roomConfig.personaName} to practice until your first sentence is automatic.
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.07] p-4">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-300">
+                      03 · Use It Live Today
+                    </span>
+                    <p className="mt-1.5 text-sm font-semibold text-white">
+                      Deploy in a real conversation
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-neutral-200">
+                      True confidence locks in the moment you hear yourself use this skill with real humans.
+                    </p>
+                  </div>
+                </div>
+
+                {/* 24-Hour Real-World Mission Callout */}
+                <div className="rounded-2xl border border-emerald-500/35 bg-gradient-to-br from-emerald-500/[0.12] via-[#101614] to-[#0b0d0c] p-5 sm:p-6">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.2em] text-emerald-300">
+                      Your 24-Hour Real-World Challenge
+                    </span>
+                    {lesson.realWorldTransfer?.contextHint && (
+                      <span className="rounded bg-white/[0.06] px-2.5 py-0.5 text-[10px] font-mono text-neutral-300">
+                        {lesson.realWorldTransfer.contextHint}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-2.5 text-base font-semibold leading-relaxed text-white sm:text-lg">
+                    “{getRealWorldChallenge(lesson)}”
+                  </p>
+                </div>
+              </div>
+            )}
           </motion.div>
         </AnimatePresence>
 
@@ -1014,10 +1239,8 @@ export function ExecutiveBriefingDeck({
         <div className="mt-8 flex items-center justify-between border-t border-white/[0.07] pt-4">
           <button
             type="button"
-            disabled={currentSlide === 0}
-            onClick={() =>
-              setSlide(Math.max(0, currentSlide - 1) as BriefingSlideIndex)
-            }
+            disabled={!prevStep}
+            onClick={() => prevStep && setSlide(prevStep.index)}
             className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-neutral-300 transition-colors hover:bg-white/[0.06] hover:text-white disabled:opacity-30 disabled:pointer-events-none"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
@@ -1025,7 +1248,7 @@ export function ExecutiveBriefingDeck({
           </button>
 
           <div className="flex items-center gap-2">
-            {SLIDE_STEPS.map((s) => (
+            {deckSteps.map((s, pos) => (
               <button
                 key={s.index}
                 type="button"
@@ -1035,7 +1258,7 @@ export function ExecutiveBriefingDeck({
                   "h-1.5 rounded-full transition-all",
                   currentSlide === s.index
                     ? "w-6 bg-white"
-                    : currentSlide > s.index
+                    : currentStepPos > pos
                     ? "w-2 bg-emerald-400/60"
                     : "w-2 bg-white/20"
                 )}
@@ -1043,20 +1266,18 @@ export function ExecutiveBriefingDeck({
             ))}
           </div>
 
-          {currentSlide < 3 ? (
+          {nextStep ? (
             <button
               type="button"
-              onClick={() =>
-                setSlide(Math.min(3, currentSlide + 1) as BriefingSlideIndex)
-              }
+              onClick={() => setSlide(nextStep.index)}
               className="inline-flex items-center gap-1.5 rounded-lg bg-white px-4 py-2 text-xs font-semibold text-black transition-colors hover:bg-neutral-200"
             >
-              Next: {SLIDE_STEPS[currentSlide + 1].short}
+              Next: {nextStep.short}
               <ArrowRight className="h-3.5 w-3.5" />
             </button>
           ) : (
             <span className="text-[11px] font-mono text-emerald-400">
-              Ready for Chamber
+              Ready for Real World
             </span>
           )}
         </div>

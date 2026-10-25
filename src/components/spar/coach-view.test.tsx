@@ -227,5 +227,20 @@ describe("ExecutiveBriefingDeck (4-Card Lesson Presentation)", () => {
     expect(m).toContain("https://example.com/custom-framework.png");
     expect(m).toContain("Custom Partner Framework Figure");
   });
+
+  test("renders Spar Signature Slide (Real-World Transfer) with 24-Hour Real-World Challenge", () => {
+    const m = renderToStaticMarkup(
+      <ExecutiveBriefingDeck
+        course={course}
+        lesson={lesson}
+        activeSlide={4}
+      />
+    );
+    expect(m).toContain("Spar Signature Principle · Real-World Transfer");
+    expect(m).toContain(
+      "The room builds the reflex. The real world builds the leader."
+    );
+    expect(m).toContain("Your 24-Hour Real-World Challenge");
+  });
 });
 

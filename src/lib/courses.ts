@@ -86,6 +86,31 @@ export interface LessonSlideMission {
   visual?: SlideVisualMedia;
 }
 
+export interface LessonExtraSlide {
+  id: string;
+  label: string;
+  headline: string;
+  body: string;
+  takeaway?: string;
+  bullets?: string[];
+  visual?: SlideVisualMedia;
+}
+
+export interface LessonRealWorldTransfer {
+  enabled?: boolean;
+  challenge: string;
+  contextHint?: string;
+}
+
+export const MIN_LESSON_SLIDES = 2;
+export const MAX_LESSON_SLIDES = 6;
+
+export const SPAR_SIGNATURE_HEADLINE =
+  "The room builds the reflex. The real world builds the leader.";
+
+export const SPAR_SIGNATURE_MANIFESTO =
+  "Practising in the Sparring Room wires your instinct under pressure—but real growth happens when the stakes are real. Don't leave this technique in the simulator.";
+
 export interface LessonSlides {
   trap: LessonSlideTrap;
   mentalModel: LessonSlideMentalModel;
@@ -114,6 +139,8 @@ export interface LessonRoomConfig {
   behaviorStyle: BehaviorStyle;
 }
 
+export type CoreSlideKey = "trap" | "mentalModel" | "tape" | "mission";
+
 export interface CourseLesson {
   id: string;
   title: string;
@@ -122,6 +149,9 @@ export interface CourseLesson {
   activityType?: ActivityType;
   pattern?: LessonPattern;
   slides: LessonSlides;
+  extraSlides?: LessonExtraSlide[];
+  hiddenCoreSlides?: Array<"trap" | "mentalModel" | "tape">;
+  realWorldTransfer?: LessonRealWorldTransfer;
   practice?: InteractivePracticeConfig;
   roomConfig: LessonRoomConfig;
 }
@@ -385,6 +415,53 @@ export function getNextIncompleteLesson(
   const all = getCourseLessons(course);
   if (all.length === 0) return null;
   return all.find((l) => !completedLessonIds.has(l.id)) ?? all[0];
+}
+
+/**
+ * Counts the active content slides in a lesson (core slides minus hiddenCoreSlides + extraSlides).
+ * Enforces the 2..6 slide recommendation window.
+ */
+export function getLessonContentSlideCount(lesson: CourseLesson): number {
+  const hidden = new Set(lesson.hiddenCoreSlides ?? []);
+  const coreCount =
+    (["trap", "mentalModel", "tape"] as const).filter((k) => !hidden.has(k))
+      .length + 1; // +1 for mission slide
+  const extraCount = lesson.extraSlides?.length ?? 0;
+  return coreCount + extraCount;
+}
+
+/**
+ * Returns the lesson's 24-hour Real-World Transfer challenge (custom or auto-derived from Golden Rule).
+ */
+export function getRealWorldChallenge(lesson: CourseLesson): string {
+  if (lesson.realWorldTransfer?.challenge?.trim()) {
+    return lesson.realWorldTransfer.challenge.trim();
+  }
+  return `In your next live meeting or high-stakes Q&A within 24 hours, apply "${lesson.title}" once: ${lesson.slides.mentalModel.goldenRule}`;
+}
+
+/**
+ * Factory for an additional custom slide inside a lesson (up to MAX_LESSON_SLIDES).
+ */
+export function createExtraSlide(index = 1): LessonExtraSlide {
+  return {
+    id: `extra-slide-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    label: `Key Insight ${index}`,
+    headline: "Anchor the Room Before You Elaborate",
+    body: "High-stakes listeners decide whether they trust your answer in the first 5 seconds. Give them the headline first, then invite follow-up questions on your terms.",
+    takeaway:
+      "Lead with certainty on what you know; name the boundary on what you are still testing.",
+    bullets: [
+      "State the headline conclusion in sentence one",
+      "Support with one concrete metric or customer proof point",
+      "Pause cleanly instead of trailing off with 'so yeah...'",
+    ],
+    visual: {
+      preset: "none",
+      layout: "split",
+      caption: "",
+    },
+  };
 }
 
 /** Factory for a blank lesson in the Creator Studio */

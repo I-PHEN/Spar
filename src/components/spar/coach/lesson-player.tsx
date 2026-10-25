@@ -9,6 +9,7 @@ import {
   Mic,
   MicOff,
   Play,
+  Sparkles,
   Square,
   X,
 } from "lucide-react";
@@ -18,7 +19,10 @@ import { cn } from "@/lib/utils";
 import { ARCHETYPES } from "@/lib/personas";
 import {
   ACTIVITY_TYPE_LABELS,
+  SPAR_SIGNATURE_HEADLINE,
+  SPAR_SIGNATURE_MANIFESTO,
   evaluatePracticeAttempt,
+  getRealWorldChallenge,
   type Course,
   type CourseLesson,
   type SlideVisualMedia,
@@ -479,6 +483,32 @@ export function LessonPlayer({
           {/* Optional Diagram when it clarifies the principle */}
           {renderVisual && renderVisual(slides.mentalModel.visual)}
 
+          {/* Creator-Added Extra Slides */}
+          {lesson.extraSlides &&
+            lesson.extraSlides.map((extra) => (
+              <div
+                key={extra.id}
+                className="rounded-xl border border-violet-500/25 bg-[#111116] p-5 space-y-3"
+              >
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-violet-300">
+                  <Sparkles className="h-3 w-3" />
+                  {extra.label || "Additional Insight"}
+                </span>
+                <h3 className="text-lg font-bold text-white">
+                  {extra.headline}
+                </h3>
+                <p className="text-sm leading-relaxed text-neutral-300">
+                  {extra.body}
+                </p>
+                {extra.takeaway && (
+                  <p className="border-l-2 border-violet-400 pl-3 text-xs font-medium text-white">
+                    “{extra.takeaway}”
+                  </p>
+                )}
+                {renderVisual && renderVisual(extra.visual)}
+              </div>
+            ))}
+
           {/* Common Trap Note */}
           <div className="rounded-xl border border-white/[0.08] bg-[#111114] p-4 space-y-1">
             <p className="text-xs font-medium text-amber-300">
@@ -701,6 +731,35 @@ export function LessonPlayer({
                 onBackToRoadmap();
               }}
             />
+          )}
+
+          {/* Spar Signature Real-World Transfer Card */}
+          {lesson.realWorldTransfer?.enabled !== false && (
+            <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/[0.09] via-[#0f1412] to-[#0a0c0b] p-5 sm:p-6 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-semibold uppercase tracking-[0.2em] text-emerald-300">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Spar Signature · Real-World Transfer
+                </span>
+                <span className="text-[10px] font-mono text-neutral-400">
+                  24-Hour Field Challenge
+                </span>
+              </div>
+              <h3 className="text-base font-bold text-white sm:text-lg">
+                {SPAR_SIGNATURE_HEADLINE}
+              </h3>
+              <p className="text-xs leading-relaxed text-neutral-300">
+                {SPAR_SIGNATURE_MANIFESTO}
+              </p>
+              <div className="mt-2 rounded-xl border border-emerald-500/20 bg-black/40 px-4 py-3">
+                <p className="text-[10px] font-mono uppercase tracking-wider text-emerald-300">
+                  Apply this in your next real conversation:
+                </p>
+                <p className="mt-1 text-xs font-medium leading-relaxed text-white sm:text-sm">
+                  “{getRealWorldChallenge(lesson)}”
+                </p>
+              </div>
+            </div>
           )}
         </section>
       )}
