@@ -1,24 +1,8 @@
 "use client";
 
-import {
-  ArrowRight,
-  BookOpen,
-  CheckCircle2,
-  Clock,
-  Flag,
-  Mic,
-  Play,
-  RotateCcw,
-  Swords,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Check, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ARCHETYPES } from "@/lib/personas";
-import {
-  ACTIVITY_TYPE_LABELS,
-  type ActivityType,
-  type CourseLesson,
-} from "@/lib/courses";
+import type { CourseLesson } from "@/lib/courses";
 
 export type NodeStatus = "completed" | "current" | "available";
 
@@ -28,25 +12,29 @@ export interface RoadmapNodeProps {
   status: NodeStatus;
   isSelected: boolean;
   isLast: boolean;
+  offsetIndex?: number;
   launchingChamber?: boolean;
   onSelectNode: (lessonId: string) => void;
   onLaunchLesson: (lessonId: string) => void;
   onApplyInRoom?: (lesson: CourseLesson) => void;
 }
 
-function getActivityIcon(type: ActivityType = "lesson") {
-  switch (type) {
-    case "drill":
-      return <Mic className="h-3.5 w-3.5" />;
-    case "simulation":
-      return <Swords className="h-3.5 w-3.5" />;
-    case "checkpoint":
-    case "final_challenge":
-      return <Flag className="h-3.5 w-3.5" />;
-    default:
-      return <BookOpen className="h-3.5 w-3.5" />;
-  }
-}
+// Gentle sine-wave stagger offsets matching Brilliant's meandering path
+const DESKTOP_OFFSETS = [
+  "lg:translate-x-0",
+  "lg:translate-x-8",
+  "lg:-translate-x-6",
+  "lg:translate-x-5",
+  "lg:-translate-x-4",
+];
+
+const MOBILE_OFFSETS = [
+  "translate-x-0",
+  "translate-x-3",
+  "-translate-x-3",
+  "translate-x-2",
+  "-translate-x-2",
+];
 
 export function RoadmapNode({
   lesson,
@@ -54,213 +42,122 @@ export function RoadmapNode({
   status,
   isSelected,
   isLast,
-  launchingChamber = false,
+  offsetIndex = 0,
   onSelectNode,
   onLaunchLesson,
-  onApplyInRoom,
 }: RoadmapNodeProps) {
-  const activityType: ActivityType = lesson.activityType ?? "lesson";
-  const activityLabel = ACTIVITY_TYPE_LABELS[activityType];
-  const archetype =
-    ARCHETYPES[lesson.roomConfig.archetype] ?? ARCHETYPES.skeptic;
+  const desktopOffset = DESKTOP_OFFSETS[offsetIndex % DESKTOP_OFFSETS.length];
+  const mobileOffset = MOBILE_OFFSETS[offsetIndex % MOBILE_OFFSETS.length];
 
-  const statusLabel =
-    status === "completed"
-      ? "Completed"
-      : status === "current"
-      ? "Up next"
-      : "Available";
+  const isCompleted = status === "completed";
+  const isCurrent = status === "current";
 
-  const actionLabel =
-    status === "completed"
-      ? "Redo"
-      : status === "current"
-      ? "Start lesson"
-      : "Open lesson";
+  function handleClick() {
+    onSelectNode(lesson.id);
+  }
 
-  const isCheckpointOrDrill =
-    activityType === "checkpoint" ||
-    activityType === "final_challenge" ||
-    activityType === "drill" ||
-    activityType === "simulation";
+  function handleDoubleClick() {
+    onLaunchLesson(lesson.id);
+  }
 
   return (
-    <div className="relative flex items-stretch gap-4 sm:gap-6">
-      {/* Left Vertical Timeline Axis (Tactile Circle + Continuous Hairline Connector) */}
-      <div className="flex flex-col items-center shrink-0">
+    <div
+      className={cn(
+        "relative flex flex-col items-center transition-transform duration-300",
+        desktopOffset,
+        mobileOffset
+      )}
+    >
+      {/* Meandering Node Unit: 3D Disc + Title Label */}
+      <div className="flex items-center gap-4 sm:gap-6 py-3 sm:py-4">
+        {/* 3D Tactile Concentric Disc (Perspective angled with bevel depth) */}
         <button
           type="button"
-          onClick={() => onSelectNode(lesson.id)}
-          aria-label={`${lessonNumber}. ${lesson.title} (${statusLabel})`}
-          aria-expanded={isSelected}
+          onClick={handleClick}
+          onDoubleClick={handleDoubleClick}
+          aria-label={`Lesson ${lessonNumber}: ${lesson.title} (${status})`}
           className={cn(
-            "relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full font-mono text-xs font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white shadow-lg",
-            status === "completed"
-              ? "border border-white/25 bg-[#16161a] text-white hover:border-white/40"
-              : status === "current"
-              ? "border-2 border-white bg-white text-black ring-4 ring-white/10 scale-105"
-              : "border border-white/10 bg-[#0e0e12] text-neutral-400 hover:border-white/25 hover:text-white"
+            "group relative flex shrink-0 items-center justify-center rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white active:scale-95 cursor-pointer",
+            // 3D Physical Sizing
+            "h-14 w-14 sm:h-16 sm:w-16 md:h-18 md:w-18",
+            // Outer Concentric Ring & Bevel Depth
+            isCurrent
+              ? "p-1.5 bg-gradient-to-b from-white/30 via-white/10 to-transparent shadow-[0_0_24px_rgba(255,255,255,0.35),0_8px_16px_rgba(0,0,0,0.6)]"
+              : isSelected
+              ? "p-1 bg-white/20 shadow-[0_0_16px_rgba(255,255,255,0.2),0_6px_12px_rgba(0,0,0,0.5)]"
+              : "p-1 bg-white/[0.04] shadow-[0_4px_10px_rgba(0,0,0,0.5)]"
           )}
         >
-          {status === "completed" ? (
-            <CheckCircle2 className="h-5 w-5" />
-          ) : status === "current" ? (
-            <Play className="h-4 w-4 fill-current ml-0.5" />
-          ) : (
-            <span>0{lessonNumber}</span>
-          )}
-        </button>
-
-        {/* Continuous hairline connector joining this circle to the next */}
-        {!isLast && (
+          {/* Outer Bevel Ring (Concentric Grooved Pad) */}
           <div
             className={cn(
-              "w-0.5 flex-1 my-2 transition-colors",
-              status === "completed" ? "bg-white/30" : "bg-white/10"
+              "flex h-full w-full items-center justify-center rounded-full border transition-all duration-200",
+              isCurrent
+                ? "border-white bg-gradient-to-b from-white via-neutral-100 to-neutral-300 text-black shadow-[inset_0_2px_4px_rgba(255,255,255,0.8),inset_0_-2px_4px_rgba(0,0,0,0.4)]"
+                : isCompleted
+                ? "border-white/30 bg-[#16161b] text-white hover:border-white/50 shadow-[inset_0_1px_2px_rgba(255,255,255,0.1),0_2px_4px_rgba(0,0,0,0.4)]"
+                : "border-white/12 bg-[#101014] text-neutral-400 hover:border-white/25 hover:text-white shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_2px_4px_rgba(0,0,0,0.4)]"
             )}
-          />
-        )}
-      </div>
-
-      {/* Right Lesson Card (Brilliant-Style Minimalist Floating Panel) */}
-      <div className={cn("min-w-0 flex-1", !isLast ? "pb-8" : "pb-2")}>
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => onSelectNode(lesson.id)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              onSelectNode(lesson.id);
-            }
-          }}
-          className={cn(
-            "w-full rounded-2xl border p-5 text-left transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40",
-            status === "current"
-              ? "border-white/30 bg-[#121216] shadow-md"
-              : status === "completed"
-              ? "border-white/15 bg-[#0f0f13] hover:border-white/25"
-              : isSelected
-              ? "border-white/25 bg-[#121216]"
-              : "border-white/[0.08] bg-[#0c0c10] hover:border-white/15 hover:bg-[#101014]"
-          )}
-        >
-          {/* Top Metadata Row: Activity Badge · Duration · Status */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2.5 text-xs">
-              <span className="font-mono font-medium text-neutral-400">
-                LEVEL 0{lessonNumber}
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[11px] font-medium text-neutral-300">
-                {getActivityIcon(activityType)}
-                {activityLabel}
-              </span>
-              <span className="inline-flex items-center gap-1 text-[11px] text-neutral-400">
-                <Clock className="h-3 w-3 text-neutral-500" />
-                {lesson.durationMinutes} min
-              </span>
-            </div>
-
-            <span
+          >
+            {/* Inner Concentric Core */}
+            <div
               className={cn(
-                "rounded-full px-2.5 py-0.5 text-[10px] font-mono uppercase tracking-wider",
-                status === "completed"
-                  ? "border border-white/20 bg-white/[0.06] text-neutral-200"
-                  : status === "current"
-                  ? "bg-white font-semibold text-black"
+                "flex h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-105",
+                isCurrent
+                  ? "border border-black/10 bg-white text-black shadow-inner"
+                  : isCompleted
+                  ? "border border-white/20 bg-white/[0.08] text-white"
                   : "border border-white/10 bg-white/[0.02] text-neutral-400"
               )}
             >
-              {statusLabel}
-            </span>
-          </div>
-
-          {/* Lesson Title & Concise Tagline */}
-          <h4 className="mt-2 text-base font-semibold tracking-tight text-white sm:text-lg">
-            {lesson.title}
-          </h4>
-          <p className="mt-1 text-xs leading-relaxed text-neutral-300 sm:text-sm">
-            {lesson.tagline}
-          </p>
-
-          {/* Partner & Target Info */}
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.06] pt-3 text-xs text-neutral-300">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span>
-                <span className="text-neutral-400">Partner in room: </span>
-                <strong className="font-semibold text-white">
-                  {lesson.roomConfig.personaName}
-                </strong>{" "}
-                <span className="text-neutral-400">({archetype.tagline})</span>
-              </span>
-              {isCheckpointOrDrill && lesson.slides.mission.passCriteria && (
-                <span className="text-neutral-300">
-                  ·{" "}
-                  <span className="text-neutral-400">Target: </span>
-                  {lesson.slides.mission.passCriteria}
+              {isCompleted ? (
+                <Check className="h-4 w-4 stroke-[2.5]" />
+              ) : isCurrent ? (
+                <Play className="h-4 w-4 fill-current ml-0.5" />
+              ) : (
+                <span className="font-mono text-xs font-semibold">
+                  {lessonNumber}
                 </span>
               )}
             </div>
-
-            {!isSelected && (
-              <span className="inline-flex items-center gap-1 text-xs font-semibold text-neutral-200">
-                {actionLabel}
-                <ArrowRight className="h-3.5 w-3.5" />
-              </span>
-            )}
           </div>
+        </button>
 
-          {/* Floating Action Popover when Node is Selected / Current (Brilliant Screenshot 2 Style) */}
-          {isSelected && (
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/12 bg-[#09090c] p-4 shadow-inner"
-            >
-              <div className="min-w-0 max-w-md space-y-0.5">
-                <span className="text-[10px] font-mono tracking-wider uppercase text-neutral-400">
-                  Operational Law
-                </span>
-                <p className="text-xs text-white font-medium leading-relaxed">
-                  “{lesson.slides.mentalModel.goldenRule}”
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 shrink-0">
-                {onApplyInRoom && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={launchingChamber}
-                    onClick={() => onApplyInRoom(lesson)}
-                    className="border-white/15 bg-white/[0.04] text-xs font-medium text-neutral-200 hover:bg-white/[0.08] hover:text-white h-9"
-                  >
-                    <Swords className="mr-1.5 h-3.5 w-3.5" />
-                    {launchingChamber ? "Opening room..." : "Apply in the room"}
-                  </Button>
-                )}
-
-                <Button
-                  size="sm"
-                  onClick={() => onLaunchLesson(lesson.id)}
-                  className="bg-white text-black hover:bg-neutral-200 text-xs font-bold px-4 h-9 shadow-md"
-                >
-                  {status === "completed" ? (
-                    <>
-                      <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-                      {actionLabel}
-                    </>
-                  ) : (
-                    <>
-                      {actionLabel}
-                      <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
+        {/* Strictly One-Line Label (The Main Thing — Zero Clutter!) */}
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={handleClick}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              handleClick();
+            }
+          }}
+          className={cn(
+            "min-w-0 max-w-[220px] sm:max-w-xs md:max-w-sm cursor-pointer select-none text-left transition-colors",
+            isCurrent
+              ? "text-white font-bold"
+              : isSelected
+              ? "text-white font-semibold"
+              : "text-neutral-300 hover:text-white font-medium"
           )}
+        >
+          <span className="text-sm sm:text-base leading-snug line-clamp-2">
+            {lesson.title}
+          </span>
         </div>
       </div>
+
+      {/* Hairline Continuous Connector joining to next node */}
+      {!isLast && (
+        <div
+          className={cn(
+            "h-6 sm:h-8 w-0.5 transition-colors duration-200",
+            isCompleted ? "bg-white/30" : "bg-white/10"
+          )}
+        />
+      )}
     </div>
   );
 }

@@ -9,7 +9,6 @@ import {
   Mic,
   MicOff,
   Play,
-  Sparkles,
   Square,
   X,
 } from "lucide-react";
@@ -141,7 +140,7 @@ export function LessonPlayer({
     if (!SpeechRecCtor) {
       setMicStatus("error");
       setMicError(
-        "Browser speech recognition is unavailable in this browser. Type your response below or launch the live voice Chamber."
+        "Browser speech recognition is unavailable in this browser. Type your response below."
       );
       return;
     }
@@ -172,7 +171,7 @@ export function LessonPlayer({
         setMicStatus("error");
         if (event.error === "not-allowed") {
           setMicError(
-            "Microphone permission was denied. Enable microphone access in your browser settings or type your response below."
+            "Microphone permission was denied. Type your response below."
           );
         } else {
           setMicError(
@@ -223,11 +222,11 @@ export function LessonPlayer({
       role="dialog"
       aria-modal="true"
       aria-label={lesson.title}
-      className="fixed inset-0 z-50 flex flex-col bg-[#070708] overflow-y-auto"
+      className="fixed inset-0 z-50 flex flex-col bg-[#070708] overflow-hidden"
     >
       {/* Full-Screen Sticky Theater Top Bar */}
-      <header className="sticky top-0 z-20 border-b border-white/[0.08] bg-[#0a0a0c]/95 backdrop-blur-md">
-        <div className="mx-auto max-w-5xl px-4 py-3 sm:px-6 space-y-3">
+      <header className="sticky top-0 z-20 border-b border-white/[0.08] bg-[#0a0a0c]/95 backdrop-blur-md shrink-0">
+        <div className="mx-auto max-w-5xl px-4 py-3 sm:px-6 space-y-2.5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <button
@@ -248,17 +247,17 @@ export function LessonPlayer({
                   {course.title}
                 </span>
                 <span className="text-neutral-600">/</span>
-                <span className="font-medium text-white truncate">
+                <span className="font-semibold text-white truncate">
                   {lesson.title}
                 </span>
               </nav>
             </div>
 
             <div className="flex items-center gap-2.5 text-xs text-neutral-300">
-              <span className="rounded-full border border-white/15 bg-white/[0.04] px-2.5 py-0.5 text-xs font-medium text-neutral-200">
+              <span className="rounded-full border border-white/15 bg-white/[0.04] px-2.5 py-0.5 text-xs font-mono text-neutral-300">
                 {activityLabel}
               </span>
-              <span className="inline-flex items-center gap-1">
+              <span className="inline-flex items-center gap-1 text-neutral-400">
                 <Clock className="h-3.5 w-3.5 text-neutral-400" />
                 {lesson.durationMinutes} min
               </span>
@@ -288,7 +287,7 @@ export function LessonPlayer({
                   aria-selected={active}
                   onClick={() => setStage(s.index)}
                   className={cn(
-                    "flex flex-col gap-1.5 text-left transition-colors focus-visible:outline-none",
+                    "flex flex-col gap-1 text-left transition-colors focus-visible:outline-none",
                     active
                       ? "text-white font-semibold"
                       : passed
@@ -306,8 +305,8 @@ export function LessonPlayer({
                         : "bg-white/10"
                     )}
                   />
-                  <span className="text-xs hidden sm:inline">{s.label}</span>
-                  <span className="text-xs sm:hidden">{s.short}</span>
+                  <span className="text-[11px] hidden sm:inline">{s.label}</span>
+                  <span className="text-[11px] sm:hidden">{s.short}</span>
                 </button>
               );
             })}
@@ -315,89 +314,90 @@ export function LessonPlayer({
         </div>
       </header>
 
-      {/* Centered Presentation Folio with Fixed Proportions */}
-      <div className="mx-auto flex w-full max-w-4xl flex-1 items-center justify-center p-4 py-6 sm:p-8">
-        <div className="w-full min-h-[580px] md:h-[640px] rounded-2xl border border-white/12 bg-[#0c0c10] p-6 sm:p-8 flex flex-col justify-between relative shadow-2xl overflow-hidden">
-          {/* Scrollable Stage Body */}
-          <div className="flex-1 overflow-y-auto pr-1 pb-4 space-y-6">
+      {/* Centered Presentation Folio with Zero-Scroll Sizing */}
+      <div className="mx-auto flex w-full max-w-4xl flex-1 items-center justify-center p-3 sm:p-6 overflow-hidden">
+        <div className="w-full h-full max-h-[620px] rounded-3xl border border-white/12 bg-[#0c0c10] p-5 sm:p-7 flex flex-col justify-between relative shadow-2xl overflow-hidden">
+          {/* Zero-Scroll Stage Body */}
+          <div className="flex-1 flex flex-col justify-between overflow-hidden pb-3">
             {/* STAGE 0: HOOK & INITIAL ATTEMPT (Think & Speak First) */}
             {stage === 0 && (
-              <section className="space-y-6">
-                {/* Context & Main Prompt */}
-                <div className="space-y-2">
+              <section className="flex-1 flex flex-col justify-between space-y-3">
+                {/* Context & Main Question */}
+                <div className="space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-mono uppercase tracking-wider text-neutral-400">
+                    <span className="text-[11px] font-mono uppercase tracking-wider text-neutral-400">
                       {hookContext} · {hookSpeaker}
                     </span>
-                    <span className="text-xs font-mono text-neutral-400">
+                    <span className="text-[11px] font-mono text-neutral-400">
                       Target: ≤ {practice?.targetMaxWords ?? 35} words
                     </span>
                   </div>
-                  <h1 className="text-2xl font-bold leading-snug tracking-tight text-white sm:text-3xl">
+                  <h1 className="text-xl sm:text-2xl font-bold leading-snug tracking-tight text-white line-clamp-2">
                     “{hookPrompt}”
                   </h1>
-                  <p className="text-sm text-neutral-300">
-                    How would you answer right now? Speak or type a {timeLimitSeconds}
-                    -second response before viewing the debrief.
+                  <p className="text-xs sm:text-sm text-neutral-300">
+                    How would you answer right now? Pick an approach or speak your response.
                   </p>
                 </div>
 
                 {/* Optional Quick Reflex Starters */}
                 {slides.tape.weakResponse && slides.tape.strongResponse && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-mono uppercase tracking-wider text-neutral-400">
-                      Test your reflex (Select instinct or speak your own):
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
+                      Choose your reflex (or speak custom below):
                     </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={() => setInitialAttempt(slides.tape.weakResponse)}
                         className={cn(
-                          "rounded-xl border p-3.5 text-left text-xs transition-all",
+                          "rounded-xl border p-3 text-left text-xs transition-all",
                           initialAttempt === slides.tape.weakResponse
-                            ? "border-white bg-white/10 text-white"
+                            ? "border-white bg-white/10 text-white font-medium"
                             : "border-white/10 bg-[#121216] text-neutral-300 hover:border-white/20 hover:text-white"
                         )}
                       >
-                        <span className="font-mono text-[10px] text-neutral-400 block mb-1">
-                          Instinct A
+                        <span className="font-mono text-[9px] text-neutral-400 block mb-0.5">
+                          Approach A
                         </span>
-                        “{slides.tape.weakResponse.slice(0, 95)}
-                        {slides.tape.weakResponse.length > 95 ? "…" : ""}”
+                        <p className="line-clamp-2">
+                          “{slides.tape.weakResponse}”
+                        </p>
                       </button>
                       <button
                         type="button"
                         onClick={() => setInitialAttempt(slides.tape.strongResponse)}
                         className={cn(
-                          "rounded-xl border p-3.5 text-left text-xs transition-all",
+                          "rounded-xl border p-3 text-left text-xs transition-all",
                           initialAttempt === slides.tape.strongResponse
-                            ? "border-white bg-white/10 text-white"
+                            ? "border-white bg-white/10 text-white font-medium"
                             : "border-white/10 bg-[#121216] text-neutral-300 hover:border-white/20 hover:text-white"
                         )}
                       >
-                        <span className="font-mono text-[10px] text-neutral-400 block mb-1">
-                          Instinct B
+                        <span className="font-mono text-[9px] text-neutral-400 block mb-0.5">
+                          Approach B
                         </span>
-                        “{slides.tape.strongResponse.slice(0, 95)}
-                        {slides.tape.strongResponse.length > 95 ? "…" : ""}”
+                        <p className="line-clamp-2">
+                          “{slides.tape.strongResponse}”
+                        </p>
                       </button>
                     </div>
                   </div>
                 )}
 
                 {/* Learner Action: Microphone + Response Input */}
-                <div className="space-y-3 rounded-xl border border-white/10 bg-[#111115] p-4 sm:p-5">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5">
+                <div className="space-y-2 rounded-xl border border-white/10 bg-[#111115] p-3 sm:p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
                       {micStatus === "listening" ? (
                         <Button
                           type="button"
                           size="sm"
                           onClick={stopMicRecording}
-                          className="rounded-full bg-white text-black hover:bg-neutral-200 text-xs font-semibold px-4 py-1.5 h-8"
+                          className="rounded-full bg-white text-black hover:bg-neutral-200 text-xs font-semibold px-3.5 h-7"
                         >
                           <Square className="mr-1.5 h-3 w-3 fill-current" />
-                          Stop recording
+                          Stop
                         </Button>
                       ) : (
                         <Button
@@ -405,29 +405,25 @@ export function LessonPlayer({
                           variant="outline"
                           size="sm"
                           onClick={() => startMicRecording("initial")}
-                          className="rounded-full border-white/15 bg-white/[0.04] text-xs text-white hover:bg-white/[0.08] px-4 py-1.5 h-8"
+                          className="rounded-full border-white/15 bg-white/[0.04] text-xs text-white hover:bg-white/[0.08] px-3.5 h-7"
                         >
-                          <Mic className="mr-1.5 h-3.5 w-3.5" />
+                          <Mic className="mr-1.5 h-3 w-3" />
                           Speak response
                         </Button>
                       )}
 
-                      <span
-                        aria-live="polite"
-                        className="text-xs font-mono text-neutral-300"
-                      >
-                        {micStatus === "ready" && "Mic ready"}
-                        {micStatus === "listening" && "● Listening... speak naturally"}
-                        {micStatus === "processing" && "Processing audio..."}
-                        {micStatus === "finished" && "Recording captured"}
-                        {micStatus === "error" && "Using text input"}
+                      <span className="text-[11px] font-mono text-neutral-400">
+                        {micStatus === "listening" && "● Listening..."}
+                        {micStatus === "processing" && "Processing..."}
+                        {micStatus === "finished" && "Audio captured"}
+                        {micStatus === "ready" && "Mic ready or type below"}
                       </span>
                     </div>
                   </div>
 
                   {micError && (
-                    <div className="flex items-start gap-2 rounded-lg border border-white/15 bg-white/[0.03] px-3 py-2 text-xs text-neutral-300">
-                      <MicOff className="mt-0.5 h-3.5 w-3.5 shrink-0 text-neutral-400" />
+                    <div className="flex items-start gap-1.5 rounded-lg border border-white/15 bg-white/[0.03] px-2.5 py-1 text-[11px] text-neutral-300">
+                      <MicOff className="h-3 w-3 shrink-0 text-neutral-400 mt-0.5" />
                       <span>{micError}</span>
                     </div>
                   )}
@@ -435,10 +431,10 @@ export function LessonPlayer({
                   <Textarea
                     value={initialAttempt}
                     onChange={(e) => setInitialAttempt(e.target.value)}
-                    rows={3}
-                    placeholder="Speak with the microphone or type how you would answer this question..."
+                    rows={2}
+                    placeholder="Speak with microphone or type your immediate answer..."
                     aria-label="Your initial response"
-                    className="border-white/10 bg-[#09090c] text-sm text-white placeholder:text-neutral-500 rounded-lg resize-none"
+                    className="border-white/10 bg-[#09090c] text-xs sm:text-sm text-white placeholder:text-neutral-500 rounded-lg resize-none"
                   />
                 </div>
               </section>
@@ -446,57 +442,57 @@ export function LessonPlayer({
 
             {/* STAGE 1: DEBRIEF (Teach One Principle at a Time) */}
             {stage === 1 && (
-              <section className="space-y-6">
-                {/* Show Learner's Initial Attempt if Provided */}
+              <section className="flex-1 flex flex-col justify-between space-y-3">
+                {/* Attempt Recap Pill (if provided) */}
                 {initialAttempt.trim().length > 0 && (
-                  <div className="rounded-xl border border-white/10 bg-[#111115] p-4 space-y-1">
-                    <p className="text-[11px] font-mono uppercase tracking-wider text-neutral-400">
-                      Your initial attempt
+                  <div className="rounded-xl border border-white/10 bg-[#111115] px-3.5 py-2">
+                    <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
+                      Your Initial Attempt
                     </p>
-                    <p className="text-sm text-neutral-200">
+                    <p className="text-xs text-neutral-200 line-clamp-1 italic">
                       “{initialAttempt.trim()}”
                     </p>
                   </div>
                 )}
 
-                {/* Core Principle */}
-                <div className="space-y-2">
-                  <p className="text-xs font-mono uppercase tracking-wider text-neutral-400">
-                    Key Principle · {lesson.title}
+                {/* Core Principle Headline */}
+                <div className="space-y-1">
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
+                    Core Operational Model
                   </p>
-                  <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                  <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white line-clamp-1">
                     {slides.mentalModel.headline}
                   </h2>
-                  <p className="text-sm leading-relaxed text-neutral-300 sm:text-base">
+                  <p className="text-xs sm:text-sm text-neutral-300 line-clamp-2">
                     {slides.mentalModel.body}
                   </p>
                 </div>
 
                 {/* Highlighted Golden Rule */}
-                <div className="rounded-xl border border-white/20 bg-white/[0.03] p-5">
+                <div className="rounded-xl border border-white/20 bg-white/[0.03] p-4">
                   <p className="text-[10px] font-mono font-semibold uppercase tracking-[0.2em] text-neutral-400">
-                    Rule to remember
+                    The Golden Rule
                   </p>
-                  <p className="mt-1.5 text-base font-bold text-white sm:text-lg">
+                  <p className="mt-1 text-sm sm:text-base font-bold text-white">
                     “{slides.mentalModel.goldenRule}”
                   </p>
                 </div>
 
                 {/* 3 Concise Steps */}
                 {slides.mentalModel.steps && slides.mentalModel.steps.length > 0 && (
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                     {slides.mentalModel.steps.map((s) => (
                       <div
                         key={s.step}
-                        className="rounded-xl border border-white/[0.08] bg-[#121216] p-4 space-y-1"
+                        className="rounded-xl border border-white/[0.08] bg-[#121216] p-3 space-y-0.5"
                       >
-                        <span className="font-mono text-[11px] text-neutral-400">
+                        <span className="font-mono text-[10px] text-neutral-400">
                           0{s.step}
                         </span>
-                        <h3 className="text-xs sm:text-sm font-semibold text-white">
+                        <h3 className="text-xs font-semibold text-white truncate">
                           {s.label}
                         </h3>
-                        <p className="text-xs leading-relaxed text-neutral-400">
+                        <p className="text-[11px] text-neutral-400 line-clamp-2">
                           {s.detail}
                         </p>
                       </div>
@@ -504,98 +500,70 @@ export function LessonPlayer({
                   </div>
                 )}
 
-                {/* Optional Diagram when it clarifies the principle */}
-                {renderVisual && renderVisual(slides.mentalModel.visual)}
-
-                {/* Creator-Added Extra Slides */}
-                {lesson.extraSlides &&
-                  lesson.extraSlides.map((extra) => (
-                    <div
-                      key={extra.id}
-                      className="rounded-xl border border-white/15 bg-[#121217] p-5 space-y-2"
-                    >
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
-                        {extra.label || "Additional Insight"}
-                      </span>
-                      <h3 className="text-base font-bold text-white">
-                        {extra.headline}
-                      </h3>
-                      <p className="text-xs sm:text-sm leading-relaxed text-neutral-300">
-                        {extra.body}
-                      </p>
-                      {extra.takeaway && (
-                        <p className="border-l-2 border-white/40 pl-3 text-xs font-medium text-white">
-                          “{extra.takeaway}”
-                        </p>
-                      )}
-                      {renderVisual && renderVisual(extra.visual)}
-                    </div>
-                  ))}
-
                 {/* Common Trap Note */}
-                <div className="rounded-xl border border-white/[0.08] bg-[#111114] p-4 space-y-1">
-                  <p className="text-xs font-mono uppercase tracking-wider text-neutral-300">
-                    Trap to avoid: {slides.trap.headline}
-                  </p>
-                  <p className="text-xs leading-relaxed text-neutral-400">
-                    {slides.trap.costOfFailure}
-                  </p>
+                <div className="rounded-xl border border-white/[0.08] bg-[#111114] px-3.5 py-2 text-xs">
+                  <span className="font-mono uppercase tracking-wider text-neutral-300 font-semibold mr-1.5">
+                    Trap to avoid:
+                  </span>
+                  <span className="text-neutral-400 line-clamp-1">
+                    {slides.trap.headline} — {slides.trap.costOfFailure}
+                  </span>
                 </div>
               </section>
             )}
 
             {/* STAGE 2: DEMONSTRATION (Show What Good Looks Like) */}
             {stage === 2 && (
-              <section className="space-y-6">
-                <div className="space-y-1.5">
-                  <p className="text-xs font-mono uppercase tracking-wider text-neutral-400">
-                    Demonstration · Comparing responses
+              <section className="flex-1 flex flex-col justify-between space-y-3">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
+                    Demonstration Film Breakdown
                   </p>
-                  <h2 className="text-2xl font-bold tracking-tight text-white">
+                  <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white line-clamp-2">
                     “{slides.tape.prompt}”
                   </h2>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {/* Ineffective Response */}
-                  <div className="flex flex-col justify-between rounded-xl border border-white/10 bg-[#101014] p-5 space-y-3">
-                    <div className="space-y-2">
-                      <span className="text-xs font-mono uppercase tracking-wider text-neutral-400 line-through">
+                  <div className="flex flex-col justify-between rounded-xl border border-white/10 bg-[#101014] p-4 space-y-2">
+                    <div>
+                      <span className="text-[11px] font-mono uppercase tracking-wider text-neutral-400 line-through">
                         Ineffective response
                       </span>
-                      <p className="text-xs sm:text-sm italic leading-relaxed text-neutral-300">
+                      <p className="mt-1 text-xs italic text-neutral-300 line-clamp-3">
                         “{slides.tape.weakResponse}”
                       </p>
                     </div>
-                    <p className="border-t border-white/[0.06] pt-3 text-xs text-neutral-400">
-                      <strong className="text-neutral-200">Why it fails: </strong>
-                      {slides.tape.weakCritique}
+                    <p className="border-t border-white/[0.06] pt-2 text-[11px] text-neutral-400">
+                      <strong className="text-neutral-300">Why it fails: </strong>
+                      <span className="line-clamp-2">{slides.tape.weakCritique}</span>
                     </p>
                   </div>
 
                   {/* Stronger Response */}
-                  <div className="flex flex-col justify-between rounded-xl border border-white/20 bg-white/[0.03] p-5 space-y-3 shadow-sm">
-                    <div className="space-y-2">
-                      <span className="text-xs font-mono uppercase tracking-wider text-white font-semibold">
+                  <div className="flex flex-col justify-between rounded-xl border border-white/20 bg-white/[0.03] p-4 space-y-2 shadow-sm">
+                    <div>
+                      <span className="text-[11px] font-mono uppercase tracking-wider text-white font-semibold">
                         Stronger response
                       </span>
-                      <p className="text-xs sm:text-sm font-medium leading-relaxed text-white">
+                      <p className="mt-1 text-xs font-medium text-white line-clamp-3">
                         “{slides.tape.strongResponse}”
                       </p>
                     </div>
-                    <p className="border-t border-white/10 pt-3 text-xs text-neutral-300">
+                    <p className="border-t border-white/10 pt-2 text-[11px] text-neutral-300">
                       <strong className="text-white">Why it works: </strong>
-                      {slides.tape.strongWhy}
+                      <span className="line-clamp-2">{slides.tape.strongWhy}</span>
                     </p>
                   </div>
                 </div>
 
                 {/* Specific Difference Callout */}
-                <div className="rounded-xl border border-white/10 bg-[#121215] p-4 space-y-1">
-                  <p className="text-xs font-mono uppercase tracking-wider text-neutral-300">
-                    The specific difference
+                <div className="rounded-xl border border-white/10 bg-[#121215] px-4 py-2.5">
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
+                    The Critical Distinction
                   </p>
-                  <p className="text-xs sm:text-sm leading-relaxed text-neutral-200">
+                  <p className="mt-0.5 text-xs text-neutral-200 line-clamp-2">
                     {differenceSummary}
                   </p>
                 </div>
@@ -604,100 +572,100 @@ export function LessonPlayer({
 
             {/* STAGE 3: RETRY IN A NEW SITUATION & EVIDENCE-BASED FEEDBACK */}
             {stage === 3 && (
-              <section className="space-y-6">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-mono uppercase tracking-wider text-neutral-400">
-                      {retryContext} · {roomConfig.personaName} ({archetypeDef.tagline})
-                    </span>
-                    <span className="text-xs font-mono text-neutral-400">
-                      Target: ≤ {practice?.targetMaxWords ?? 35} words
-                    </span>
-                  </div>
-                  <h2 className="text-2xl font-bold leading-snug tracking-tight text-white sm:text-3xl">
-                    “{retryPrompt}”
-                  </h2>
-                  <p className="text-xs sm:text-sm text-neutral-300">
-                    Apply <strong className="text-white">{slides.mentalModel.headline}</strong>{" "}
-                    to this new challenge. Goal: {slides.mission.passCriteria}
-                  </p>
-                </div>
-
+              <section className="flex-1 flex flex-col justify-between space-y-3">
                 {!showFeedback ? (
-                  <div className="space-y-4 rounded-xl border border-white/10 bg-[#111115] p-4 sm:p-5">
-                    {/* In-Situ Sparring Partner Pill (Brilliant-Style Companion) */}
-                    <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-lg border border-white/[0.08] bg-[#09090c] p-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-white/10 font-mono text-xs font-bold text-white">
-                          {roomConfig.personaName.slice(0, 1)}
-                        </div>
-                        <div className="text-xs">
-                          <span className="font-semibold text-white">
+                  <>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
+                          {retryContext}
+                        </span>
+                        <span className="text-[10px] font-mono text-neutral-400">
+                          Target: ≤ {practice?.targetMaxWords ?? 35}w
+                        </span>
+                      </div>
+                      <h2 className="text-lg sm:text-xl font-bold leading-snug tracking-tight text-white line-clamp-2">
+                        “{retryPrompt}”
+                      </h2>
+                    </div>
+
+                    <div className="space-y-3 rounded-xl border border-white/10 bg-[#111115] p-3.5">
+                      {/* In-Situ Sparring Partner Pill */}
+                      <div className="flex items-center justify-between gap-2 rounded-lg border border-white/[0.08] bg-[#09090c] p-2.5">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-white/10 font-mono text-[11px] font-bold text-white">
+                            {roomConfig.personaName.slice(0, 1)}
+                          </div>
+                          <span className="text-xs font-semibold text-white">
                             {roomConfig.personaName}
-                          </span>{" "}
-                          <span className="text-neutral-400">
-                            ({archetypeDef.tagline})
+                          </span>
+                        </div>
+
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={launchingChamber}
+                          onClick={() => onLaunchChamber(course, lesson)}
+                          className="rounded-full border-white/15 bg-white/[0.04] text-[11px] text-white hover:bg-white/[0.09] px-3 h-6"
+                        >
+                          <Play className="mr-1 h-2.5 w-2.5 fill-current" />
+                          Live Room
+                        </Button>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          {micStatus === "listening" ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={stopMicRecording}
+                              className="rounded-full bg-white text-black hover:bg-neutral-200 text-xs font-semibold px-3 h-7"
+                            >
+                              <Square className="mr-1 h-3 w-3 fill-current" />
+                              Stop
+                            </Button>
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => startMicRecording("retry")}
+                              className="rounded-full border-white/15 bg-white/[0.04] text-xs text-white hover:bg-white/[0.08] px-3 h-7"
+                            >
+                              <Mic className="mr-1 h-3 w-3" />
+                              Record
+                            </Button>
+                          )}
+                          <span className="text-[11px] font-mono text-neutral-400">
+                            {micStatus === "listening"
+                              ? "● Listening..."
+                              : "Speak or type your answer"}
                           </span>
                         </div>
                       </div>
 
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={launchingChamber}
-                        onClick={() => onLaunchChamber(course, lesson)}
-                        className="rounded-full border-white/15 bg-white/[0.04] text-xs text-white hover:bg-white/[0.09] px-3.5 h-7"
-                      >
-                        <Play className="mr-1.5 h-3 w-3 fill-current" />
-                        {launchingChamber
-                          ? "Opening Chamber..."
-                          : `Live AI Role-Play →`}
-                      </Button>
+                      <Textarea
+                        value={retryAttempt}
+                        onChange={(e) => setRetryAttempt(e.target.value)}
+                        rows={2}
+                        placeholder="Deliver your response applying the principle..."
+                        aria-label="Your retry response"
+                        className="border-white/10 bg-[#09090c] text-xs sm:text-sm text-white placeholder:text-neutral-500 rounded-lg resize-none"
+                      />
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex items-center gap-2.5">
-                        {micStatus === "listening" ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            onClick={stopMicRecording}
-                            className="rounded-full bg-white text-black hover:bg-neutral-200 text-xs font-semibold px-4 py-1.5 h-8"
-                          >
-                            <Square className="mr-1.5 h-3 w-3 fill-current" />
-                            Stop recording
-                          </Button>
-                        ) : (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => startMicRecording("retry")}
-                            className="rounded-full border-white/15 bg-white/[0.04] text-xs text-white hover:bg-white/[0.08] px-4 py-1.5 h-8"
-                          >
-                            <Mic className="mr-1.5 h-3.5 w-3.5" />
-                            Record response
-                          </Button>
-                        )}
-
-                        <span className="text-xs font-mono text-neutral-300">
-                          {micStatus === "listening"
-                            ? "● Listening..."
-                            : "Speak or type your response"}
-                        </span>
+                    {/* Spar Signature 24-Hour Transfer Card */}
+                    <div className="rounded-xl border border-white/15 bg-white/[0.02] p-3 space-y-1">
+                      <div className="flex items-center justify-between text-[10px] font-mono text-neutral-400">
+                        <span>SPAR 24-HOUR FIELD CHALLENGE</span>
                       </div>
+                      <p className="text-xs text-white font-medium line-clamp-2">
+                        “{getRealWorldChallenge(lesson)}”
+                      </p>
                     </div>
-
-                    <Textarea
-                      value={retryAttempt}
-                      onChange={(e) => setRetryAttempt(e.target.value)}
-                      rows={3}
-                      placeholder="Deliver your response applying the principle..."
-                      aria-label="Your retry response"
-                      className="border-white/10 bg-[#09090c] text-sm text-white placeholder:text-neutral-500 rounded-lg resize-none"
-                    />
-                  </div>
+                  </>
                 ) : (
                   <LessonFeedback
                     learnerResponse={activeResponseToEvaluate}
@@ -713,40 +681,12 @@ export function LessonPlayer({
                     }}
                   />
                 )}
-
-                {/* Spar Signature Real-World Transfer Card */}
-                {lesson.realWorldTransfer?.enabled !== false && (
-                  <div className="rounded-xl border border-white/15 bg-white/[0.02] p-5 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.2em] text-neutral-300">
-                        Spar Signature · Real-World Transfer
-                      </span>
-                      <span className="text-[10px] font-mono text-neutral-400">
-                        24-Hour Field Challenge
-                      </span>
-                    </div>
-                    <h3 className="text-sm sm:text-base font-bold text-white">
-                      {SPAR_SIGNATURE_HEADLINE}
-                    </h3>
-                    <p className="text-xs leading-relaxed text-neutral-400">
-                      {SPAR_SIGNATURE_MANIFESTO}
-                    </p>
-                    <div className="mt-2 rounded-lg border border-white/10 bg-black/40 px-3.5 py-2.5">
-                      <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
-                        Apply this in your next real conversation:
-                      </p>
-                      <p className="mt-1 text-xs sm:text-sm font-medium leading-relaxed text-white">
-                        “{getRealWorldChallenge(lesson)}”
-                      </p>
-                    </div>
-                  </div>
-                )}
               </section>
             )}
           </div>
 
-          {/* Pinned Bottom Action Footer Inside Folio */}
-          <footer className="border-t border-white/[0.08] pt-4 mt-auto">
+          {/* Pinned Bottom Action Footer Inside Folio (Zero-Scroll Controls) */}
+          <footer className="border-t border-white/[0.08] pt-3 shrink-0">
             {stage === 0 && (
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <button
@@ -754,7 +694,7 @@ export function LessonPlayer({
                   onClick={() => setStage(1)}
                   className="text-xs font-medium text-neutral-400 hover:text-white transition-colors"
                 >
-                  Skip straight to principle →
+                  Skip to principle →
                 </button>
 
                 <Button
@@ -771,16 +711,18 @@ export function LessonPlayer({
               <div className="flex items-center justify-between">
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={() => setStage(0)}
-                  className="rounded-full border-white/15 bg-transparent text-xs text-neutral-300 px-4 py-2"
+                  className="rounded-full border-white/15 bg-transparent text-xs text-neutral-300 px-4 h-9"
                 >
                   <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-                  Back to scenario
+                  Back
                 </Button>
 
                 <Button
+                  size="sm"
                   onClick={() => setStage(2)}
-                  className="rounded-full bg-white text-black hover:bg-neutral-200 text-xs sm:text-sm font-semibold px-6 py-2.5 h-10 shadow-md"
+                  className="rounded-full bg-white text-black hover:bg-neutral-200 text-xs sm:text-sm font-semibold px-6 h-9 shadow-md"
                 >
                   See demonstration
                   <ArrowRight className="ml-1.5 h-4 w-4" />
@@ -792,21 +734,23 @@ export function LessonPlayer({
               <div className="flex items-center justify-between">
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={() => setStage(1)}
-                  className="rounded-full border-white/15 bg-transparent text-xs text-neutral-300 px-4 py-2"
+                  className="rounded-full border-white/15 bg-transparent text-xs text-neutral-300 px-4 h-9"
                 >
                   <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-                  Back to principle
+                  Back
                 </Button>
 
                 <Button
+                  size="sm"
                   onClick={() => {
                     setShowFeedback(false);
                     setStage(3);
                   }}
-                  className="rounded-full bg-white text-black hover:bg-neutral-200 text-xs sm:text-sm font-semibold px-6 py-2.5 h-10 shadow-md"
+                  className="rounded-full bg-white text-black hover:bg-neutral-200 text-xs sm:text-sm font-semibold px-6 h-9 shadow-md"
                 >
-                  Practise in a new situation
+                  Practise new situation
                   <ArrowRight className="ml-1.5 h-4 w-4" />
                 </Button>
               </div>
@@ -816,20 +760,22 @@ export function LessonPlayer({
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <Button
                   variant="outline"
+                  size="sm"
                   onClick={() => setStage(2)}
-                  className="rounded-full border-white/15 bg-transparent text-xs text-neutral-300 px-4 py-2"
+                  className="rounded-full border-white/15 bg-transparent text-xs text-neutral-300 px-4 h-9"
                 >
                   <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-                  Back to demonstration
+                  Back
                 </Button>
 
                 <Button
+                  size="sm"
                   disabled={
                     retryAttempt.trim().length === 0 &&
                     initialAttempt.trim().length === 0
                   }
                   onClick={() => setShowFeedback(true)}
-                  className="rounded-full bg-white text-black hover:bg-neutral-200 text-xs sm:text-sm font-semibold px-6 py-2.5 h-10 shadow-md"
+                  className="rounded-full bg-white text-black hover:bg-neutral-200 text-xs sm:text-sm font-semibold px-6 h-9 shadow-md disabled:opacity-40"
                 >
                   Evaluate my response
                   <ArrowRight className="ml-1.5 h-4 w-4" />

@@ -38,24 +38,25 @@ export function LessonFeedback({
   const wordEconomyGood = wordCount >= 5 && wordCount <= targetMaxWords + 10;
 
   return (
-    <div className="space-y-8">
-      {/* Your Recorded / Written Attempt */}
-      <div className="space-y-2">
-        <p className="text-xs font-medium text-neutral-400">
-          Your response ({wordCount} {wordCount === 1 ? "word" : "words"})
-        </p>
-        <blockquote className="rounded-xl border border-white/10 bg-[#121215] p-4 text-sm leading-relaxed text-neutral-200">
+    <div className="space-y-4">
+      {/* Response Preview Block (Compact) */}
+      <div className="rounded-xl border border-white/10 bg-[#0d0d11] p-3.5 space-y-1">
+        <div className="flex items-center justify-between text-[11px] font-mono text-neutral-400">
+          <span>YOUR RESPONSE</span>
+          <span className="tabular-nums">{wordCount} words</span>
+        </div>
+        <p className="text-xs sm:text-sm text-neutral-200 line-clamp-2 italic">
           “{learnerResponse}”
-        </blockquote>
+        </p>
       </div>
 
-      {/* Measured Dimensions (Only honest, measurable signals) */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-xl border border-white/[0.08] bg-[#111114] p-3.5">
-          <p className="text-xs text-neutral-400">Opening directness</p>
+      {/* 4 Measured Dimensions in a tight 4-col strip */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="rounded-xl border border-white/[0.08] bg-[#111114] p-2.5">
+          <p className="text-[10px] font-mono uppercase text-neutral-400">Directness</p>
           <p
             className={cn(
-              "mt-1 text-sm font-semibold",
+              "mt-0.5 text-xs font-semibold truncate",
               hasDirectOpening ? "text-white" : "text-neutral-400"
             )}
           >
@@ -63,108 +64,108 @@ export function LessonFeedback({
           </p>
         </div>
 
-        <div className="rounded-xl border border-white/[0.08] bg-[#111114] p-3.5">
-          <p className="text-xs text-neutral-400">Word economy</p>
+        <div className="rounded-xl border border-white/[0.08] bg-[#111114] p-2.5">
+          <p className="text-[10px] font-mono uppercase text-neutral-400">Economy</p>
           <p
             className={cn(
-              "mt-1 text-sm font-semibold font-mono tabular-nums",
+              "mt-0.5 text-xs font-semibold font-mono tabular-nums truncate",
               wordEconomyGood ? "text-white" : "text-neutral-400"
             )}
           >
-            {wordCount} / {targetMaxWords}w target
+            {wordCount}/{targetMaxWords}w
           </p>
         </div>
 
-        <div className="rounded-xl border border-white/[0.08] bg-[#111114] p-3.5">
-          <p className="text-xs text-neutral-400">Hedge &amp; filler words</p>
+        <div className="rounded-xl border border-white/[0.08] bg-[#111114] p-2.5">
+          <p className="text-[10px] font-mono uppercase text-neutral-400">Fillers</p>
           <p
             className={cn(
-              "mt-1 text-sm font-semibold font-mono tabular-nums",
+              "mt-0.5 text-xs font-semibold font-mono tabular-nums truncate",
               totalFillerAndHedges === 0 ? "text-white" : "text-neutral-400"
             )}
           >
-            {totalFillerAndHedges === 0
-              ? "0 detected"
-              : `${totalFillerAndHedges} detected`}
+            {totalFillerAndHedges === 0 ? "0 detected" : `${totalFillerAndHedges} hedges`}
           </p>
         </div>
 
-        <div className="rounded-xl border border-white/[0.08] bg-[#111114] p-3.5">
-          <p className="text-xs text-neutral-400">Use of evidence</p>
+        <div className="rounded-xl border border-white/[0.08] bg-[#111114] p-2.5">
+          <p className="text-[10px] font-mono uppercase text-neutral-400">Evidence</p>
           <p
             className={cn(
-              "mt-1 text-sm font-semibold",
+              "mt-0.5 text-xs font-semibold truncate",
               hasConcreteNumbers ? "text-white" : "text-neutral-400"
             )}
           >
-            {hasConcreteNumbers ? "Quantified" : "No numbers cited"}
+            {hasConcreteNumbers ? "Quantified" : "No baseline"}
           </p>
         </div>
       </div>
 
-      {/* 1 Thing Done Well + 1 Specific Improvement */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="space-y-1.5 rounded-xl border border-white/15 bg-white/[0.03] p-5 shadow-sm">
-          <p className="text-xs font-mono uppercase tracking-wider text-neutral-300">
-            What you did well
+      {/* 1 Thing Done Well + 1 Improvement in tight 2 cols */}
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+        <div className="rounded-xl border border-white/15 bg-white/[0.03] p-3 space-y-1">
+          <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-300 font-semibold">
+            Strong Reflex
           </p>
-          <p className="text-sm leading-relaxed text-white font-medium">{didWell}</p>
+          <p className="text-xs text-white leading-relaxed line-clamp-2">{didWell}</p>
         </div>
 
-        <div className="space-y-1.5 rounded-xl border border-white/10 bg-[#111114] p-5">
-          <p className="text-xs font-mono uppercase tracking-wider text-neutral-400">
-            One specific improvement
+        <div className="rounded-xl border border-white/10 bg-[#111114] p-3 space-y-1">
+          <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-400 font-semibold">
+            Adjustment
           </p>
-          <p className="text-sm leading-relaxed text-neutral-300">
-            {toImprove}
-          </p>
+          <p className="text-xs text-neutral-300 leading-relaxed line-clamp-2">{toImprove}</p>
         </div>
       </div>
 
-      {/* Suggested Rewrite / Demonstration */}
-      <div className="space-y-2 border-t border-white/[0.08] pt-6">
-        <p className="text-xs font-mono uppercase tracking-wider text-neutral-400">
-          Suggested stronger response
-        </p>
-        <p className="rounded-xl border border-white/20 bg-white/[0.04] p-4 text-sm font-medium leading-relaxed text-white">
+      {/* Suggested Rewrite (Compact) */}
+      <div className="rounded-xl border border-white/12 bg-[#0a0a0e] p-3 space-y-1">
+        <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
+          Executive Benchmark
+        </span>
+        <p className="text-xs text-white font-medium italic line-clamp-2">
           “{suggestedRewrite}”
         </p>
       </div>
 
-      {/* Next-Step Actions */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.08] pt-6">
-        <div className="flex flex-wrap items-center gap-2.5">
+      {/* Action Buttons */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-white/[0.08]">
+        <div className="flex items-center gap-2">
           <Button
+            type="button"
             variant="outline"
+            size="sm"
             onClick={onRetry}
-            className="rounded-full border-white/15 bg-transparent text-xs text-white hover:bg-white/[0.06] px-4 py-2"
+            className="rounded-full border-white/15 bg-transparent text-xs text-white hover:bg-white/[0.06] h-8 px-3.5"
           >
-            <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-            Retry challenge
+            <RotateCcw className="mr-1.5 h-3 w-3" />
+            Retry
           </Button>
 
           {onLaunchChamber && (
             <Button
+              type="button"
               variant="outline"
+              size="sm"
               disabled={launchingChamber}
               onClick={onLaunchChamber}
-              className="rounded-full border-white/15 bg-white/[0.04] text-xs text-white hover:bg-white/[0.09] px-4 py-2"
+              className="rounded-full border-white/15 bg-white/[0.04] text-xs text-white hover:bg-white/[0.09] h-8 px-3.5"
             >
-              <Play className="mr-1.5 h-3.5 w-3.5 fill-current" />
-              {launchingChamber
-                ? "Opening Chamber..."
-                : "Enter Drill Chamber →"}
+              <Play className="mr-1.5 h-3 w-3 fill-current" />
+              Role-Play Room
             </Button>
           )}
         </div>
 
         <Button
+          type="button"
+          size="sm"
           onClick={onCompleteLesson}
-          className="rounded-full bg-white text-black hover:bg-neutral-200 text-xs sm:text-sm font-semibold px-6 py-2.5 h-10 shadow-md"
+          className="rounded-full bg-white text-black hover:bg-neutral-200 text-xs font-bold h-8 px-4 shadow-md"
         >
-          <CheckCircle2 className="mr-1.5 h-4 w-4" />
-          Complete &amp; continue
-          <ArrowRight className="ml-1.5 h-4 w-4" />
+          <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+          Complete Lesson
+          <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
         </Button>
       </div>
     </div>

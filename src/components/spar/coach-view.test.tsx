@@ -47,7 +47,7 @@ describe("CoachView (3-Screen Learner Experience)", () => {
     expect(markup).not.toContain("Creator Passkey");
   });
 
-  test("Screen B (Roadmap): renders focused course roadmap with 'Learn /' breadcrumb, upfront outcomes, straight-axis lesson nodes, and 'Apply in the room' link", () => {
+  test("Screen B (Roadmap): renders clean Brilliant-style course roadmap with 'Learn /' breadcrumb, tactile 3D disc journey, and bottom action launcher without text walls", () => {
     const markup = renderToStaticMarkup(
       <CoachView
         onSessionCreated={() => {}}
@@ -60,12 +60,17 @@ describe("CoachView (3-Screen Learner Experience)", () => {
 
     expect(markup).toContain("Learn");
     expect(markup).toContain("Boardroom Curveballs");
-    expect(markup).toContain("By the end you&#x27;ll be able to:");
-    expect(markup).toContain("Up next:");
+    expect(markup).toContain("LEVEL 1");
     expect(markup).toContain("Surviving the Friendly Trap");
     expect(markup).toContain("Two-Second Recovery");
-    expect(markup).toContain("Partner in room:");
-    expect(markup).toContain("Apply in the room");
+    expect(markup).toContain("Lessons");
+    expect(markup).toContain("Exercises");
+    expect(markup).toContain("Start");
+
+    // Must NOT contain cluttered accordion or multi-line metadata
+    expect(markup).not.toContain("By the end you&#x27;ll be able to:");
+    expect(markup).not.toContain("Partner in room:");
+    expect(markup).not.toContain("Target: Cite a specific");
 
     // Must NOT show other courses as switcher pills above the roadmap
     expect(markup).not.toContain("Zero-Hedge Concision");

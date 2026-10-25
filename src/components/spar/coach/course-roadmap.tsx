@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowLeft, ArrowRight, CheckCircle2, Clock } from "lucide-react";
+import { ArrowLeft, ArrowRight, Compass, MessageSquare, RotateCcw, Shield, Swords, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -24,6 +24,20 @@ export interface CourseRoadmapProps {
   ) => void;
 }
 
+function getCourseBadgeIcon(category: string) {
+  const lower = category.toLowerCase();
+  if (lower.includes("pressure") || lower.includes("recovery")) {
+    return <Zap className="h-6 w-6 text-white" />;
+  }
+  if (lower.includes("q&a") || lower.includes("defense")) {
+    return <Shield className="h-6 w-6 text-white" />;
+  }
+  if (lower.includes("communication") || lower.includes("vocal")) {
+    return <MessageSquare className="h-6 w-6 text-white" />;
+  }
+  return <Compass className="h-6 w-6 text-white" />;
+}
+
 export function CourseRoadmap({
   course,
   completedLessonIds,
@@ -39,6 +53,9 @@ export function CourseRoadmap({
     nextLesson?.id ?? allLessons[0]?.id ?? ""
   );
 
+  const selectedLesson =
+    allLessons.find((l) => l.id === selectedNodeId) ?? allLessons[0];
+
   const completedCount = allLessons.filter((l) =>
     completedLessonIds.has(l.id)
   ).length;
@@ -46,80 +63,76 @@ export function CourseRoadmap({
   const progressPct =
     totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
-  const isStarted = completedCount > 0 && completedCount < totalCount;
-  const isAllDone = totalCount > 0 && completedCount === totalCount;
+  const isStarted = completedCount > 0;
+  const isSelectedDone = selectedLesson
+    ? completedLessonIds.has(selectedLesson.id)
+    : false;
 
-  const primaryCtaLabel = isAllDone
-    ? "Review course"
-    : isStarted
-    ? "Continue"
-    : "Start course";
-
-  const lessonNumbers = new Map<string, number>(
-    allLessons.map((lesson, idx) => [lesson.id, idx + 1])
-  );
+  const selectedLessonIndex = selectedLesson
+    ? allLessons.findIndex((l) => l.id === selectedLesson.id) + 1
+    : 1;
 
   function handleSelectNode(lessonId: string) {
-    if (selectedNodeId === lessonId) {
-      onStartLesson(lessonId);
-    } else {
-      setSelectedNodeId(lessonId);
-    }
+    setSelectedNodeId(lessonId);
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 pb-32 sm:px-6 sm:py-10 md:pb-16 space-y-6">
+    <div className="mx-auto max-w-6xl px-4 py-6 pb-36 sm:px-6 sm:py-8 lg:pb-20 space-y-6">
       {/* Top Breadcrumb Navigation */}
       <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs">
         <button
           type="button"
           onClick={onBackToCatalog}
-          className="inline-flex items-center gap-1.5 font-medium text-neutral-300 transition-colors hover:text-white focus-visible:outline-none focus-visible:underline"
+          className="inline-flex items-center gap-1.5 font-medium text-neutral-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:underline"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           Learn
         </button>
-        <span className="text-neutral-500">/</span>
-        <span className="font-medium text-white truncate">{course.title}</span>
+        <span className="text-neutral-600">/</span>
+        <span className="font-semibold text-white truncate">{course.title}</span>
       </nav>
 
-      {/* Brilliant-Style Split Layout: Left Pinned Card + Right Interactive Path */}
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-10 items-start">
-        {/* LEFT COLUMN: Pinned Course Dossier Card (Desktop Sticky) */}
+      {/* Brilliant-Style 2-Column Split: Left Sticky Folio + Right 3D Disc Journey */}
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-12 items-start">
+        {/* LEFT COLUMN: Pinned Course Card (Twin of Brilliant media_1792937364147.png) */}
         <aside className="lg:col-span-5 lg:sticky lg:top-24 space-y-4">
-          <div className="rounded-2xl border border-white/12 bg-[#0d0d11] p-6 sm:p-7 shadow-xl space-y-5">
-            {/* Tactile Course Badge & Meta */}
-            <div className="flex items-center justify-between gap-2 border-b border-white/[0.07] pb-4">
-              <span className="rounded-md border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-mono font-semibold uppercase tracking-wider text-neutral-300">
-                {course.category} · {course.difficulty}
-              </span>
-              <span className="inline-flex items-center gap-1 text-[11px] font-mono text-neutral-400">
-                <Clock className="h-3 w-3 text-neutral-500" />
-                ~{course.estimatedMinutes} min total
-              </span>
+          <div className="rounded-3xl border border-white/12 bg-[#0d0d12] p-6 sm:p-7 shadow-2xl space-y-5">
+            {/* Distinctive Illustration / Motif Icon */}
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.05] shadow-inner">
+              {getCourseBadgeIcon(course.category)}
             </div>
 
-            {/* Title & Tight Premise */}
+            {/* Title & Single-Sentence Clean Premise */}
             <div className="space-y-2">
-              <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
                 {course.title}
               </h1>
-              <p className="text-sm font-medium text-neutral-200">
+              <p className="text-sm leading-relaxed text-neutral-300 font-normal">
                 {course.subtitle}
-              </p>
-              <p className="text-xs leading-relaxed text-neutral-400 sm:text-sm">
-                {course.description}
               </p>
             </div>
 
-            {/* Progress & Primary CTA Bar */}
-            <div className="rounded-xl border border-white/[0.08] bg-[#09090c] p-4 space-y-3">
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs text-neutral-300">
+            {/* Minimal Stats Row matching Brilliant (36 Lessons · 434 Exercises) */}
+            <div className="flex items-center gap-4 text-xs font-mono text-neutral-400 pt-2 border-t border-white/[0.06]">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="text-white">◎</span>
+                <span>{totalCount} Lessons</span>
+              </span>
+              <span>·</span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="text-white">⚡</span>
+                <span>{totalCount * 3} Exercises</span>
+              </span>
+            </div>
+
+            {/* Progress Bar (Only when started) */}
+            {isStarted && (
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between text-xs text-neutral-400">
                   <span className="font-medium text-white">
                     {completedCount} of {totalCount} completed
                   </span>
-                  <span className="font-mono font-semibold tabular-nums text-white">
+                  <span className="font-mono text-neutral-300 tabular-nums">
                     {progressPct}%
                   </span>
                 </div>
@@ -130,129 +143,134 @@ export function CourseRoadmap({
                   />
                 </div>
               </div>
-
-              {nextLesson && (
-                <div className="space-y-2 pt-1">
-                  <Button
-                    onClick={() => onStartLesson(nextLesson.id)}
-                    className="w-full bg-white text-black hover:bg-neutral-200 text-xs sm:text-sm font-bold px-4 py-2.5 h-10 shadow-md"
-                  >
-                    <span>{primaryCtaLabel}</span>
-                    <ArrowRight className="ml-1.5 h-4 w-4 shrink-0" />
-                  </Button>
-                  <p className="text-[11px] text-neutral-400 leading-snug">
-                    <span className="text-neutral-500">Up next: </span>
-                    <span className="font-medium text-white">
-                      {nextLesson.title}
-                    </span>
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Collapsible Outcomes Section (Keeps UI clean without text walls) */}
-            {course.learningOutcomes && course.learningOutcomes.length > 0 && (
-              <details className="group border-t border-white/[0.07] pt-3 text-xs">
-                <summary className="flex cursor-pointer items-center justify-between font-semibold text-neutral-300 hover:text-white select-none">
-                  <span>By the end you&apos;ll be able to:</span>
-                  <span className="font-mono text-neutral-500 group-open:rotate-180 transition-transform">
-                    ▾
-                  </span>
-                </summary>
-                <ul className="mt-3 space-y-2 text-neutral-300 pl-1">
-                  {course.learningOutcomes.map((outcome) => (
-                    <li
-                      key={outcome}
-                      className="flex items-start gap-2 text-xs text-neutral-400"
-                    >
-                      <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white" />
-                      <span>{outcome}</span>
-                    </li>
-                  ))}
-                </ul>
-              </details>
             )}
           </div>
         </aside>
 
-        {/* RIGHT COLUMN: The Interactive Learning Roadmap Path */}
-        <main className="lg:col-span-7 space-y-8">
-          {course.modules.map((mod, modIdx) => (
-            <div key={mod.id} className="space-y-4">
-              {/* Module Header */}
-              <div className="border-b border-white/[0.08] pb-2.5 flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-mono tracking-widest uppercase text-neutral-500">
-                    STAGE 0{modIdx + 1}
-                  </span>
-                  <h2 className="text-sm font-bold tracking-wide text-white uppercase">
-                    {mod.title}
-                  </h2>
-                </div>
-                {mod.description && (
-                  <p className="hidden sm:block text-xs text-neutral-400 max-w-xs truncate text-right">
-                    {mod.description}
-                  </p>
-                )}
-              </div>
-
-              {/* Vertical Tactile Timeline Path */}
-              <div className="flex flex-col pt-1">
-                {mod.lessons.map((lesson, lessonIdx) => {
-                  const num = lessonNumbers.get(lesson.id) ?? lessonIdx + 1;
-                  const isDone = completedLessonIds.has(lesson.id);
-                  const isCurrent = nextLesson?.id === lesson.id && !isDone;
-                  const status: NodeStatus = isDone
-                    ? "completed"
-                    : isCurrent
-                    ? "current"
-                    : "available";
-
-                  const isLastInModule = lessonIdx === mod.lessons.length - 1;
-
-                  return (
-                    <RoadmapNode
-                      key={lesson.id}
-                      lesson={lesson}
-                      lessonNumber={num}
-                      status={status}
-                      isSelected={selectedNodeId === lesson.id}
-                      isLast={isLastInModule}
-                      launchingChamber={launchingChamber}
-                      onSelectNode={handleSelectNode}
-                      onLaunchLesson={onStartLesson}
-                      onApplyInRoom={
-                        onLaunchChamber
-                          ? (les) => onLaunchChamber(course, les)
-                          : undefined
-                      }
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-
-          {/* Final Course Completion Status */}
-          <div className="flex items-center gap-3.5 rounded-2xl border border-white/10 bg-[#0d0d11] p-4 text-xs sm:text-sm">
-            <div
-              className={cn(
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border",
-                isAllDone
-                  ? "border-white bg-white text-black"
-                  : "border-white/15 bg-white/[0.04] text-neutral-500"
-              )}
-            >
-              <CheckCircle2 className="h-4 w-4" />
-            </div>
-            <p className="text-neutral-300">
-              {isAllDone
-                ? `Course completed · All ${totalCount} masterclass activities finished.`
-                : `Complete all ${totalCount} activities to master ${course.title}.`}
-            </p>
+        {/* RIGHT COLUMN: Tactile Meandering 3D Disc Roadmap */}
+        <main className="lg:col-span-7 flex flex-col items-center space-y-6">
+          {/* Top Level Header Pill (matching Brilliant Screenshot 1 & 2) */}
+          <div className="w-full max-w-md rounded-2xl border border-white/15 bg-[#101015] px-6 py-3.5 text-center shadow-lg">
+            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400 block">
+              LEVEL {selectedLessonIndex}
+            </span>
+            <h2 className="text-base sm:text-lg font-bold text-white tracking-tight mt-0.5 truncate">
+              {selectedLesson?.title}
+            </h2>
           </div>
+
+          {/* The Meandering Tactile Disc Path */}
+          <div className="w-full flex flex-col items-center py-2 sm:py-4">
+            {allLessons.map((lesson, idx) => {
+              const isDone = completedLessonIds.has(lesson.id);
+              const isCurrent =
+                (nextLesson?.id === lesson.id && !isDone) ||
+                (!nextLesson && idx === 0);
+              const status: NodeStatus = isDone
+                ? "completed"
+                : isCurrent
+                ? "current"
+                : "available";
+
+              const isLast = idx === allLessons.length - 1;
+
+              return (
+                <RoadmapNode
+                  key={lesson.id}
+                  lesson={lesson}
+                  lessonNumber={idx + 1}
+                  status={status}
+                  isSelected={selectedNodeId === lesson.id}
+                  isLast={isLast}
+                  offsetIndex={idx}
+                  onSelectNode={handleSelectNode}
+                  onLaunchLesson={onStartLesson}
+                />
+              );
+            })}
+          </div>
+
+          {/* Bottom Desktop Selected Lesson Action Launcher (matching media_1792937364147.png) */}
+          {selectedLesson && (
+            <div className="w-full max-w-md rounded-2xl border border-white/15 bg-[#0f0f14] p-5 sm:p-6 text-center space-y-3.5 shadow-2xl">
+              <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+                {selectedLesson.title}
+              </h3>
+
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-1">
+                {onLaunchChamber && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={launchingChamber}
+                    onClick={() => onLaunchChamber(course, selectedLesson)}
+                    className="w-full sm:w-auto border-white/20 bg-white/[0.04] text-xs font-semibold text-neutral-200 hover:bg-white/[0.08] hover:text-white h-11 px-5 rounded-xl"
+                  >
+                    <Swords className="mr-1.5 h-3.5 w-3.5" />
+                    {launchingChamber ? "Opening room..." : "Apply in room"}
+                  </Button>
+                )}
+
+                <Button
+                  type="button"
+                  onClick={() => onStartLesson(selectedLesson.id)}
+                  className="w-full sm:w-auto flex-1 bg-white text-black hover:bg-neutral-200 font-bold text-sm h-11 px-8 rounded-xl shadow-lg transition-transform active:scale-[0.98]"
+                >
+                  {isSelectedDone ? (
+                    <>
+                      <RotateCcw className="mr-1.5 h-4 w-4" />
+                      Review
+                    </>
+                  ) : (
+                    <>
+                      Start
+                      <ArrowRight className="ml-1.5 h-4 w-4" />
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
         </main>
       </div>
+
+      {/* Floating Bottom Launcher for Phone / Mobile (Fixed in Thumb Zone) */}
+      {selectedLesson && (
+        <div className="fixed bottom-0 inset-x-0 z-40 sm:hidden border-t border-white/12 bg-[#0c0c10]/95 backdrop-blur-xl p-3.5 px-4 shadow-2xl flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <span className="font-mono text-[9px] uppercase tracking-wider text-neutral-400 block">
+              Level {selectedLessonIndex}
+            </span>
+            <p className="text-xs font-bold text-white truncate">
+              {selectedLesson.title}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {onLaunchChamber && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={launchingChamber}
+                onClick={() => onLaunchChamber(course, selectedLesson)}
+                className="h-9 px-3 border-white/20 bg-white/[0.04] text-[11px] font-semibold text-neutral-200"
+              >
+                <Swords className="h-3 w-3" />
+              </Button>
+            )}
+
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => onStartLesson(selectedLesson.id)}
+              className="h-9 px-5 bg-white text-black hover:bg-neutral-200 text-xs font-bold rounded-lg shadow-md"
+            >
+              {isSelectedDone ? "Review" : "Start"}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

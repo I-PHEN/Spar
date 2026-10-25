@@ -42,7 +42,6 @@ export function CourseCatalog({
     "All" | CourseDifficulty
   >("All");
   const [sortBy, setSortBy] = useState<SortOption>("recommended");
-  const [inspectedCourse, setInspectedCourse] = useState<Course | null>(null);
 
   // Extract unique categories dynamically so the catalog scales to any library size
   const categories = useMemo(() => {
@@ -339,125 +338,11 @@ export function CourseCatalog({
                 course={course}
                 completedLessonIds={completedLessonIds}
                 onSelectCourse={onSelectCourse}
-                onInspectDetails={(c) => setInspectedCourse(c)}
               />
             ))}
           </div>
         )}
       </section>
-
-      {/* Course Detail Preview Modal (Before Starting) */}
-      {inspectedCourse && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={`${inspectedCourse.title} details`}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-xs"
-          onClick={() => setInspectedCourse(null)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-xl rounded-2xl border border-white/15 bg-[#121215] p-6 shadow-2xl space-y-5"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 text-xs text-neutral-400">
-                  <span>{inspectedCourse.category}</span>
-                  <span>·</span>
-                  <span>{inspectedCourse.difficulty}</span>
-                  <span>·</span>
-                  <span className="inline-flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {inspectedCourse.estimatedMinutes} min
-                  </span>
-                </div>
-                <h3 className="mt-1.5 text-xl font-bold text-white">
-                  {inspectedCourse.title}
-                </h3>
-                <p className="mt-1 text-sm font-medium text-neutral-200">
-                  {inspectedCourse.subtitle}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setInspectedCourse(null)}
-                aria-label="Close course details"
-                className="rounded-lg p-1.5 text-neutral-400 hover:bg-white/[0.08] hover:text-white"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <p className="text-xs leading-relaxed text-neutral-400 sm:text-sm">
-              {inspectedCourse.description}
-            </p>
-
-            {inspectedCourse.learningOutcomes &&
-              inspectedCourse.learningOutcomes.length > 0 && (
-                <div className="space-y-2 border-t border-white/[0.07] pt-4">
-                  <p className="text-xs font-semibold text-neutral-300">
-                    What you will practise
-                  </p>
-                  <ul className="space-y-1.5">
-                    {inspectedCourse.learningOutcomes.map((outcome) => (
-                      <li
-                        key={outcome}
-                        className="flex items-start gap-2 text-xs text-neutral-300"
-                      >
-                        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white" />
-                        <span>{outcome}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-            <div className="space-y-2 border-t border-white/[0.07] pt-4">
-              <p className="text-xs font-semibold text-neutral-300">
-                Course path ({getCourseLessons(inspectedCourse).length} activities)
-              </p>
-              <div className="space-y-1.5">
-                {getCourseLessons(inspectedCourse).map((les, idx) => (
-                  <div
-                    key={les.id}
-                    className="flex items-center justify-between rounded-lg bg-white/[0.03] px-3 py-2 text-xs"
-                  >
-                    <span className="font-medium text-neutral-200">
-                      {idx + 1}. {les.title}
-                    </span>
-                    <span className="text-neutral-500">
-                      {les.durationMinutes} min
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-2 border-t border-white/[0.07] pt-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setInspectedCourse(null)}
-                className="border-white/10 bg-transparent text-xs text-neutral-300"
-              >
-                Close
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => {
-                  const id = inspectedCourse.id;
-                  setInspectedCourse(null);
-                  onSelectCourse(id);
-                }}
-                className="bg-white text-black hover:bg-neutral-200 text-xs font-semibold"
-              >
-                Open roadmap
-                <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
