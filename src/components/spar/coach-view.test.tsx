@@ -76,6 +76,32 @@ describe("CoachView (3-Screen Learner Experience)", () => {
     expect(markup).not.toContain("Zero-Hedge Concision");
   });
 
+  test("Screen B (Roadmap): each roadmap card is directly clickable as a button to open slides straight away on phone and desktop", () => {
+    const markup = renderToStaticMarkup(
+      <CoachView
+        onSessionCreated={() => {}}
+        initialCourses={DEFAULT_COURSES}
+        initialScreen="roadmap"
+        initialSelectedCourseId="boardroom-curveballs"
+        initialCompletions={[
+          {
+            courseId: "boardroom-curveballs",
+            lessonId: "bc-lesson-1-ally-pivot",
+            completedAt: "2026-10-23T10:00:00.000Z",
+          },
+        ]}
+      />
+    );
+
+    // Both completed lesson (Review) and current lesson (Start) render as direct button cards
+    expect(markup).toContain('aria-label="Open lesson 1: Surviving the Friendly Trap (Completed, click to review)"');
+    expect(markup).toContain('aria-label="Open lesson 2: Two-Second Recovery (Current lesson, click to start)"');
+
+    // Direct action labels appear directly on the cards
+    expect(markup).toContain("Review");
+    expect(markup).toContain("Start");
+  });
+
   test("Screen C (Interactive Lesson Player): renders full-screen theater stage with Hook & Attempt stage and Exit to roadmap action", () => {
     const markup = renderToStaticMarkup(
       <CoachView

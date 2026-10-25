@@ -77,7 +77,7 @@ export function CourseRoadmap({
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 pb-36 sm:px-6 sm:py-8 lg:pb-20 space-y-6">
+    <div className="mx-auto max-w-6xl px-4 py-6 pb-16 sm:px-6 sm:py-8 lg:pb-20 space-y-6">
       {/* Top Breadcrumb Navigation */}
       <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs">
         <button
@@ -92,9 +92,9 @@ export function CourseRoadmap({
         <span className="font-semibold text-white truncate">{course.title}</span>
       </nav>
 
-      {/* Brilliant-Style 2-Column Split: Left Sticky Folio + Right 3D Disc Journey */}
+      {/* Brilliant-Style 2-Column Split: Left Sticky Folio + Right Tactile Disc Journey */}
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-12 items-start">
-        {/* LEFT COLUMN: Pinned Course Card (Twin of Brilliant media_1792937364147.png) */}
+        {/* LEFT COLUMN: Pinned Course Card */}
         <aside className="lg:col-span-5 lg:sticky lg:top-24 space-y-4">
           <div className="rounded-3xl border border-white/10 bg-[#121212] p-6 sm:p-7 shadow-2xl space-y-5">
             {/* Distinctive Illustration / Motif Icon */}
@@ -147,19 +147,25 @@ export function CourseRoadmap({
           </div>
         </aside>
 
-        {/* RIGHT COLUMN: Tactile Meandering 3D Disc Roadmap */}
+        {/* RIGHT COLUMN: Tactile Roadmap Path */}
         <main className="lg:col-span-7 flex flex-col items-center space-y-6">
-          {/* Top Level Header Pill (matching Brilliant Screenshot 1 & 2) */}
-          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#141414] px-6 py-3.5 text-center shadow-lg">
-            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400 block">
+          {/* Top Level Header Pill (Clickable directly to open current lesson) */}
+          <button
+            type="button"
+            onClick={() => selectedLesson && onStartLesson(selectedLesson.id)}
+            aria-label={`Level ${selectedLessonIndex}: ${selectedLesson?.title}. Click to start.`}
+            className="w-full max-w-md rounded-2xl border border-white/10 bg-[#141414] px-6 py-3.5 text-center shadow-lg hover:border-white/25 hover:bg-[#161616] transition-all cursor-pointer group"
+          >
+            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400 block group-hover:text-neutral-300">
               LEVEL {selectedLessonIndex}
             </span>
-            <h2 className="text-base sm:text-lg font-bold text-white tracking-tight mt-0.5 truncate">
-              {selectedLesson?.title}
+            <h2 className="text-base sm:text-lg font-bold text-white tracking-tight mt-0.5 truncate flex items-center justify-center gap-1.5">
+              <span>{selectedLesson?.title}</span>
+              <ArrowRight className="h-4 w-4 text-neutral-400 group-hover:text-white group-hover:translate-x-0.5 transition-transform" />
             </h2>
-          </div>
+          </button>
 
-          {/* The Meandering Tactile Disc Path */}
+          {/* The Tactile Card Path */}
           <div className="w-full flex flex-col items-center py-2 sm:py-4">
             {allLessons.map((lesson, idx) => {
               const isDone = completedLessonIds.has(lesson.id);
@@ -190,9 +196,12 @@ export function CourseRoadmap({
             })}
           </div>
 
-          {/* Bottom Desktop Selected Lesson Action Launcher (matching media_1792937364147.png) */}
+          {/* Bottom Selected Lesson Action Launcher */}
           {selectedLesson && (
             <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#121212] p-5 sm:p-6 text-center space-y-3.5 shadow-2xl">
+              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400 block">
+                {isSelectedDone ? "COMPLETED" : "UP NEXT"}
+              </span>
               <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight">
                 {selectedLesson.title}
               </h3>
@@ -233,44 +242,6 @@ export function CourseRoadmap({
           )}
         </main>
       </div>
-
-      {/* Floating Bottom Launcher for Phone / Mobile (Fixed in Thumb Zone) */}
-      {selectedLesson && (
-        <div className="fixed bottom-0 inset-x-0 z-40 sm:hidden border-t border-[#1a1a1a] bg-[#0a0a0a]/95 backdrop-blur-xl p-3.5 px-4 shadow-2xl flex items-center justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <span className="font-mono text-[9px] uppercase tracking-wider text-neutral-400 block">
-              Level {selectedLessonIndex}
-            </span>
-            <p className="text-xs font-bold text-white truncate">
-              {selectedLesson.title}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            {onLaunchChamber && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={launchingChamber}
-                onClick={() => onLaunchChamber(course, selectedLesson)}
-                className="h-9 px-3 border-white/20 bg-white/[0.04] text-[11px] font-semibold text-neutral-200"
-              >
-                <Swords className="h-3 w-3" />
-              </Button>
-            )}
-
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => onStartLesson(selectedLesson.id)}
-              className="h-9 px-5 bg-white text-black hover:bg-neutral-200 text-xs font-bold rounded-lg shadow-md"
-            >
-              {isSelectedDone ? "Review" : "Start"}
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
