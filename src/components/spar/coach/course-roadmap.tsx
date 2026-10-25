@@ -114,9 +114,9 @@ export function CourseRoadmap({
           </div>
 
           {/* Right: Compact Progress & Primary Action */}
-          <div className="flex flex-col gap-3 sm:min-w-[220px]">
+          <div className="flex shrink-0 flex-col gap-3 sm:min-w-[240px]">
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-xs text-neutral-400">
+              <div className="flex items-center justify-between gap-4 text-xs text-neutral-400">
                 <span>
                   <strong className="text-white font-semibold">
                     {completedCount}
@@ -138,10 +138,12 @@ export function CourseRoadmap({
             {nextLesson && (
               <Button
                 onClick={() => onStartLesson(nextLesson.id)}
-                className="w-full bg-white text-black hover:bg-neutral-200 text-xs sm:text-sm font-semibold py-2.5 h-auto"
+                className="w-full min-w-max bg-white text-black hover:bg-neutral-200 text-xs sm:text-sm font-semibold px-5 py-2.5 h-auto"
               >
-                {primaryCtaLabel}: {nextLesson.title}
-                <ArrowRight className="ml-2 h-4 w-4" />
+                <span>
+                  {primaryCtaLabel}: {nextLesson.title}
+                </span>
+                <ArrowRight className="ml-1.5 h-4 w-4 shrink-0" />
               </Button>
             )}
           </div>

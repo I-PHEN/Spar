@@ -46,7 +46,7 @@ export function CourseCard({
     ? "Review"
     : isStarted
     ? "Continue"
-    : "Start course";
+    : "Start";
 
   return (
     <div
@@ -118,26 +118,26 @@ export function CourseCard({
       </div>
 
       {/* Footer: Secondary Metadata + Clear Action */}
-      <div className="mt-6 flex items-center justify-between border-t border-white/[0.06] pt-4">
-        <div className="flex items-center gap-3 text-xs text-neutral-400">
-          <span className="inline-flex items-center gap-1">
-            <Clock className="h-3.5 w-3.5 text-neutral-500" />
+      <div className="mt-6 flex items-center justify-between gap-4 border-t border-white/[0.06] pt-4">
+        <div className="flex items-center gap-1.5 whitespace-nowrap text-xs text-neutral-400">
+          <span className="inline-flex items-center gap-1 whitespace-nowrap">
+            <Clock className="h-3.5 w-3.5 shrink-0 text-neutral-500" />
             {course.estimatedMinutes} min
           </span>
-          <span>·</span>
-          <span>
+          <span className="text-neutral-600">·</span>
+          <span className="whitespace-nowrap">
             {totalCount} {totalCount === 1 ? "lesson" : "lessons"}
           </span>
           {onInspectDetails && (
             <>
-              <span>·</span>
+              <span className="text-neutral-600">·</span>
               <button
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   onInspectDetails(course);
                 }}
-                className="text-xs text-neutral-400 underline-offset-4 hover:text-white hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/50 rounded"
+                className="whitespace-nowrap text-xs text-neutral-400 underline-offset-4 hover:text-white hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/50 rounded"
               >
                 Details
               </button>
@@ -147,14 +147,14 @@ export function CourseCard({
 
         <span
           className={cn(
-            "inline-flex items-center gap-1 text-xs font-semibold transition-colors",
+            "inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-xs font-semibold transition-colors",
             isStarted
               ? "text-emerald-400 group-hover:text-emerald-300"
               : "text-white group-hover:text-neutral-200"
           )}
         >
           {actionLabel}
-          <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+          <ArrowRight className="h-3.5 w-3.5 shrink-0 transition-transform group-hover:translate-x-0.5" />
         </span>
       </div>
     </div>
