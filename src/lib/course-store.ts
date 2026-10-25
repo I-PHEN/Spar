@@ -61,8 +61,16 @@ function readStore(): CoachStoreFile {
     }
     for (const c of storedCourses) {
       if (c && typeof c.id === "string") {
+        const seedCourse = DEFAULT_COURSES.find((d) => d.id === c.id);
+        const isUneditedSeed =
+          seedCourse && c.updatedAt === seedCourse.updatedAt;
         const hydratedCourse: Course = {
+          ...(seedCourse ?? {}),
           ...c,
+          subtitle: isUneditedSeed ? seedCourse.subtitle : c.subtitle,
+          category: isUneditedSeed ? seedCourse.category : c.category,
+          learningOutcomes:
+            c.learningOutcomes ?? seedCourse?.learningOutcomes,
           modules: Array.isArray(c.modules)
             ? c.modules.map((mod) => ({
                 ...mod,
@@ -73,6 +81,9 @@ function readStore(): CoachStoreFile {
                       return {
                         ...seedLes,
                         ...les,
+                        activityType: les.activityType ?? seedLes.activityType,
+                        pattern: les.pattern ?? seedLes.pattern,
+                        practice: les.practice ?? seedLes.practice,
                         slides: {
                           trap: { ...seedLes.slides.trap, ...les.slides?.trap },
                           mentalModel: {

@@ -7,13 +7,9 @@ import {
   ArrowRight,
   BookOpen,
   CheckCircle2,
-  ChevronRight,
-  Clock,
   Compass,
   Flame,
   GraduationCap,
-  Layers,
-  Lock,
   Play,
   Radio,
   ShieldAlert,
@@ -31,13 +27,15 @@ import {
   DEFAULT_COURSES,
   buildLessonSessionPayload,
   getCourseLessons,
-  getNextIncompleteLesson,
   type Course,
   type CourseLesson,
   type DiagramPreset,
   type LessonCompletion,
   type SlideVisualMedia,
 } from "@/lib/courses";
+import { CourseCatalog } from "./coach/course-catalog";
+import { CourseRoadmap } from "./coach/course-roadmap";
+import { LessonPlayer } from "./coach/lesson-player";
 
 export type BriefingSlideIndex = 0 | 1 | 2 | 3;
 
@@ -1067,7 +1065,9 @@ export function ExecutiveBriefingDeck({
   );
 }
 
-// ─── Learner-Facing Coach View (Brilliant-Style Stepping Roadmap) ───────────
+// ─── Learner-Facing Coach View (3-Screen SPA Architecture) ──────────────────
+
+export type CoachScreen = "catalog" | "roadmap" | "lesson";
 
 export interface ActiveCourseLessonContext {
   courseId: string;
@@ -1083,12 +1083,18 @@ export interface CoachViewProps {
   ) => void;
   initialCourses?: Course[];
   initialCompletions?: LessonCompletion[];
+  initialScreen?: CoachScreen;
+  initialSelectedCourseId?: string;
+  initialActiveLessonId?: string | null;
 }
 
 export function CoachView({
   onSessionCreated,
   initialCourses,
   initialCompletions,
+  initialScreen = "catalog",
+  initialSelectedCourseId,
+  initialActiveLessonId = null,
 }: CoachViewProps) {
   const [courses, setCourses] = useState<Course[]>(
     initialCourses ?? DEFAULT_COURSES
@@ -1096,10 +1102,15 @@ export function CoachView({
   const [completions, setCompletions] = useState<LessonCompletion[]>(
     initialCompletions ?? []
   );
+  const [screen, setScreen] = useState<CoachScreen>(initialScreen);
   const [selectedCourseId, setSelectedCourseId] = useState<string>(
-    (initialCourses ?? DEFAULT_COURSES)[0]?.id ?? "defending-under-fire"
+    initialSelectedCourseId ??
+      (initialCourses ?? DEFAULT_COURSES)[0]?.id ??
+      "boardroom-curveballs"
   );
-  const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
+  const [activeLessonId, setActiveLessonId] = useState<string | null>(
+    initialActiveLessonId
+  );
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
 
@@ -1152,14 +1163,6 @@ export function CoachView({
     [selectedCourse]
   );
 
-  const nextLesson = useMemo(
-    () =>
-      selectedCourse
-        ? getNextIncompleteLesson(selectedCourse, completedLessonIds)
-        : null,
-    [selectedCourse, completedLessonIds]
-  );
-
   const activeLesson = useMemo(
     () =>
       activeLessonId
@@ -1167,16 +1170,6 @@ export function CoachView({
         : null,
     [allCourseLessons, activeLessonId]
   );
-
-  const masteredInCourse = useMemo(
-    () => allCourseLessons.filter((l) => completedLessonIds.has(l.id)).length,
-    [allCourseLessons, completedLessonIds]
-  );
-
-  const progressPct =
-    allCourseLessons.length > 0
-      ? Math.round((masteredInCourse / allCourseLessons.length) * 100)
-      : 0;
 
   async function handleMarkComplete(courseId: string, lessonId: string) {
     try {
@@ -1228,7 +1221,7 @@ export function CoachView({
     }
   }
 
-  if (!selectedCourse) {
+  if (courses.length === 0 || !selectedCourse) {
     return (
       <div className="mx-auto max-w-4xl px-6 py-16 text-center">
         <GraduationCap className="mx-auto h-8 w-8 text-neutral-500" />
@@ -1242,76 +1235,8 @@ export function CoachView({
     );
   }
 
-  let globalLessonCounter = 0;
-
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 pb-32 sm:px-6 sm:py-10 md:pb-16 space-y-8">
-      {/* Top Academy Identity + Compact Track Switcher Pills */}
-      <div className="flex flex-col gap-5 border-b border-white/[0.07] pb-6 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            <p className="text-[11px] font-mono font-semibold uppercase tracking-[0.2em] text-neutral-400">
-              Executive Academy · Mastery Roadmap
-            </p>
-          </div>
-          <h1 className="mt-1.5 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            Coach
-          </h1>
-        </div>
-
-        {/* Streamlined Track Switcher Bar (Replaces competing 3-card grid) */}
-        <div
-          role="tablist"
-          aria-label="Training tracks"
-          className="flex flex-wrap items-center gap-2"
-        >
-          <span className="mr-1 inline-flex items-center gap-1 text-[11px] font-mono uppercase tracking-wider text-neutral-500">
-            <Layers className="h-3.5 w-3.5" />
-            Track:
-          </span>
-          {courses.map((course) => {
-            const lessons = getCourseLessons(course);
-            const done = lessons.filter((l) =>
-              completedLessonIds.has(l.id)
-            ).length;
-            const isSelected = course.id === selectedCourse.id;
-            return (
-              <button
-                key={course.id}
-                type="button"
-                role="tab"
-                aria-selected={isSelected}
-                onClick={() => {
-                  setSelectedCourseId(course.id);
-                  setActiveLessonId(null);
-                }}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40",
-                  isSelected
-                    ? "border-white/30 bg-white text-black font-semibold shadow-sm"
-                    : "border-white/10 bg-[#121215] text-neutral-300 hover:border-white/25 hover:text-white"
-                )}
-              >
-                <span>{course.title}</span>
-                <span
-                  className={cn(
-                    "rounded-full px-1.5 py-0.2 text-[10px] font-mono tabular-nums",
-                    isSelected
-                      ? "bg-black/15 text-black"
-                      : done === lessons.length && lessons.length > 0
-                      ? "bg-emerald-500/20 text-emerald-400"
-                      : "bg-white/[0.06] text-neutral-400"
-                  )}
-                >
-                  {done}/{lessons.length}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
+    <div className="mx-auto max-w-6xl px-4 py-8 pb-32 sm:px-6 sm:py-10 md:pb-16 space-y-6">
       {launchError && (
         <div
           role="alert"
@@ -1321,235 +1246,48 @@ export function CoachView({
         </div>
       )}
 
-      {/* Active Lesson Briefing Stage OR Brilliant-Style Stepping Roadmap */}
-      {activeLesson ? (
-        <ExecutiveBriefingDeck
+      {screen === "lesson" && activeLesson ? (
+        <LessonPlayer
           course={selectedCourse}
           lesson={activeLesson}
           isCompleted={completedLessonIds.has(activeLesson.id)}
-          launching={launching}
-          onLaunchDrill={handleLaunchDrill}
-          onMarkComplete={handleMarkComplete}
-          onClose={() => setActiveLessonId(null)}
+          launchingChamber={launching}
+          onBackToRoadmap={() => {
+            setActiveLessonId(null);
+            setScreen("roadmap");
+          }}
+          onLaunchChamber={handleLaunchDrill}
+          onCompleteLesson={handleMarkComplete}
+          renderVisual={(visual) => <SlideVisualBlock visual={visual} />}
+        />
+      ) : screen === "roadmap" ? (
+        <CourseRoadmap
+          course={selectedCourse}
+          completedLessonIds={completedLessonIds}
+          onBackToCatalog={() => {
+            setActiveLessonId(null);
+            setScreen("catalog");
+          }}
+          onStartLesson={(lessonId) => {
+            setActiveLessonId(lessonId);
+            setScreen("lesson");
+          }}
         />
       ) : (
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 items-start">
-          {/* Left Sticky Track Dossier Card */}
-          <div className="lg:col-span-4 lg:sticky lg:top-8 rounded-2xl border border-white/10 bg-[#111114] p-6 space-y-5">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded bg-white/[0.07] px-2.5 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-neutral-200">
-                {selectedCourse.category}
-              </span>
-              <span className="rounded border border-white/10 px-2 py-0.5 text-[10px] font-mono text-neutral-400">
-                {selectedCourse.difficulty}
-              </span>
-              <span className="inline-flex items-center gap-1 text-xs font-mono text-neutral-400">
-                <Clock className="h-3 w-3" />
-                {selectedCourse.estimatedMinutes}m
-              </span>
-            </div>
-
-            <div>
-              <h2 className="text-2xl font-bold tracking-tight text-white">
-                {selectedCourse.title}
-              </h2>
-              <p className="mt-2 text-xs leading-relaxed text-neutral-400 sm:text-sm">
-                {selectedCourse.description}
-              </p>
-            </div>
-
-            {/* Track Mastery Progress */}
-            <div className="rounded-xl border border-white/[0.07] bg-[#0b0b0d] p-4">
-              <div className="flex items-center justify-between text-xs text-neutral-400 mb-2">
-                <span>
-                  <strong className="text-white font-semibold">
-                    {masteredInCourse}
-                  </strong>{" "}
-                  of {allCourseLessons.length} lessons mastered
-                </span>
-                <span className="font-mono font-semibold tabular-nums text-emerald-400">
-                  {progressPct}%
-                </span>
-              </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-white/[0.07]">
-                <div
-                  className="h-full rounded-full bg-emerald-400 transition-all duration-500"
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
-            </div>
-
-            {nextLesson && (
-              <Button
-                onClick={() => setActiveLessonId(nextLesson.id)}
-                className="w-full bg-white text-black hover:bg-neutral-200 font-bold text-xs sm:text-sm py-3 h-auto"
-              >
-                {masteredInCourse === 0
-                  ? `Start Node 1: ${nextLesson.title}`
-                  : masteredInCourse === allCourseLessons.length
-                  ? `Review Path: ${nextLesson.title}`
-                  : `Continue Path: ${nextLesson.title}`}
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            )}
-          </div>
-
-          {/* Right Column: Brilliant-Style Stepping Milestone Path */}
-          <div className="lg:col-span-8 space-y-8">
-            {selectedCourse.modules.map((mod, modIdx) => (
-              <div key={mod.id} className="space-y-4">
-                {/* Milestone Chapter Gate Banner */}
-                <div className="flex items-center gap-3 rounded-xl border border-white/[0.08] bg-[#131317] px-4 py-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/15 bg-white/[0.05] font-mono text-xs font-bold text-white">
-                    M{modIdx + 1}
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="text-sm font-bold text-white">
-                      {mod.title}
-                    </h3>
-                    {mod.description && (
-                      <p className="truncate text-xs text-neutral-400">
-                        {mod.description}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Connected Stepping Nodes */}
-                <div className="relative pl-4 sm:pl-8 space-y-5">
-                  {mod.lessons.map((lesson, lessonIdx) => {
-                    globalLessonCounter += 1;
-                    const nodeNumber = globalLessonCounter;
-                    const isDone = completedLessonIds.has(lesson.id);
-                    const isUpNext = nextLesson?.id === lesson.id && !isDone;
-                    const isLastInModule = lessonIdx === mod.lessons.length - 1;
-                    const archetype =
-                      ARCHETYPES[lesson.roomConfig.archetype] ??
-                      ARCHETYPES.skeptic;
-
-                    // Subtle Brilliant-style horizontal stepping rhythm on desktop
-                    const stepOffsetClass =
-                      nodeNumber % 2 === 0 ? "sm:ml-6" : "sm:mr-6";
-
-                    return (
-                      <div
-                        key={lesson.id}
-                        className={cn("relative flex items-stretch gap-4", stepOffsetClass)}
-                      >
-                        {/* Vertical Conduit Spine + Medallion Node */}
-                        <div className="relative flex flex-col items-center">
-                          <button
-                            type="button"
-                            onClick={() => setActiveLessonId(lesson.id)}
-                            aria-label={`Open ${lesson.title}`}
-                            className={cn(
-                              "relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-2 font-mono text-sm font-bold transition-all",
-                              isDone
-                                ? "border-emerald-400 bg-emerald-500/15 text-emerald-300 shadow-[0_0_20px_rgba(16,185,129,0.25)]"
-                                : isUpNext
-                                ? "border-white bg-white text-black shadow-[0_0_28px_rgba(255,255,255,0.4)] scale-105"
-                                : "border-white/15 bg-[#141418] text-neutral-400 hover:border-white/35 hover:text-white"
-                            )}
-                          >
-                            {isDone ? (
-                              <CheckCircle2 className="h-5 w-5" />
-                            ) : isUpNext ? (
-                              <Play className="h-5 w-5 fill-current" />
-                            ) : (
-                              <span>{nodeNumber}</span>
-                            )}
-                          </button>
-
-                          {!isLastInModule && (
-                            <div
-                              className={cn(
-                                "w-0.5 flex-1 my-1",
-                                isDone
-                                  ? "bg-emerald-500/60"
-                                  : "border-l-2 border-dashed border-white/15"
-                              )}
-                            />
-                          )}
-                        </div>
-
-                        {/* Interactive Milestone Node Card */}
-                        <button
-                          type="button"
-                          onClick={() => setActiveLessonId(lesson.id)}
-                          className={cn(
-                            "group flex-1 rounded-2xl border p-5 text-left transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40",
-                            isUpNext
-                              ? "border-white/35 bg-gradient-to-r from-white/[0.07] via-[#151519] to-[#121215] shadow-lg"
-                              : isDone
-                              ? "border-emerald-500/25 bg-[#111413] hover:border-emerald-500/45"
-                              : "border-white/[0.08] bg-[#111114] hover:border-white/20 hover:bg-[#151519]"
-                          )}
-                        >
-                          <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
-                                Node 0{nodeNumber}
-                              </span>
-                              {isUpNext && (
-                                <span className="rounded-full bg-white px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider text-black">
-                                  Up next
-                                </span>
-                              )}
-                              {isDone && (
-                                <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-mono font-semibold text-emerald-400">
-                                  Mastered
-                                </span>
-                              )}
-                              {!isDone && !isUpNext && (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-mono text-neutral-500">
-                                  <Lock className="h-2.5 w-2.5" />
-                                  Unlocked for preview
-                                </span>
-                              )}
-                            </div>
-
-                            <span className="text-[11px] font-mono text-neutral-400">
-                              {lesson.durationMinutes} min
-                            </span>
-                          </div>
-
-                          <h4 className="mt-2 text-base font-bold text-white sm:text-lg group-hover:text-white">
-                            {lesson.title}
-                          </h4>
-                          <p className="mt-1 text-xs text-neutral-400 sm:text-sm">
-                            {lesson.tagline}
-                          </p>
-
-                          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.06] pt-3">
-                            <div className="flex items-center gap-2 text-[11px] text-neutral-300">
-                              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/10 font-mono text-[10px] font-bold text-white">
-                                {lesson.roomConfig.personaName
-                                  .slice(0, 1)
-                                  .toUpperCase()}
-                              </span>
-                              <span>
-                                Chamber vs.{" "}
-                                <strong className="text-white">
-                                  {lesson.roomConfig.personaName}
-                                </strong>{" "}
-                                ({archetype.tagline})
-                              </span>
-                            </div>
-
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-neutral-300 group-hover:text-white">
-                              {isUpNext ? "Start briefing" : "Open deck"}
-                              <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                            </span>
-                          </div>
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <CourseCatalog
+          courses={courses}
+          completedLessonIds={completedLessonIds}
+          onSelectCourse={(courseId) => {
+            setSelectedCourseId(courseId);
+            setActiveLessonId(null);
+            setScreen("roadmap");
+          }}
+          onStartOrContinueLesson={(courseId, lessonId) => {
+            setSelectedCourseId(courseId);
+            setActiveLessonId(lessonId);
+            setScreen("lesson");
+          }}
+        />
       )}
     </div>
   );

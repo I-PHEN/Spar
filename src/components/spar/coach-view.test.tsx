@@ -3,12 +3,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { DEFAULT_COURSES } from "@/lib/courses";
 import { CoachView, ExecutiveBriefingDeck } from "./coach-view";
 
-describe("CoachView (Learner Experience)", () => {
-  test("renders course catalog, active course progress, and syllabus without exposing creator studio controls", () => {
+describe("CoachView (3-Screen Learner Experience)", () => {
+  test("Screen A (Catalog): renders 'Build your presence.' discovery header, 'Continue learning' section, and outcome-first course cards without creator controls", () => {
     const markup = renderToStaticMarkup(
       <CoachView
         onSessionCreated={() => {}}
         initialCourses={DEFAULT_COURSES}
+        initialScreen="catalog"
         initialCompletions={[
           {
             courseId: "defending-under-fire",
@@ -19,25 +20,68 @@ describe("CoachView (Learner Experience)", () => {
       />
     );
 
-    // Academy header & active course
-    expect(markup).toContain("Executive Academy");
+    // Discovery header
+    expect(markup).toContain("Build your presence.");
+    expect(markup).toContain(
+      "Practise the skills that help you think clearly and speak with confidence."
+    );
+
+    // Continue learning section for started courses
+    expect(markup).toContain("Continue learning");
+    expect(markup).toContain("1 of 3 completed");
+    expect(markup).toContain("33%");
+
+    // Explore courses grid with outcome subtitles
+    expect(markup).toContain("Explore courses");
     expect(markup).toContain("Defending Under Fire");
     expect(markup).toContain("Zero-Hedge Concision");
     expect(markup).toContain("Boardroom Curveballs");
-
-    // Progress tracking: 1 of 3 lessons mastered
-    expect(markup).toContain("of 3 lessons mastered");
-    expect(markup).toContain("33%");
-    expect(markup).toContain("Mastered");
-
-    // Syllabus modules & lessons
-    expect(markup).toContain("BLUF: Bottom-Line Up Front");
-    expect(markup).toContain("Defending Core Assumptions");
+    expect(markup).toContain(
+      "Handle unexpected questions without losing composure."
+    );
 
     // Learner view must NEVER expose creator authoring controls
     expect(markup).not.toContain("Publish Course");
     expect(markup).not.toContain("Save Draft");
     expect(markup).not.toContain("Creator Passkey");
+  });
+
+  test("Screen B (Roadmap): renders focused course roadmap with 'Learn /' breadcrumb, connected lesson nodes, and no row of course switcher pills", () => {
+    const markup = renderToStaticMarkup(
+      <CoachView
+        onSessionCreated={() => {}}
+        initialCourses={DEFAULT_COURSES}
+        initialScreen="roadmap"
+        initialSelectedCourseId="boardroom-curveballs"
+        initialCompletions={[]}
+      />
+    );
+
+    expect(markup).toContain("Learn");
+    expect(markup).toContain("Boardroom Curveballs");
+    expect(markup).toContain("Surviving the Friendly Trap");
+    expect(markup).toContain("Two-Second Recovery");
+
+    // Must NOT show other courses as switcher pills above the roadmap
+    expect(markup).not.toContain("Zero-Hedge Concision");
+  });
+
+  test("Screen C (Interactive Lesson Player): renders Hook & Attempt stage for 'Surviving the Friendly Trap' before debrief", () => {
+    const markup = renderToStaticMarkup(
+      <CoachView
+        onSessionCreated={() => {}}
+        initialCourses={DEFAULT_COURSES}
+        initialScreen="lesson"
+        initialSelectedCourseId="boardroom-curveballs"
+        initialActiveLessonId="bc-lesson-1-ally-pivot"
+        initialCompletions={[]}
+      />
+    );
+
+    expect(markup).toContain("Surviving the Friendly Trap");
+    expect(markup).toContain("1. Scenario &amp; Attempt");
+    expect(markup).toContain("Speak response");
+    expect(markup).toContain("Submit attempt &amp; see principle");
   });
 });
 

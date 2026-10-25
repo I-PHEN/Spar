@@ -3,6 +3,7 @@ import {
   DEFAULT_COURSES,
   buildLessonSessionPayload,
   createEmptyCourse,
+  evaluatePracticeAttempt,
   getCourseLessonCount,
   getCourseLessons,
   getNextIncompleteLesson,
@@ -100,5 +101,33 @@ describe("courses schema & lesson-to-chamber linking", () => {
   test("verifyCreatorPasskey validates creator passkey", () => {
     expect(verifyCreatorPasskey("spar-studio")).toBe(true);
     expect(verifyCreatorPasskey("wrong-passkey")).toBe(false);
+  });
+
+  test("evaluatePracticeAttempt scores direct vs hedged responses with honest measurable dimensions", () => {
+    const curveballs = DEFAULT_COURSES.find(
+      (c) => c.id === "boardroom-curveballs"
+    )!;
+    const friendlyTrapLesson = curveballs.modules[0].lessons[0];
+
+    const strongEval = evaluatePracticeAttempt(
+      "Yes — our model includes a 15% buffer for partner delays, and our core deployment path remains on schedule for Q3.",
+      friendlyTrapLesson
+    );
+    expect(strongEval.totalCriteriaCount).toBe(4);
+    expect(strongEval.passedCriteriaCount).toBe(4);
+    expect(strongEval.detectedHedges.length).toBe(0);
+    expect(strongEval.hasConcreteNumbers).toBe(true);
+    expect(strongEval.hasDirectOpening).toBe(true);
+    expect(strongEval.didWell.length).toBeGreaterThan(0);
+    expect(strongEval.toImprove.length).toBeGreaterThan(0);
+    expect(strongEval.suggestedRewrite.length).toBeGreaterThan(0);
+
+    const hedgedEval = evaluatePracticeAttempt(
+      "Well, I think maybe we might kind of see some delays if partners slip.",
+      friendlyTrapLesson
+    );
+    expect(hedgedEval.detectedHedges.length).toBeGreaterThan(0);
+    expect(hedgedEval.hasConcreteNumbers).toBe(false);
+    expect(hedgedEval.hasDirectOpening).toBe(false);
   });
 });
