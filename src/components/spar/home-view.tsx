@@ -150,6 +150,33 @@ export function groupSessionsByDate(sessionList: SessionHistoryEntry[]): Array<{
   return result;
 }
 
+/** Lightweight count-up hook respecting prefers-reduced-motion */
+export function useCountUp(end: number, duration: number = 700, disabled?: boolean | null): number {
+  const isOff = Boolean(disabled);
+  const [val, setVal] = useState(end);
+  useEffect(() => {
+    if (isOff || end === 0) {
+      setVal(end);
+      return;
+    }
+    let startTime: number | null = null;
+    let frame: number;
+    const step = (timestamp: number) => {
+      if (!startTime) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / duration, 1);
+      const ease = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+      setVal(Math.round(ease * end));
+      if (progress < 1) {
+        frame = requestAnimationFrame(step);
+      }
+    };
+    setVal(0);
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [end, duration, isOff]);
+  return val;
+}
+
 /** One past session in the executive ledger: whole-row click, scannable hierarchy, deduplicated panelists, outcome badge. */
 export function SessionHistoryCard({
   session,
@@ -158,6 +185,7 @@ export function SessionHistoryCard({
   session: SessionHistoryEntry;
   onOpenDebrief: (sessionId: string, label: string) => void;
 }) {
+  const shouldReduceMotion = useReducedMotion();
   const label = sessionLabel(session.scenario);
   const topic = sessionTopic(session);
   const date = new Date(session.createdAt).toLocaleDateString(undefined, {
@@ -182,6 +210,8 @@ export function SessionHistoryCard({
       )
     : null;
 
+  const animatedScore = useCountUp(overallScore ?? 0, 700, shouldReduceMotion);
+
   return (
     <div
       role="button"
@@ -194,37 +224,37 @@ export function SessionHistoryCard({
         }
       }}
       aria-label={`Open debrief for ${topic}`}
-      className="group flex items-center justify-between gap-4 px-5 py-3.5 transition-all hover:bg-white/[0.03] cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40 select-none"
+      className="group flex items-center justify-between gap-4 px-5 py-4 sm:px-6 transition-all hover:bg-white/[0.035] cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40 select-none"
     >
       <div className="min-w-0 flex-1">
         {/* Primary Header: The Topic */}
-        <h3 className="truncate text-sm font-semibold tracking-tight text-white group-hover:text-white transition-colors sm:text-base">
+        <h3 className="truncate text-sm font-semibold tracking-tight text-[var(--text-primary)] group-hover:text-white transition-colors sm:text-base">
           {topic}
         </h3>
 
         {/* Metadata: Mode badge, Date, and Deduplicated Panelists */}
-        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-neutral-400 font-normal">
-          <span className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-300">
+        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)] font-normal">
+          <span className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
             {label}
           </span>
-          <span className="text-neutral-500">·</span>
+          <span className="text-[var(--text-tertiary)]">·</span>
           <span>{date}</span>
           {uniquePersonas.length > 0 && (
             <>
-              <span className="text-neutral-500">·</span>
+              <span className="text-[var(--text-tertiary)]">·</span>
               <span className="inline-flex items-center gap-1.5 min-w-0">
-                <span className="flex -space-x-1 overflow-hidden flex-shrink-0">
+                <span className="flex -space-x-1.5 overflow-hidden flex-shrink-0">
                   {uniquePersonas.map((p) => (
                     <span
                       key={p.name}
                       title={p.name}
-                      className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-neutral-800 ring-1 ring-neutral-900 text-[9px] font-semibold text-neutral-300"
+                      className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-neutral-800 ring-2 ring-[#121218] text-[9px] font-semibold text-neutral-200"
                     >
                       {p.name.charAt(0).toUpperCase()}
                     </span>
                   ))}
                 </span>
-                <span className="truncate">{panelistNames}</span>
+                <span className="truncate text-[var(--text-secondary)]">{panelistNames}</span>
               </span>
             </>
           )}
@@ -232,8 +262,8 @@ export function SessionHistoryCard({
 
         {/* The Coach Takeaway: only shown when authentic and session-specific */}
         {hasSpecificTip && (
-          <p className="mt-1 truncate text-xs leading-relaxed text-neutral-400">
-            <span className="text-neutral-500 font-medium">Practice: </span>
+          <p className="mt-1.5 truncate text-xs leading-relaxed text-[var(--text-secondary)]">
+            <span className="text-[var(--text-tertiary)] font-medium">Practice: </span>
             <span className="text-neutral-300">{session.summary!.oneThingToPractice}</span>
           </p>
         )}
@@ -242,21 +272,30 @@ export function SessionHistoryCard({
       {/* Outcome indicator and navigation chevron */}
       <div className="flex flex-shrink-0 items-center gap-3">
         {overallScore !== null ? (
-          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-400 tabular-nums">
-            <span>{overallScore}</span>
-            <span className="text-[9px] text-emerald-500 uppercase">pts</span>
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold tabular-nums border",
+              overallScore >= 70
+                ? "border-[var(--success)]/30 bg-[var(--success)]/10 text-[var(--success)]"
+                : overallScore < 50
+                ? "border-[var(--danger)]/30 bg-[var(--danger)]/10 text-[var(--danger)]"
+                : "border-[var(--accent)]/30 bg-[var(--accent-soft)] text-[var(--accent)]"
+            )}
+          >
+            <span>{animatedScore}</span>
+            <span className="text-[9px] uppercase opacity-80">pts</span>
           </span>
         ) : session.summary ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-medium text-emerald-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--success)]/30 bg-[var(--success)]/10 px-2.5 py-0.5 text-[10px] font-medium text-[var(--success)]">
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--success)]" />
             Debriefed
           </span>
         ) : (
-          <span className="inline-flex items-center rounded-full border border-white/5 bg-white/[0.02] px-2 py-0.5 text-[10px] font-normal text-neutral-500">
+          <span className="inline-flex items-center rounded-full border border-white/5 bg-white/[0.02] px-2.5 py-0.5 text-[10px] font-normal text-[var(--text-tertiary)]">
             Incomplete
           </span>
         )}
-        <ChevronRight className="h-4 w-4 text-neutral-500 transition-transform group-hover:translate-x-0.5 group-hover:text-white" />
+        <ChevronRight className="h-4 w-4 text-[var(--text-tertiary)] transition-transform group-hover:translate-x-0.5 group-hover:text-white" />
       </div>
     </div>
   );
@@ -310,246 +349,352 @@ export function HomeView({ userName, onEnterSparringRoom, onOpenDebrief }: HomeV
     },
   };
 
-  return (
-    <div className="mx-auto max-w-5xl px-4 py-8 pb-24 sm:px-6 sm:py-12 md:pb-16">
-      {/* Executive Command Header */}
-      <motion.div
-        initial={{ opacity: 0, y: shouldReduceMotion ? 0 : -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="mb-8"
-      >
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-neutral-400">
-              {greeting()} · Executive Command
-            </p>
-          </div>
-          {stats && stats.streak > 0 && (
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-400 tabular-nums">
-              <Flame className="h-3 w-3 fill-amber-400 text-amber-400" />
-              <span>{stats.streak}d streak</span>
-            </div>
-          )}
-        </div>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
-          {userName}.
-        </h1>
-        {moment && daysUntil !== null ? (
-          <p className="mt-2 text-xs text-neutral-400 sm:text-sm">
-            Upcoming target: <span className="text-white font-medium">{moment.title}</span> in{" "}
-            <span className="font-semibold text-white">
-              {daysUntil} {daysUntil === 1 ? "day" : "days"}
-            </span>.
-          </p>
-        ) : (
-          <p className="mt-2 text-xs text-neutral-400 sm:text-sm">
-            Sharpen your instincts against adversarial panels.
-          </p>
-        )}
-      </motion.div>
+  const animatedStreak = useCountUp(stats?.streak ?? 0, 700, shouldReduceMotion);
 
-      <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        className="space-y-4"
+  return (
+    <div className="relative min-h-screen bg-[var(--bg-base)] text-[var(--text-primary)]">
+      {/* Background Atmosphere: Top-center radial lighting + subtle texture */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 z-0 overflow-hidden"
       >
-        {/* Top Command Grid: Hero Action & Countdown */}
-        <motion.div variants={itemVariants}>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            {/* Primary Action Card (Span 2) */}
-            <button
-              onClick={onEnterSparringRoom}
-              aria-label="New session"
-              className="group relative block w-full overflow-hidden rounded-2xl border border-white/10 bg-[#121212] p-6 text-left transition-all hover:border-white/25 hover:bg-[#161616] sm:p-7 lg:col-span-2"
-            >
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-300">
-                      <Swords className="h-3 w-3 text-neutral-400" />
-                      Live Chamber
-                    </span>
-                  </div>
-                  <h2 className="mt-2.5 text-2xl font-bold tracking-tight text-white sm:text-3xl">
-                    New session
-                  </h2>
-                  <p className="mt-1.5 text-xs text-neutral-400 sm:text-sm leading-relaxed max-w-lg">
-                    Spar on a topic or bring material. Face an adversarial panel. Get coached on the tape.
-                  </p>
-                </div>
-                <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-white text-black transition-transform group-hover:scale-105 sm:h-14 sm:w-14">
-                  <ArrowRight className="h-5 w-5 sm:h-6 sm:w-6 transition-transform group-hover:translate-x-0.5" />
+        <div
+          className="absolute -top-[140px] left-1/2 h-[640px] w-[960px] -translate-x-1/2 rounded-full opacity-70 blur-[110px]"
+          style={{
+            background:
+              "radial-gradient(circle, var(--accent-soft) 0%, rgba(255,107,61,0.03) 45%, transparent 70%)",
+          }}
+        />
+        <div
+          className="absolute inset-0 opacity-[0.035] mix-blend-overlay"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+            backgroundRepeat: "repeat",
+          }}
+        />
+      </div>
+
+      <div className="relative z-10 mx-auto max-w-5xl px-4 py-8 pb-24 sm:px-6 sm:py-12 md:pb-16">
+        {/* Executive Command Header */}
+        <motion.div
+          initial={{ opacity: 0, y: shouldReduceMotion ? 0 : -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="mb-8"
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)] shadow-[0_0_6px_var(--accent-soft)]" />
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">
+                {greeting()} · Executive Command
+              </p>
+            </div>
+            {stats && stats.streak > 0 && (
+              <div className="flex items-center gap-2.5 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3.5 py-1.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]">
+                <Flame className="h-4 w-4 fill-[var(--accent)] text-[var(--accent)]" />
+                <span className="text-xs font-bold text-[var(--text-primary)] tabular-nums">
+                  {animatedStreak}d streak
+                </span>
+                <div className="flex items-center gap-1 border-l border-white/10 pl-2">
+                  {Array.from({ length: 7 }).map((_, i) => {
+                    const isDone = i < Math.min(stats.streak, 7);
+                    return (
+                      <span
+                        key={i}
+                        className={cn(
+                          "h-1.5 w-1.5 rounded-full transition-colors",
+                          isDone
+                            ? "bg-[var(--accent)] shadow-[0_0_4px_var(--accent-soft)]"
+                            : "border border-white/20 bg-white/[0.04]"
+                        )}
+                      />
+                    );
+                  })}
                 </div>
               </div>
-            </button>
+            )}
+          </div>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight text-[var(--text-primary)] sm:text-4xl lg:text-5xl">
+            {userName}.
+          </h1>
+          {moment && daysUntil !== null ? (
+            <p className="mt-2 text-xs text-[var(--text-secondary)] sm:text-sm">
+              Upcoming target: <span className="text-[var(--text-primary)] font-medium">{moment.title}</span> in{" "}
+              <span className="font-semibold text-[var(--accent)]">
+                {daysUntil} {daysUntil === 1 ? "day" : "days"}
+              </span>.
+            </p>
+          ) : (
+            <p className="mt-2 text-xs text-[var(--text-secondary)] sm:text-sm">
+              Sharpen your instincts against adversarial panels.
+            </p>
+          )}
+        </motion.div>
 
-            {/* Upcoming Moment Countdown Card (Span 1) */}
-            <div className="flex flex-col justify-between rounded-2xl border border-white/10 bg-[#121212] p-6 transition-all hover:border-white/20">
-              {moment && daysUntil !== null ? (
-                <>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2 text-neutral-400">
-                      <Calendar className="h-4 w-4" />
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="space-y-4"
+        >
+          {/* Top Command Grid: Hero Action & Countdown */}
+          <motion.div variants={itemVariants}>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              {/* Primary Action Card (Span 2) */}
+              <button
+                onClick={onEnterSparringRoom}
+                aria-label="New session"
+                className="group relative block w-full overflow-hidden rounded-[20px] border border-[var(--border-subtle)] bg-[var(--surface-2)] p-7 sm:p-8 text-left transition-all hover:border-[var(--border-strong)] hover:-translate-y-0.5 lg:col-span-2 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_16px_36px_-16px_rgba(0,0,0,0.75)] select-none"
+                style={{
+                  backgroundImage:
+                    "radial-gradient(circle 380px at 100% 0%, var(--accent-soft), transparent 70%), linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015))",
+                }}
+              >
+                {/* Decorative Watermark Swords */}
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -bottom-10 -right-8 select-none text-white opacity-[0.07] rotate-[-12deg]"
+                >
+                  <Swords className="h-56 w-56 sm:h-64 sm:w-64" />
+                </div>
+
+                <div className="relative z-10 flex items-center justify-between gap-6">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
+                        <Swords className="h-3 w-3 text-[var(--accent)]" />
+                        Live Chamber
+                      </span>
+                    </div>
+                    <h2 className="mt-3 text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl">
+                      New session
+                    </h2>
+                    <p className="mt-2 text-xs text-[var(--text-secondary)] sm:text-sm leading-relaxed max-w-lg">
+                      Spar on a topic or bring material. Face an adversarial panel. Get coached on the tape.
+                    </p>
+                  </div>
+                  <div
+                    className="relative flex h-13 w-13 sm:h-14 sm:w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-[var(--accent)] text-white transition-all group-hover:scale-105 group-active:translate-y-[3px]"
+                    style={{
+                      boxShadow: "0 4px 0 var(--accent-dark)",
+                    }}
+                  >
+                    <ArrowRight className="h-5 w-5 sm:h-6 sm:w-6 transition-transform group-hover:translate-x-0.5" />
+                  </div>
+                </div>
+              </button>
+
+              {/* Upcoming Moment Countdown Card (Span 1) */}
+              <div
+                className="flex flex-col justify-between rounded-[20px] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-6 sm:p-7 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_8px_24px_-12px_rgba(0,0,0,0.6)] transition-all hover:border-[var(--border-strong)] hover:-translate-y-0.5"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015))",
+                }}
+              >
+                {moment && daysUntil !== null ? (
+                  <>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 text-[var(--text-tertiary)]">
+                        <Calendar className="h-4 w-4 text-[var(--text-secondary)]" />
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
+                          Upcoming Moment
+                        </span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setEditingMoment(true)}
+                        aria-label="Edit upcoming moment"
+                        className="h-7 w-7 rounded-full text-[var(--text-tertiary)] hover:text-white"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+
+                    <div className="my-3">
+                      <p className="text-4xl font-extrabold tracking-tight text-[var(--text-primary)] tabular-nums sm:text-5xl">
+                        {daysUntil}
+                      </p>
+                      <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--accent)] mt-0.5">
+                        {daysUntil === 1 ? "day remaining" : "days remaining"}
+                      </p>
+                    </div>
+
+                    <div className="truncate border-t border-white/[0.06] pt-2.5">
+                      <p className="truncate text-xs font-medium text-[var(--text-primary)]">{moment.title}</p>
+                      {moment.detail && (
+                        <p className="truncate text-[11px] text-[var(--text-tertiary)] mt-0.5">{moment.detail}</p>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex h-full flex-col justify-between">
+                    <div className="flex items-center gap-2 text-[var(--text-tertiary)]">
+                      <Calendar className="h-4 w-4 text-[var(--text-secondary)]" />
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
                         Upcoming Moment
                       </span>
                     </div>
+                    <div className="my-3">
+                      <div className="mb-2.5 flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)]">
+                        <Calendar className="h-4 w-4" />
+                      </div>
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">No upcoming moment set</p>
+                      <p className="mt-1 text-xs text-[var(--text-secondary)] leading-relaxed">
+                        Anchor your sparring to an upcoming pitch, review, or defense.
+                      </p>
+                    </div>
                     <Button
-                      variant="ghost"
-                      size="icon"
+                      variant="outline"
+                      size="sm"
                       onClick={() => setEditingMoment(true)}
-                      aria-label="Edit upcoming moment"
-                      className="h-7 w-7 text-neutral-400 hover:text-white"
+                      className="w-full rounded-full border border-[var(--accent)] bg-transparent text-xs font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)] hover:text-white transition-colors"
                     >
-                      <Pencil className="h-3.5 w-3.5" />
+                      Set upcoming moment
                     </Button>
                   </div>
-
-                  <div className="my-2">
-                    <p className="text-3xl font-extrabold tracking-tight text-white tabular-nums sm:text-4xl">
-                      {daysUntil}
-                    </p>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-neutral-500">
-                      {daysUntil === 1 ? "day remaining" : "days remaining"}
-                    </p>
-                  </div>
-
-                  <div className="truncate border-t border-white/5 pt-2">
-                    <p className="truncate text-xs font-medium text-white">{moment.title}</p>
-                    {moment.detail && (
-                      <p className="truncate text-[11px] text-neutral-400">{moment.detail}</p>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div className="flex h-full flex-col justify-between">
-                  <div className="flex items-center gap-2 text-neutral-400">
-                    <Calendar className="h-4 w-4" />
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
-                      Upcoming Moment
-                    </span>
-                  </div>
-                  <div className="my-3">
-                    <p className="text-sm font-semibold text-white">No upcoming moment set</p>
-                    <p className="mt-1 text-xs text-neutral-400">
-                      Anchor your sparring to an upcoming pitch, review, or defense.
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setEditingMoment(true)}
-                    className="w-full border-white/10 bg-white/[0.02] text-xs text-white hover:bg-white/[0.06]"
-                  >
-                    Set upcoming moment
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Today's Focus Briefing */}
-        {stats?.todaysFocus && (
-          <motion.div variants={itemVariants}>
-            <div className="rounded-xl border border-white/10 bg-[#141414] p-5 transition-all hover:border-white/15">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-neutral-400">
-                  <Target className="h-3.5 w-3.5 text-white" />
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">
-                    Today&apos;s Focus
-                  </span>
-                </div>
-                <code className="rounded border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-medium text-neutral-300">
-                  {stats.todaysFocus.tag.replace(/_/g, " ")}
-                </code>
+                )}
               </div>
-              <p className="mt-2.5 text-xs font-normal leading-relaxed text-neutral-200 sm:text-sm">
-                {stats.todaysFocus.description}
-              </p>
             </div>
           </motion.div>
-        )}
 
-
-
-        {/* Recent Sessions Feed */}
-        <motion.div variants={itemVariants} className="pt-4">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-neutral-300">
-              Recent sessions
-            </p>
-            {sessions && sessions.length > 3 && (
-              <button
-                type="button"
-                onClick={() => setShowAllSessions((prev) => !prev)}
-                className="rounded px-1.5 py-0.5 text-xs font-medium text-neutral-400 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40"
+          {/* Today's Focus Card */}
+          {stats?.todaysFocus && (
+            <motion.div variants={itemVariants}>
+              <div
+                className="rounded-[20px] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-6 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_8px_24px_-12px_rgba(0,0,0,0.6)] transition-all hover:border-[var(--border-strong)] hover:-translate-y-0.5"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015))",
+                }}
               >
-                {showAllSessions ? "Show fewer" : `View all ${sessions.length}`}
-              </button>
-            )}
-          </div>
-
-          {sessions === null ? (
-            <div className="rounded-xl border border-white/5 bg-[#101010] p-6 text-center text-xs text-neutral-500">
-              Loading session history…
-            </div>
-          ) : sessions.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-white/10 bg-[#0e0e0e] p-8 text-center">
-              <Swords className="mx-auto h-6 w-6 text-neutral-600 mb-2" />
-              <p className="text-sm font-semibold text-white">No sessions yet</p>
-              <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-neutral-400">
-                Your first spar takes about five minutes. Pick a topic, test your thesis, and get coached on the tape.
-              </p>
-              <Button
-                size="sm"
-                onClick={onEnterSparringRoom}
-                className="mt-4 bg-white text-black hover:bg-neutral-200 text-xs font-semibold"
-              >
-                Start first session
-              </Button>
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-white/[0.08] bg-[#111111] overflow-hidden">
-              {groupSessionsByDate(showAllSessions ? sessions : sessions.slice(0, 3)).map(
-                (bucket, groupIdx) => (
-                  <div key={bucket.group}>
-                    <div
-                      className={cn(
-                        "px-5 py-2 text-[10px] font-semibold uppercase tracking-wider text-neutral-400 bg-white/[0.02] border-b border-white/[0.04]",
-                        groupIdx > 0 && "border-t border-white/[0.06]"
-                      )}
-                    >
-                      {bucket.group}
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)]">
+                      <Target className="h-3.5 w-3.5" />
                     </div>
-                    <div className="divide-y divide-white/[0.04]">
-                      {bucket.sessions.map((s) => (
-                        <SessionHistoryCard
-                          key={s.id}
-                          session={s}
-                          onOpenDebrief={onOpenDebrief}
-                        />
-                      ))}
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">
+                      Today&apos;s Focus
+                    </span>
+                  </div>
+                  <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-0.5 text-[10px] font-medium text-[var(--text-secondary)]">
+                    {stats.todaysFocus.tag.replace(/_/g, " ")}
+                  </span>
+                </div>
+
+                <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-base font-semibold text-[var(--text-primary)]">
+                      {stats.todaysFocus.tag === "general_pattern"
+                        ? "Tighten your core openings & pacing"
+                        : stats.todaysFocus.tag.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                    </h3>
+                    <p className="mt-1 text-xs text-[var(--text-secondary)] leading-relaxed">
+                      {stats.todaysFocus.description}
+                    </p>
+
+                    {/* Compact accent progress indicator */}
+                    <div className="mt-3 flex items-center gap-3">
+                      <div className="h-1.5 w-36 overflow-hidden rounded-full bg-white/[0.08]">
+                        <div className="h-full w-2/3 rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent-soft)]" />
+                      </div>
+                      <span className="text-[10px] font-medium text-[var(--text-tertiary)]">Focus dimension</span>
                     </div>
                   </div>
-                )
-              )}
-              {sessions.length > 3 && (
+
+                  <button
+                    onClick={onEnterSparringRoom}
+                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-white/15 bg-white/[0.04] px-4 text-xs font-semibold text-[var(--text-primary)] transition-all hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] hover:text-white flex-shrink-0"
+                  >
+                    <span>Drill this</span>
+                    <ArrowRight className="h-3.5 w-3.5 text-[var(--accent)]" />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Recent Sessions Feed */}
+          <motion.div variants={itemVariants} className="pt-4">
+            <div className="mb-3.5 flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--text-secondary)]">
+                Recent sessions
+              </p>
+              {sessions && sessions.length > 3 && (
                 <button
                   type="button"
                   onClick={() => setShowAllSessions((prev) => !prev)}
-                  className="w-full border-t border-white/[0.06] py-3 text-center text-xs font-medium text-neutral-400 transition-colors hover:bg-white/[0.02] hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40"
+                  className="rounded-full px-2 py-0.5 text-xs font-medium text-[var(--text-tertiary)] transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40"
                 >
-                  {showAllSessions ? "Show fewer" : `View all ${sessions.length} sessions →`}
+                  {showAllSessions ? "Show fewer" : `View all ${sessions.length}`}
                 </button>
               )}
             </div>
-          )}
+
+            {sessions === null ? (
+              <div className="rounded-[20px] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-6 text-center text-xs text-[var(--text-tertiary)]">
+                Loading session history…
+              </div>
+            ) : sessions.length === 0 ? (
+              <div className="rounded-[20px] border border-dashed border-[var(--border-subtle)] bg-[var(--surface-1)] p-8 text-center shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]">
+                <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)]">
+                  <Swords className="h-5 w-5" />
+                </div>
+                <p className="text-sm font-semibold text-[var(--text-primary)]">No sessions yet</p>
+                <p className="mx-auto mt-1.5 max-w-sm text-xs leading-relaxed text-[var(--text-secondary)]">
+                  Your first spar takes about five minutes. Pick a topic, test your thesis, and get coached on the tape.
+                </p>
+                <Button
+                  size="sm"
+                  onClick={onEnterSparringRoom}
+                  className="mt-4 rounded-full bg-[var(--accent)] text-white hover:brightness-105 text-xs font-semibold px-5 py-2"
+                  style={{
+                    boxShadow: "0 3px 0 var(--accent-dark)",
+                  }}
+                >
+                  Start first session
+                </Button>
+              </div>
+            ) : (
+              <div className="rounded-[20px] border border-[var(--border-subtle)] bg-[var(--surface-1)] overflow-hidden shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_8px_24px_-12px_rgba(0,0,0,0.6)]">
+                {groupSessionsByDate(showAllSessions ? sessions : sessions.slice(0, 3)).map(
+                  (bucket, groupIdx) => (
+                    <div key={bucket.group}>
+                      <div
+                        className={cn(
+                          "px-6 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)] bg-white/[0.02] border-b border-white/[0.04]",
+                          groupIdx > 0 && "border-t border-white/[0.04]"
+                        )}
+                      >
+                        {bucket.group}
+                      </div>
+                      <div className="divide-y divide-white/[0.04]">
+                        {bucket.sessions.map((s) => (
+                          <SessionHistoryCard
+                            key={s.id}
+                            session={s}
+                            onOpenDebrief={onOpenDebrief}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )
+                )}
+                {sessions.length > 3 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllSessions((prev) => !prev)}
+                    className="w-full border-t border-white/[0.06] py-3 text-center text-xs font-medium text-[var(--text-secondary)] transition-colors hover:bg-white/[0.02] hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40"
+                  >
+                    {showAllSessions ? "Show fewer" : `View all ${sessions.length} sessions →`}
+                  </button>
+                )}
+              </div>
+            )}
+          </motion.div>
         </motion.div>
-      </motion.div>
+      </div>
 
       {/* Target Moment Edit Dialog */}
       <UpcomingMomentDialog

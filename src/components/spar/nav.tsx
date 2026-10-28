@@ -40,10 +40,10 @@ export function Nav({ current, onNavigate }: NavProps) {
       <header
         className="sticky top-0 z-30 hidden items-center justify-between px-6 py-3 md:flex"
         style={{
-          background: "rgba(10, 10, 10, 0.55)",
+          background: "rgba(10, 10, 14, 0.75)",
           backdropFilter: "blur(20px) saturate(180%)",
           WebkitBackdropFilter: "blur(20px) saturate(180%)",
-          borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+          borderBottom: "1px solid var(--border-subtle)",
           boxShadow: "inset 0 1px 0 0 rgba(255, 255, 255, 0.06)",
         }}
       >
@@ -77,10 +77,10 @@ export function Nav({ current, onNavigate }: NavProps) {
                 )}
                 aria-current={isActive ? "page" : undefined}
               >
-                <Icon className={cn("h-4 w-4", isActive && "text-foreground")} />
+                <Icon className={cn("h-4 w-4 transition-colors", isActive ? "text-[var(--accent)]" : "text-neutral-400 group-hover:text-white")} />
                 <span>{item.label}</span>
                 {isActive && (
-                  <span className="absolute -bottom-[13px] left-1/2 h-[2px] w-8 -translate-x-1/2 rounded-full bg-foreground" />
+                  <span className="absolute -bottom-[13px] left-1/2 h-[2px] w-8 -translate-x-1/2 rounded-full bg-[var(--accent)] shadow-[0_0_8px_var(--accent-soft)]" />
                 )}
               </button>
             );
@@ -109,13 +109,13 @@ export function Nav({ current, onNavigate }: NavProps) {
               onClick={() => onNavigate(item.key)}
               className={cn(
                 "flex min-h-[48px] min-w-[48px] flex-col items-center justify-center gap-1 transition-colors",
-                isActive ? "text-white" : "text-neutral-500"
+                isActive ? "text-[var(--accent)]" : "text-neutral-500"
               )}
               aria-current={isActive ? "page" : undefined}
             >
               {/* Active indicator: 4px dot above icon */}
               {isActive && (
-                <span className="mb-0.5 h-1 w-1 rounded-full bg-white" />
+                <span className="mb-0.5 h-1 w-1 rounded-full bg-[var(--accent)]" />
               )}
               {!isActive && <span className="mb-0.5 h-1 w-1" />}
               <Icon className="h-5 w-5" />

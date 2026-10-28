@@ -52,8 +52,23 @@
 
   /* Deep base — slightly darker for more contrast against elevated cards.
      Think of a dimly-lit room with a single overhead light. */
-  --background: oklch(0.115 0 0);     /* #070707 */
-  --foreground: oklch(0.95 0 0);      /* near-white */
+  /* Spar Design Direction Tokens (Arena at Night) */
+  --bg-base: #0A0A0E;
+  --surface-1: #121218;
+  --surface-2: #1A1A22;
+  --border-subtle: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --text-primary: #F5F5F7;
+  --text-secondary: #A1A1AA;
+  --text-tertiary: #71717A;
+  --accent: #FF6B3D;
+  --accent-dark: #C94A22;
+  --accent-soft: rgba(255, 107, 61, 0.12);
+  --success: #34D399;
+  --danger: #F87171;
+
+  --background: var(--bg-base);     /* #070707 */
+  --foreground: var(--text-primary);      /* near-white */
 
   /* Elevated surfaces — each layer lifts slightly. */
   --card: oklch(0.165 0 0);           /* #161616 */
@@ -156,6 +171,47 @@
 @utility selected-state {
   background: oklch(0.165 0 0);
   border-color: oklch(0.21 0 0);
+}
+
+/* Spar Layered Surfaces & Elevation (Arena at Night) */
+@utility spar-card {
+  background-color: var(--surface-1);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015));
+  border: 1px solid var(--border-subtle);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.06), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
+  border-radius: 20px;
+  transition: transform 180ms ease-out, border-color 180ms ease-out, box-shadow 180ms ease-out;
+}
+
+@utility spar-card-hover {
+  &:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-strong);
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.09), 0 12px 28px -10px rgba(0, 0, 0, 0.7);
+  }
+}
+
+@utility spar-hero-card {
+  background-color: var(--surface-2);
+  background-image: radial-gradient(circle 380px at 100% 0%, var(--accent-soft), transparent 70%), linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015));
+  border: 1px solid var(--border-subtle);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.08), 0 16px 36px -16px rgba(0, 0, 0, 0.75);
+  border-radius: 20px;
+  transition: transform 180ms ease-out, border-color 180ms ease-out, box-shadow 180ms ease-out;
+}
+
+@utility spar-tactile-btn {
+  background-color: var(--accent);
+  color: #FFFFFF;
+  box-shadow: 0 4px 0 var(--accent-dark);
+  transition: transform 100ms ease, box-shadow 100ms ease, filter 100ms ease;
+  &:hover {
+    filter: brightness(1.06);
+  }
+  &:active {
+    transform: translateY(3px);
+    box-shadow: 0 1px 0 var(--accent-dark);
+  }
 }
 
 /* Custom animations */
