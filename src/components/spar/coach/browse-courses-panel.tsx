@@ -55,10 +55,10 @@ export function BrowseCoursesPanel({
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
-    // Focus search input on open
-    setTimeout(() => {
-      searchInputRef.current?.focus();
-    }, 100);
+    // Focus search input on open without scrolling the drawer container
+    const timer = setTimeout(() => {
+      searchInputRef.current?.focus({ preventScroll: true });
+    }, 60);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -69,6 +69,7 @@ export function BrowseCoursesPanel({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => {
+      clearTimeout(timer);
       document.body.style.overflow = originalOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
@@ -192,7 +193,7 @@ export function BrowseCoursesPanel({
               initial={
                 shouldReduceMotion
                   ? { opacity: 0 }
-                  : { x: "100%", opacity: 0.8 }
+                  : { x: "100%", opacity: 0.95 }
               }
               animate={
                 shouldReduceMotion
@@ -202,9 +203,9 @@ export function BrowseCoursesPanel({
               exit={
                 shouldReduceMotion
                   ? { opacity: 0 }
-                  : { x: "100%", opacity: 0.8 }
+                  : { x: "100%", opacity: 0.95 }
               }
-              transition={{ type: "spring", damping: 28, stiffness: 300 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
               className={cn(
                 "relative z-10 flex flex-col w-full bg-[#101016] text-[var(--text-primary)] border-l border-[var(--border-subtle)] shadow-2xl",
                 // Desktop: right drawer; Mobile: full-width
@@ -215,8 +216,8 @@ export function BrowseCoursesPanel({
                   "linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 100%)",
               }}
             >
-              {/* Sticky Header */}
-              <header className="sticky top-0 z-20 border-b border-[var(--border-subtle)] bg-[#101016]/95 px-6 py-5 backdrop-blur-md space-y-4">
+              {/* Static Un-scrollable Header (shrink-0 ensures it is always 100% visible) */}
+              <header className="shrink-0 z-20 border-b border-[var(--border-subtle)] bg-[#101016] px-6 pt-6 pb-4 backdrop-blur-md space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <h2
