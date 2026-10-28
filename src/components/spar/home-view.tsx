@@ -275,23 +275,23 @@ export function SessionHistoryCard({
           <span
             className={cn(
               "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold tabular-nums border",
-              overallScore >= 70
-                ? "border-emerald-500/40 bg-emerald-500/20 text-emerald-300 shadow-[0_0_8px_rgba(52,211,153,0.15)]"
+              overallScore >= 60
+                ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-400"
                 : overallScore < 50
-                ? "border-rose-500/40 bg-rose-500/20 text-rose-300 shadow-[0_0_8px_rgba(248,113,113,0.15)]"
-                : "border-[var(--accent)]/50 bg-[var(--accent-soft)] text-[#FFB088] shadow-[0_0_8px_var(--accent-soft)]"
+                ? "border-red-500/30 bg-red-500/15 text-red-400"
+                : "border-blue-500/30 bg-blue-500/15 text-blue-400"
             )}
           >
             <span>{animatedScore}</span>
-            <span className="text-[9px] uppercase font-semibold opacity-90">pts</span>
+            <span className="text-[9px] uppercase tracking-wider opacity-85">pts</span>
           </span>
         ) : session.summary ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--success)]/30 bg-[var(--success)]/10 px-2.5 py-0.5 text-[10px] font-medium text-[var(--success)]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--success)]" />
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-medium text-emerald-400">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
             Debriefed
           </span>
         ) : (
-          <span className="inline-flex items-center rounded-full border border-white/5 bg-white/[0.02] px-2.5 py-0.5 text-[10px] font-normal text-[var(--text-tertiary)]">
+          <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-0.5 text-[10px] font-medium text-neutral-400">
             Incomplete
           </span>
         )}
@@ -362,7 +362,7 @@ export function HomeView({ userName, onEnterSparringRoom, onOpenDebrief }: HomeV
           className="absolute -top-[140px] left-1/2 h-[640px] w-[960px] -translate-x-1/2 rounded-full opacity-70 blur-[110px]"
           style={{
             background:
-              "radial-gradient(circle, var(--accent-soft) 0%, rgba(255,107,61,0.03) 45%, transparent 70%)",
+              "radial-gradient(circle, var(--accent-soft) 0%, rgba(47,101,246,0.04) 45%, transparent 70%)",
           }}
         />
         <div
@@ -391,7 +391,7 @@ export function HomeView({ userName, onEnterSparringRoom, onOpenDebrief }: HomeV
             </div>
             {stats && stats.streak > 0 && (
               <div className="flex items-center gap-2.5 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3.5 py-1.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]">
-                <Flame className="h-4 w-4 fill-[var(--accent)] text-[var(--accent)]" />
+                <Flame className="h-4 w-4 fill-amber-400 text-amber-400" />
                 <span className="text-xs font-bold text-[var(--text-primary)] tabular-nums">
                   {animatedStreak}d streak
                 </span>
@@ -546,11 +546,11 @@ export function HomeView({ userName, onEnterSparringRoom, onOpenDebrief }: HomeV
                       </p>
                     </div>
                     <Button
-                      variant="outline"
                       size="sm"
                       onClick={() => setEditingMoment(true)}
-                      className="w-full rounded-full border border-[var(--accent)]/50 bg-[var(--accent-soft)] text-xs font-semibold text-white hover:bg-[var(--accent)] hover:border-[var(--accent)] transition-all py-2 shadow-sm"
+                      className="w-full rounded-full border border-white/15 bg-white/[0.08] hover:bg-white/[0.14] text-xs font-semibold text-white transition-all flex items-center justify-center gap-2 py-2.5 px-4 shadow-sm"
                     >
+                      <Calendar className="h-3.5 w-3.5 text-[var(--accent)]" />
                       Set upcoming moment
                     </Button>
                   </div>
