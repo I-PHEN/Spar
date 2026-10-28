@@ -311,7 +311,7 @@ export function HomeView({ userName, onEnterSparringRoom, onOpenDebrief }: HomeV
   };
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 pb-32 sm:px-6 sm:py-12 md:pb-16">
+    <div className="mx-auto max-w-5xl px-4 py-8 pb-24 sm:px-6 sm:py-12 md:pb-16">
       {/* Executive Command Header */}
       <motion.div
         initial={{ opacity: 0, y: shouldReduceMotion ? 0 : -8 }}
@@ -550,15 +550,6 @@ export function HomeView({ userName, onEnterSparringRoom, onOpenDebrief }: HomeV
           )}
         </motion.div>
       </motion.div>
-
-      {/* Mobile Floating CTA */}
-      <button
-        onClick={onEnterSparringRoom}
-        className="fixed bottom-20 left-4 right-4 z-40 flex items-center justify-center gap-2 rounded-xl bg-white py-3.5 px-6 text-sm font-semibold text-black shadow-lg transition-transform active:scale-95 md:hidden"
-      >
-        <Swords className="h-4 w-4" />
-        New session
-      </button>
 
       {/* Target Moment Edit Dialog */}
       <UpcomingMomentDialog
