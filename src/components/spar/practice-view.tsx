@@ -17,6 +17,7 @@ import {
   Microscope,
   Plus,
   Pencil,
+  Trash2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -870,28 +871,45 @@ function SeatEditor({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md bg-[#0a0a0a] border-[#202020] rounded-md">
-        <DialogHeader>
-          <DialogTitle className="text-white">
+      <DialogContent
+        className={cn(
+          "bg-[var(--surface-1)] border-[var(--border-subtle)] text-[var(--text-primary)] shadow-2xl p-0 overflow-hidden flex flex-col",
+          // Mobile Phone: Full-width slide-up bottom sheet
+          "max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:max-w-full max-sm:rounded-t-[24px] max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 max-sm:max-h-[90vh]",
+          // Desktop: Centered elevated card
+          "sm:max-w-md sm:rounded-[20px] sm:border"
+        )}
+      >
+        {/* Mobile Grab Handle Bar */}
+        <div className="sm:hidden pt-3 pb-1 flex justify-center shrink-0">
+          <div className="h-1 w-10 rounded-full bg-white/20" />
+        </div>
+
+        {/* Header */}
+        <DialogHeader className="px-6 pt-5 pb-3 border-b border-white/[0.06] shrink-0">
+          <DialogTitle className="text-lg font-bold text-white tracking-tight">
             Configure Seat {seatIndex + 1}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-5 py-2">
+        {/* Scrollable Body (Always leaves footer visible) */}
+        <div className="space-y-5 px-6 py-4 overflow-y-auto max-h-[calc(88vh-130px)] sm:max-h-[60vh]">
+          {/* Name Input */}
           <div className="space-y-1.5">
-            <Label className="text-[10px] uppercase tracking-widest text-neutral-500">
+            <Label className="text-[10px] uppercase tracking-widest text-[var(--text-tertiary)] font-semibold">
               Name
             </Label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={ARCHETYPES[archetype].defaultName}
-              className="bg-[#0a0a0a] border-[#202020] text-white placeholder:text-neutral-500 focus:border-[#3a3a3a] focus-visible:ring-0 rounded-md"
+              className="bg-[var(--surface-2)] border-[var(--border-subtle)] text-white placeholder:text-[var(--text-tertiary)] focus:border-[var(--accent)] focus-visible:ring-1 focus-visible:ring-[var(--accent)] rounded-xl h-11 text-sm"
             />
           </div>
 
+          {/* Archetype Selector */}
           <div className="space-y-1.5">
-            <Label className="text-[10px] uppercase tracking-widest text-neutral-500">
+            <Label className="text-[10px] uppercase tracking-widest text-[var(--text-tertiary)] font-semibold">
               Archetype
             </Label>
             <div className="grid grid-cols-3 gap-2">
@@ -901,6 +919,7 @@ function SeatEditor({
                 return (
                   <button
                     key={arch.key}
+                    type="button"
                     onClick={() => {
                       setArchetype(arch.key);
                       if (
@@ -911,16 +930,29 @@ function SeatEditor({
                       }
                     }}
                     className={cn(
-                      "p-3 rounded-md border text-center transition-all",
+                      "relative p-3 rounded-xl border text-center transition-all cursor-pointer focus-visible:outline-none",
                       isSelected
-                        ? "bg-[#171717] border-[#343434]"
-                        : "bg-[#101010] border-[#202020] hover:bg-[#161616] hover:border-[#2a2a2a]"
+                        ? "bg-[var(--surface-2)] border-2 border-[var(--accent)] shadow-[0_0_12px_var(--accent-soft)]"
+                        : "bg-[var(--surface-2)]/60 border-[var(--border-subtle)] hover:border-white/20 hover:bg-[var(--surface-2)]"
                     )}
                   >
-                    <div className="mb-1.5 flex h-8 w-8 mx-auto items-center justify-center rounded-md bg-[#1a1a1a] ring-1 ring-[#2a2a2a]">
-                      <Icon className="h-4 w-4 text-neutral-300" />
+                    {/* Selected check badge */}
+                    {isSelected && (
+                      <div className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--accent)] text-white shadow-sm">
+                        <Check className="h-2.5 w-2.5 stroke-[3]" />
+                      </div>
+                    )}
+                    <div
+                      className={cn(
+                        "mb-2 flex h-9 w-9 mx-auto items-center justify-center rounded-xl transition-transform",
+                        isSelected
+                          ? "bg-[var(--accent)] text-white shadow-sm scale-105"
+                          : "bg-white/[0.04] text-[var(--text-secondary)]"
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
                     </div>
-                    <p className="text-[11px] font-medium text-white leading-tight">
+                    <p className="text-xs font-semibold text-white leading-tight">
                       {arch.defaultName}
                     </p>
                   </button>
@@ -929,20 +961,22 @@ function SeatEditor({
             </div>
           </div>
 
+          {/* Intensity Segmented Control */}
           <div className="space-y-1.5">
-            <Label className="text-[10px] uppercase tracking-widest text-neutral-500">
+            <Label className="text-[10px] uppercase tracking-widest text-[var(--text-tertiary)] font-semibold">
               Intensity
             </Label>
-            <div className="flex bg-[#0a0a0a] rounded-md p-1 border border-[#202020]">
+            <div className="grid grid-cols-3 gap-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-2)]/80 p-1">
               {[1, 2, 3].map((level) => (
                 <button
                   key={level}
+                  type="button"
                   onClick={() => setIntensity(level as 1 | 2 | 3)}
                   className={cn(
-                    "flex-1 py-2 text-xs rounded transition-all flex items-center justify-center gap-1.5",
+                    "py-2 px-2 text-xs rounded-lg font-semibold transition-all flex items-center justify-center gap-1.5",
                     intensity === level
-                      ? "bg-[#1b1b1b] text-neutral-100"
-                      : "text-neutral-500 hover:text-neutral-300"
+                      ? "bg-[var(--accent)] text-white shadow-sm"
+                      : "text-[var(--text-secondary)] hover:text-white"
                   )}
                 >
                   <span className="flex gap-0.5">
@@ -951,30 +985,34 @@ function SeatEditor({
                         key={dot}
                         className={cn(
                           "h-1 w-1 rounded-full",
-                          dot <= level ? "bg-white" : "bg-neutral-700"
+                          dot <= level ? "bg-white" : "bg-white/30"
                         )}
                       />
                     ))}
                   </span>
-                  {INTENSITY_LABELS[level]}
+                  <span>{INTENSITY_LABELS[level]}</span>
                 </button>
               ))}
             </div>
           </div>
         </div>
 
-        <div className="flex gap-2 mt-2">
+        {/* Sticky Action Footer (Always pinned at the bottom on mobile & desktop) */}
+        <div className="sticky bottom-0 bg-[var(--surface-1)]/95 backdrop-blur-md border-t border-white/[0.06] px-6 py-4 flex items-center justify-between gap-3 shrink-0">
           {canRemove && seat.filled && (
             <button
+              type="button"
               onClick={onRemove}
-              className="text-sm text-neutral-500 hover:text-red-400 transition-colors mr-auto"
+              className="text-xs font-medium text-red-400 hover:text-red-300 transition-colors flex items-center gap-1.5 py-2 px-1"
             >
-              <X className="h-4 w-4 mr-1 inline" /> Remove
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>Remove</span>
             </button>
           )}
           <button
+            type="button"
             onClick={handleSave}
-            className="px-4 h-10 rounded-md bg-neutral-100 text-black hover:bg-white text-sm font-medium transition-all"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-full px-6 text-xs font-bold text-white transition-all spar-tactile-btn active:scale-95 shadow-md ml-auto"
           >
             Save Configuration
           </button>

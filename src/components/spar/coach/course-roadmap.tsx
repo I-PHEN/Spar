@@ -11,6 +11,7 @@ import {
   type CourseLesson,
 } from "@/lib/courses";
 import { RoadmapNode, type NodeStatus } from "./roadmap-node";
+import { CourseEmblem } from "./course-emblem";
 
 export interface CourseRoadmapProps {
   course: Course;
@@ -120,9 +121,7 @@ export function CourseRoadmap({
         <aside className="lg:col-span-5 lg:sticky lg:top-24 space-y-4">
           <div className="rounded-3xl border border-white/10 bg-[#121212] p-6 sm:p-7 shadow-2xl space-y-5">
             {/* Distinctive Illustration / Motif Icon */}
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.05] shadow-inner">
-              {getCourseBadgeIcon(course.category)}
-            </div>
+            <CourseEmblem category={course.category} size="lg" />
 
             {/* Title & Single-Sentence Clean Premise */}
             <div className="space-y-2">
@@ -135,14 +134,14 @@ export function CourseRoadmap({
             </div>
 
             {/* Minimal Stats Row matching Brilliant (36 Lessons · 434 Exercises) */}
-            <div className="flex items-center gap-4 text-xs font-mono text-neutral-400 pt-2 border-t border-white/[0.06]">
+            <div className="flex items-center gap-4 text-xs font-mono text-[var(--text-secondary)] pt-2 border-t border-white/[0.06]">
               <span className="inline-flex items-center gap-1.5">
-                <span className="text-white">◎</span>
+                <span className="text-[var(--accent)] font-semibold">◎</span>
                 <span>{totalCount} Lessons</span>
               </span>
               <span>·</span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="text-white">⚡</span>
+                <span className="text-[var(--accent)] font-semibold">⚡</span>
                 <span>{totalCount * 3} Exercises</span>
               </span>
             </div>
@@ -150,17 +149,17 @@ export function CourseRoadmap({
             {/* Progress Bar (Only when started) */}
             {isStarted && (
               <div className="space-y-1.5 pt-1">
-                <div className="flex items-center justify-between text-xs text-neutral-400">
+                <div className="flex items-center justify-between text-xs text-[var(--text-secondary)]">
                   <span className="font-medium text-white">
                     {completedCount} of {totalCount} completed
                   </span>
-                  <span className="font-mono text-neutral-300 tabular-nums">
+                  <span className="font-mono text-[var(--accent)] font-semibold tabular-nums">
                     {progressPct}%
                   </span>
                 </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.08]">
+                <div className="h-2 w-full overflow-hidden rounded-full bg-[#181822] border border-white/[0.08]">
                   <div
-                    className="h-full rounded-full bg-white transition-all duration-300"
+                    className="h-full rounded-full bg-[var(--accent)] transition-all duration-300"
                     style={{ width: `${progressPct}%` }}
                   />
                 </div>
@@ -171,21 +170,20 @@ export function CourseRoadmap({
 
         {/* RIGHT COLUMN: Tactile Roadmap Path */}
         <main className="lg:col-span-7 flex flex-col items-center space-y-6">
-          {/* Top Level Header Pill (Clickable directly to open current lesson) */}
-          <button
-            type="button"
-            onClick={() => selectedLesson && onStartLesson(selectedLesson.id)}
-            aria-label={`Level ${selectedLessonIndex}: ${selectedLesson?.title}. Click to start.`}
-            className="w-full max-w-md rounded-2xl border border-white/10 bg-[#141414] px-6 py-3.5 text-center shadow-lg hover:border-white/25 hover:bg-[#161616] transition-all cursor-pointer group"
+          {/* Top Level Milestone Header Banner (Non-clickable, roadmap objects below are interactive) */}
+          <div
+            className="w-full max-w-md rounded-2xl border-2 border-[var(--accent)] bg-[var(--surface-1)] px-6 py-3.5 text-center shadow-lg select-none"
+            style={{
+              boxShadow: "0 0 20px var(--accent-soft)",
+            }}
           >
-            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400 block group-hover:text-neutral-300">
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--accent)] block">
               LEVEL {selectedLessonIndex}
             </span>
-            <h2 className="text-base sm:text-lg font-bold text-white tracking-tight mt-0.5 truncate flex items-center justify-center gap-1.5">
-              <span>{selectedLesson?.title}</span>
-              <ArrowRight className="h-4 w-4 text-neutral-400 group-hover:text-white group-hover:translate-x-0.5 transition-transform" />
+            <h2 className="text-base sm:text-lg font-bold text-white tracking-tight mt-0.5 truncate">
+              {selectedLesson?.title}
             </h2>
-          </button>
+          </div>
 
           {/* The Tactile Card Path */}
           <div className="w-full flex flex-col items-center py-2 sm:py-4">
@@ -242,23 +240,23 @@ export function CourseRoadmap({
                   </Button>
                 )}
 
-                <Button
+                <button
                   type="button"
                   onClick={() => onStartLesson(selectedLesson.id)}
-                  className="w-full sm:w-auto flex-1 bg-white text-black hover:bg-neutral-200 font-bold text-sm h-11 px-8 rounded-xl shadow-lg transition-transform active:scale-[0.98]"
+                  className="w-full sm:w-auto flex-1 inline-flex items-center justify-center gap-2 rounded-full h-12 px-8 text-sm font-bold text-white transition-all spar-tactile-btn shadow-md active:scale-95"
                 >
                   {isSelectedDone ? (
                     <>
-                      <RotateCcw className="mr-1.5 h-4 w-4" />
+                      <RotateCcw className="h-4 w-4" />
                       Review
                     </>
                   ) : (
                     <>
                       Start
-                      <ArrowRight className="ml-1.5 h-4 w-4" />
+                      <ArrowRight className="h-4 w-4" />
                     </>
                   )}
-                </Button>
+                </button>
               </div>
             </div>
           )}
