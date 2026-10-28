@@ -276,14 +276,14 @@ export function SessionHistoryCard({
             className={cn(
               "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold tabular-nums border",
               overallScore >= 70
-                ? "border-[var(--success)]/30 bg-[var(--success)]/10 text-[var(--success)]"
+                ? "border-emerald-500/40 bg-emerald-500/20 text-emerald-300 shadow-[0_0_8px_rgba(52,211,153,0.15)]"
                 : overallScore < 50
-                ? "border-[var(--danger)]/30 bg-[var(--danger)]/10 text-[var(--danger)]"
-                : "border-[var(--accent)]/30 bg-[var(--accent-soft)] text-[var(--accent)]"
+                ? "border-rose-500/40 bg-rose-500/20 text-rose-300 shadow-[0_0_8px_rgba(248,113,113,0.15)]"
+                : "border-[var(--accent)]/50 bg-[var(--accent-soft)] text-[#FFB088] shadow-[0_0_8px_var(--accent-soft)]"
             )}
           >
             <span>{animatedScore}</span>
-            <span className="text-[9px] uppercase opacity-80">pts</span>
+            <span className="text-[9px] uppercase font-semibold opacity-90">pts</span>
           </span>
         ) : session.summary ? (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--success)]/30 bg-[var(--success)]/10 px-2.5 py-0.5 text-[10px] font-medium text-[var(--success)]">
@@ -549,7 +549,7 @@ export function HomeView({ userName, onEnterSparringRoom, onOpenDebrief }: HomeV
                       variant="outline"
                       size="sm"
                       onClick={() => setEditingMoment(true)}
-                      className="w-full rounded-full border border-[var(--accent)] bg-transparent text-xs font-semibold text-[var(--accent)] hover:bg-[var(--accent-soft)] hover:text-white transition-colors"
+                      className="w-full rounded-full border border-[var(--accent)]/50 bg-[var(--accent-soft)] text-xs font-semibold text-white hover:bg-[var(--accent)] hover:border-[var(--accent)] transition-all py-2 shadow-sm"
                     >
                       Set upcoming moment
                     </Button>

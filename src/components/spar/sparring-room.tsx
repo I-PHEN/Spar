@@ -898,15 +898,35 @@ export function SparringRoom({
   const elapsedDisplay = formatTime(elapsedSec);
 
   return (
-    <div className="flex h-[100dvh] flex-col bg-background">
+    <div className="relative flex h-[100dvh] flex-col bg-[var(--bg-base)] text-[var(--text-primary)] overflow-hidden">
+      {/* Background Atmosphere: Ambient overhead arena light */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 z-0 overflow-hidden"
+      >
+        <div
+          className="absolute -top-[160px] left-1/2 h-[520px] w-[860px] -translate-x-1/2 rounded-full opacity-60 blur-[120px]"
+          style={{
+            background:
+              "radial-gradient(circle, var(--accent-soft) 0%, rgba(255,107,61,0.02) 45%, transparent 70%)",
+          }}
+        />
+        <div
+          className="absolute inset-0 opacity-[0.03] mix-blend-overlay"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+            backgroundRepeat: "repeat",
+          }}
+        />
+      </div>
       {/* Top bar — glass, tightened to py-3 */}
       <div
         className="flex items-center justify-between px-4 py-3 sm:px-6"
         style={{
-          background: "rgba(10, 10, 10, 0.55)",
+          background: "rgba(10, 10, 14, 0.75)",
           backdropFilter: "blur(20px) saturate(180%)",
           WebkitBackdropFilter: "blur(20px) saturate(180%)",
-          borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+          borderBottom: "1px solid var(--border-subtle)",
           boxShadow: "inset 0 1px 0 0 rgba(255, 255, 255, 0.06)",
         }}
       >
@@ -942,24 +962,24 @@ export function SparringRoom({
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 font-mono text-xs text-neutral-400">
-            <Clock className="h-3.5 w-3.5" />
+          <div className="flex items-center gap-1.5 rounded-full border border-white/5 bg-white/[0.03] px-2.5 py-1 font-mono text-xs text-[var(--text-secondary)] shadow-sm">
+            <Clock className="h-3.5 w-3.5 text-[var(--accent)]" />
             {elapsedDisplay}
           </div>
-          <Button
-            variant="outline"
-            size="sm"
+          <button
+            type="button"
             onClick={() => setShowEndDialog(true)}
             disabled={ending}
+            className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-all hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-300 active:scale-95 disabled:opacity-50"
           >
             {ending ? (
               <>
-                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> Ending...
+                <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Ending...
               </>
             ) : (
               "End Session"
             )}
-          </Button>
+          </button>
         </div>
       </div>
 

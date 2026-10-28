@@ -226,151 +226,172 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
   }, []);
 
   return (
-    <div className="relative mx-auto max-w-2xl px-4 pt-6 sm:px-6 sm:pt-8">
-      {/* Header — the antechamber. A whisper of light behind it for depth. */}
+    <div className="relative min-h-screen bg-[var(--bg-base)] text-[var(--text-primary)] pb-16">
+      {/* Background Atmosphere: Top-center ambient lighting + subtle noise overlay */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-64"
-        style={{
-          background:
-            "radial-gradient(60% 100% at 50% 0%, rgba(255,255,255,0.035), transparent 70%)",
-        }}
-      />
-      <div className="relative mb-8 spar-fade-up">
-        <p className="text-[11px] uppercase tracking-[0.18em] text-neutral-600">
-          Suit up
-        </p>
-        <h1 className="mt-1.5 text-[26px] font-semibold tracking-tight text-white sm:text-3xl">
-          Configure the room
-        </h1>
-        <p className="mt-1.5 text-sm text-neutral-400">
-          Defaults are set —{" "}
-          {hasMaterial ? "paste your material and press Start." : "state your topic and press Start."}
-        </p>
-      </div>
-
-      {/* One orchestrated entrance: the sections take their seats in turn. */}
-      <div className="spar-fade-up" style={{ animationDelay: "60ms", animationFillMode: "backwards" }}>
-        <DefendSection
-          hasMaterial={hasMaterial}
-          setHasMaterial={setHasMaterial}
-          material={material}
-          setMaterial={setMaterial}
-          materialTitle={materialTitle}
-          setMaterialTitle={setMaterialTitle}
-          topic={topic}
-          setTopic={setTopic}
+        className="pointer-events-none fixed inset-0 z-0 overflow-hidden"
+      >
+        <div
+          className="absolute -top-[140px] left-1/2 h-[640px] w-[960px] -translate-x-1/2 rounded-full opacity-65 blur-[110px]"
+          style={{
+            background:
+              "radial-gradient(circle, var(--accent-soft) 0%, rgba(255,107,61,0.03) 45%, transparent 70%)",
+          }}
+        />
+        <div
+          className="absolute inset-0 opacity-[0.035] mix-blend-overlay"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+            backgroundRepeat: "repeat",
+          }}
         />
       </div>
 
-      <div className="mt-12 spar-fade-up" style={{ animationDelay: "140ms", animationFillMode: "backwards" }}>
-        <ModeSection
-          experience={experience}
-          selectExperience={selectExperience}
-          drillTarget={drillTarget}
-          setDrillTarget={setDrillTarget}
-        />
-      </div>
+      <div className="relative z-10 mx-auto max-w-2xl px-4 pt-6 sm:px-6 sm:pt-8">
+        {/* Header — the antechamber */}
+        <div className="relative mb-8 spar-fade-up">
+          <div className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)] shadow-[0_0_6px_var(--accent-soft)]" />
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--text-tertiary)]">
+              Chamber Setup
+            </p>
+          </div>
+          <h1 className="mt-2 text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl">
+            Configure the room
+          </h1>
+          <p className="mt-1.5 text-xs text-[var(--text-secondary)] sm:text-sm">
+            Defaults are set —{" "}
+            {hasMaterial ? "paste your material and press Start." : "state your topic and press Start."}
+          </p>
+        </div>
 
-      <div className="mt-12 spar-fade-up" style={{ animationDelay: "220ms", animationFillMode: "backwards" }}>
-        <PanelSection
-          seats={seats}
-          setSeats={setSeats}
-          onEditSeat={setEditingSeat}
-        />
-      </div>
+        {/* 01 Defend Section Card */}
+        <div className="spar-fade-up rounded-[20px] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-6 sm:p-7 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_8px_24px_-12px_rgba(0,0,0,0.6)]" style={{ animationDelay: "60ms", animationFillMode: "backwards" }}>
+          <DefendSection
+            hasMaterial={hasMaterial}
+            setHasMaterial={setHasMaterial}
+            material={material}
+            setMaterial={setMaterial}
+            materialTitle={materialTitle}
+            setMaterialTitle={setMaterialTitle}
+            topic={topic}
+            setTopic={setTopic}
+          />
+        </div>
 
-      {/* Room details — advanced, behind a disclosure */}
-      <div className="mt-12">
-        <button
-          onClick={() => setShowRoomDetails((v) => !v)}
-          className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
-          aria-expanded={showRoomDetails}
-        >
-          <Pencil className="h-3 w-3" />
-          Customize the room
-          <span className="text-neutral-700">
-            ({showRoomDetails ? "hide" : "room description, optional"})
-          </span>
-        </button>
-        {showRoomDetails && (
-          <div className="mt-3 space-y-1.5">
-            <Label
-              htmlFor="custom-room"
-              className="text-[10px] uppercase tracking-wider text-neutral-500"
-            >
-              Room description (optional)
-            </Label>
-            <Textarea
-              id="custom-room"
-              value={customRoom}
-              onChange={(e) => setCustomRoom(e.target.value)}
-              placeholder="Describe the specific room — e.g., 'A hiring committee of 3 senior engineers for a staff engineer role.' Overrides the default."
-              rows={2}
-              className="bg-[#0a0a0a] border-[#202020] text-white placeholder:text-neutral-500 focus:border-[#3a3a3a] focus-visible:ring-0 rounded-md resize-y"
-            />
+        {/* 02 Mode Section Card */}
+        <div className="mt-6 spar-fade-up rounded-[20px] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-6 sm:p-7 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_8px_24px_-12px_rgba(0,0,0,0.6)]" style={{ animationDelay: "140ms", animationFillMode: "backwards" }}>
+          <ModeSection
+            experience={experience}
+            selectExperience={selectExperience}
+            drillTarget={drillTarget}
+            setDrillTarget={setDrillTarget}
+          />
+        </div>
+
+        {/* 03 Panel Section Card */}
+        <div className="mt-6 spar-fade-up rounded-[20px] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-6 sm:p-7 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_8px_24px_-12px_rgba(0,0,0,0.6)]" style={{ animationDelay: "220ms", animationFillMode: "backwards" }}>
+          <PanelSection
+            seats={seats}
+            setSeats={setSeats}
+            onEditSeat={setEditingSeat}
+          />
+        </div>
+
+        {/* Room details — advanced, behind a disclosure */}
+        <div className="mt-8 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)]/60 px-5 py-4">
+          <button
+            onClick={() => setShowRoomDetails((v) => !v)}
+            className="flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)] hover:text-white transition-colors"
+            aria-expanded={showRoomDetails}
+          >
+            <Pencil className="h-3 w-3 text-[var(--accent)]" />
+            Customize the room
+            <span className="text-[var(--text-tertiary)]">
+              ({showRoomDetails ? "hide" : "room description, optional"})
+            </span>
+          </button>
+          {showRoomDetails && (
+            <div className="mt-3.5 space-y-1.5">
+              <Label
+                htmlFor="custom-room"
+                className="text-[10px] uppercase tracking-wider text-[var(--text-tertiary)] font-semibold"
+              >
+                Room description (optional)
+              </Label>
+              <Textarea
+                id="custom-room"
+                value={customRoom}
+                onChange={(e) => setCustomRoom(e.target.value)}
+                placeholder="Describe the specific room — e.g., 'A hiring committee of 3 senior engineers for a staff engineer role.' Overrides the default."
+                rows={2}
+                className="bg-[var(--surface-2)] border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--accent)] focus-visible:ring-1 focus-visible:ring-[var(--accent)] rounded-xl resize-y"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div className="mt-6 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            {error}
           </div>
         )}
-      </div>
 
-      {/* Error */}
-      {error && (
-        <div className="mt-6 rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-          {error}
-        </div>
-      )}
-
-      {/* Sticky start bar — always in reach; a soft fade above it. */}
-      <div className="sticky bottom-16 md:bottom-0 z-30 -mx-4 sm:-mx-6 mt-12">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 -top-8 h-8 bg-gradient-to-b from-transparent to-[#0a0a0a]"
-        />
-        <div className="border-t border-[#1a1a1a] bg-[#0a0a0a]/95 px-4 py-4 backdrop-blur sm:px-6">
-          <div className="flex items-center justify-between gap-3">
-            <button
-              onClick={onCancel}
-              className="flex items-center gap-1.5 text-sm text-neutral-400 transition-colors hover:text-white px-2 py-2"
-            >
-              <ArrowLeft className="h-4 w-4" /> Home
-            </button>
-            <div className="flex flex-col items-end gap-1">
-              <div className="flex items-center gap-2.5">
-                {canStart && !creating && (
-                  <span className="hidden sm:inline-flex items-center gap-1 rounded border border-[#2a2a2a] bg-[#111111] px-1.5 py-1 text-[10px] font-mono text-neutral-500">
-                    Ctrl ↵
-                  </span>
+        {/* Sticky start bar */}
+        <div className="sticky bottom-16 md:bottom-0 z-30 -mx-4 sm:-mx-6 mt-10">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 -top-8 h-8 bg-gradient-to-b from-transparent to-[var(--bg-base)]"
+          />
+          <div className="border-t border-[var(--border-subtle)] bg-[var(--bg-base)]/90 px-4 py-4 backdrop-blur-xl sm:px-6">
+            <div className="flex items-center justify-between gap-3">
+              <button
+                onClick={onCancel}
+                className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)] transition-colors hover:text-white px-2 py-2"
+              >
+                <ArrowLeft className="h-4 w-4" /> Home
+              </button>
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex items-center gap-2.5">
+                  {canStart && !creating && (
+                    <span className="hidden sm:inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-mono text-[var(--text-tertiary)]">
+                      Ctrl ↵
+                    </span>
+                  )}
+                  <button
+                    onClick={handleStart}
+                    disabled={!canStart}
+                    className={cn(
+                      "flex items-center gap-2 px-7 h-12 rounded-full text-sm font-bold transition-all",
+                      canStart
+                        ? "bg-[var(--accent)] text-white hover:brightness-105 active:translate-y-[3px]"
+                        : "border border-white/10 bg-white/5 text-[var(--text-tertiary)] cursor-not-allowed"
+                    )}
+                    style={canStart ? { boxShadow: "0 4px 0 var(--accent-dark)" } : undefined}
+                  >
+                    {creating ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" /> Building...
+                      </>
+                    ) : (
+                      <>
+                        Start Sparring <ArrowRight className="h-4 w-4" />
+                      </>
+                    )}
+                  </button>
+                </div>
+                {!canStart && disabledReason && (
+                  <p className="text-[11px] text-[var(--text-tertiary)]">{disabledReason}</p>
                 )}
-                <button
-                  onClick={handleStart}
-                  disabled={!canStart}
-                  className={cn(
-                    "flex items-center gap-2 px-6 h-12 rounded-md text-sm font-semibold transition-all",
-                    canStart
-                      ? "bg-neutral-100 text-black hover:bg-white shadow-[0_0_28px_-6px_rgba(255,255,255,0.28)]"
-                      : "border border-[#252525] bg-neutral-900 text-neutral-500 cursor-not-allowed"
-                  )}
-                >
-                  {creating ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" /> Building...
-                    </>
-                  ) : (
-                    <>
-                      Start Sparring <ArrowRight className="h-4 w-4" />
-                    </>
-                  )}
-                </button>
               </div>
-              {!canStart && disabledReason && (
-                <p className="text-[11px] text-neutral-500">{disabledReason}</p>
-              )}
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="pb-8" />
+        <div className="pb-8" />
+      </div>
 
       {/* Seat editor modal */}
       {editingSeat !== null && (
@@ -446,7 +467,7 @@ function DefendSection({
           <div className="space-y-1.5">
             <Label
               htmlFor="material-title"
-              className="text-[10px] uppercase tracking-wider text-neutral-500"
+              className="text-[10px] uppercase tracking-wider text-[var(--text-tertiary)] font-semibold"
             >
               Title (optional)
             </Label>
@@ -455,13 +476,13 @@ function DefendSection({
               value={materialTitle}
               onChange={(e) => setMaterialTitle(e.target.value)}
               placeholder="e.g., PhD Dissertation Defense — Chapter 4"
-              className="bg-[#0a0a0a] border-[#202020] text-white placeholder:text-neutral-500 focus:border-[#3a3a3a] focus-visible:ring-0 rounded-md"
+              className="bg-[var(--surface-2)] border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--accent)] focus-visible:ring-1 focus-visible:ring-[var(--accent)] rounded-xl"
             />
           </div>
           <div className="space-y-1.5">
             <Label
               htmlFor="material-text"
-              className="text-[10px] uppercase tracking-wider text-neutral-500"
+              className="text-[10px] uppercase tracking-wider text-[var(--text-tertiary)] font-semibold"
             >
               Paste your material
             </Label>
@@ -483,9 +504,9 @@ function DefendSection({
               }}
               placeholder="Paste or drop your pitch, abstract, strategy memo, proposal, or talking points. The more substance, the sharper the panel."
               rows={6}
-              className="bg-[#0a0a0a] border-[#202020] text-white placeholder:text-neutral-500 focus:border-[#3a3a3a] focus-visible:ring-0 rounded-md resize-y"
+              className="bg-[var(--surface-2)] border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--accent)] focus-visible:ring-1 focus-visible:ring-[var(--accent)] rounded-xl resize-y"
             />
-            <div className="flex items-center justify-between text-[11px] text-neutral-500">
+            <div className="flex items-center justify-between text-[11px] text-[var(--text-tertiary)]">
               <span>
                 {material.trim().length < 10
                   ? `${10 - material.trim().length} more characters needed`
@@ -501,7 +522,7 @@ function DefendSection({
         <div className="space-y-1.5">
           <Label
             htmlFor="topic"
-            className="text-[10px] uppercase tracking-wider text-neutral-500"
+            className="text-[10px] uppercase tracking-wider text-[var(--text-tertiary)] font-semibold"
           >
             State your topic (concise, max 100 chars)
           </Label>
@@ -512,21 +533,21 @@ function DefendSection({
             onChange={(e) => setTopic(e.target.value)}
             placeholder="e.g., go-to-market strategy, Machine learning defense, Q3 Board review"
             rows={2}
-            className="bg-[#0a0a0a] border-[#202020] text-white placeholder:text-neutral-500 focus:border-[#3a3a3a] focus-visible:ring-0 rounded-md"
+            className="bg-[var(--surface-2)] border-[var(--border-subtle)] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--accent)] focus-visible:ring-1 focus-visible:ring-[var(--accent)] rounded-xl"
           />
-          <div className="flex items-center justify-between text-[11px] text-neutral-500">
+          <div className="flex items-center justify-between text-[11px] text-[var(--text-tertiary)]">
             <span>The panel will challenge this central claim. Be specific and concise.</span>
             <span className={cn(topic.length >= 95 ? "text-amber-400 font-medium" : "")}>
               {topic.length}/100 chars
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-1.5 pt-1">
-            <span className="text-[11px] text-neutral-500">Try an example:</span>
+            <span className="text-[11px] text-[var(--text-tertiary)]">Try an example:</span>
             {TOPIC_EXAMPLES.map((example) => (
               <button
                 key={example}
                 onClick={() => setTopic(example)}
-                className="rounded-full border border-[#252525] bg-[#0f0f0f] px-2.5 py-1 text-[11px] text-neutral-400 transition-colors hover:border-[#3a3a3a] hover:text-neutral-200"
+                className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3 py-1 text-[11px] text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-white"
               >
                 {example.split(" — ")[0]}
               </button>
@@ -572,33 +593,24 @@ function ModeSection({
                 }
               }}
               className={cn(
-                "w-full text-left rounded-md border p-4 transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-white/10",
+                "w-full text-left rounded-xl border p-4.5 transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-white/20",
                 isSelected
-                  ? exp.key === "drill"
-                    ? // Drill runs hot: the warm treatment matches the room's
-                      // amber drill language.
-                      "bg-[#171717] border-amber-500/30 shadow-[inset_0_0_0_1px_rgba(251,191,36,0.08)]"
-                    : "bg-[#171717] border-[#343434]"
-                  : "bg-[#101010] border-[#202020] hover:bg-[#161616] hover:border-[#2a2a2a]"
+                  ? "bg-[var(--surface-2)] border-[var(--accent)] shadow-[inset_0_0_0_1px_var(--accent),0_0_16px_var(--accent-soft)]"
+                  : "bg-[var(--surface-2)]/60 border-[var(--border-subtle)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-2)]"
               )}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
-                  <h4 className="text-white font-medium mb-0.5">
+                  <h4 className="text-[var(--text-primary)] font-semibold mb-0.5">
                     {exp.label}
                   </h4>
-                  <p className="text-neutral-300 text-xs leading-relaxed">
+                  <p className="text-[var(--text-secondary)] text-xs leading-relaxed">
                     {exp.tagline}
                   </p>
                 </div>
                 {isSelected && (
                   <div className="flex-shrink-0">
-                    <Check
-                      className={cn(
-                        "h-4 w-4",
-                        exp.key === "drill" ? "text-amber-300" : "text-neutral-300"
-                      )}
-                    />
+                    <Check className="h-4 w-4 text-[var(--accent)]" />
                   </div>
                 )}
               </div>
@@ -609,8 +621,8 @@ function ModeSection({
 
       {/* Drill target — expands under the cards when Drill is selected */}
       {experience === "drill" && (
-        <div className="mt-3">
-          <p className="text-[10px] uppercase tracking-wider text-neutral-500 mb-2">
+        <div className="mt-3.5">
+          <p className="text-[10px] uppercase tracking-wider text-[var(--text-tertiary)] font-semibold mb-2">
             What are you drilling?
           </p>
           <div className="flex flex-wrap gap-2">
@@ -619,10 +631,10 @@ function ModeSection({
                 key={target.id}
                 onClick={() => setDrillTarget(target.id)}
                 className={cn(
-                  "text-xs px-3 py-1.5 rounded-md border transition-colors",
+                  "text-xs px-3 py-1.5 rounded-full border transition-colors",
                   drillTarget === target.id
-                    ? "bg-[#1b1b1b] border-[#3a3a3a] text-neutral-100"
-                    : "bg-[#101010] border-[#202020] text-neutral-400 hover:bg-[#161616] hover:border-[#2a2a2a]"
+                    ? "bg-[var(--accent-soft)] border-[var(--accent)] text-white font-medium shadow-[0_0_8px_var(--accent-soft)]"
+                    : "bg-[var(--surface-2)] border-[var(--border-subtle)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-white"
                 )}
               >
                 {target.label}
@@ -649,20 +661,20 @@ function PanelSection({
   return (
     <div>
       <SectionHeader number="03" title="Arrange your panel" />
-      <p className="text-[11px] text-neutral-500 mb-4">
+      <p className="text-[11px] text-[var(--text-tertiary)] mb-4">
         Pre-filled based on your experience. Click a seat to customize.
       </p>
 
-      <div className="relative rounded-md border border-[#1a1a1a] bg-[#0a0a0a] p-6 overflow-x-auto">
+      <div className="relative rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-2)]/50 p-6 overflow-x-auto shadow-inner">
         {/* "YOU" position */}
         <div className="flex flex-col items-center mb-6">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#2a2a2a] bg-[#101010] shadow-[0_0_20px_-6px_rgba(255,255,255,0.12)]">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[var(--accent)]/50 bg-[var(--accent-soft)] shadow-[0_0_16px_var(--accent-soft)]">
             <span className="text-sm font-bold text-white">YOU</span>
           </div>
-          <p className="mt-2 text-[10px] uppercase tracking-wider text-neutral-600">
+          <p className="mt-2 text-[10px] uppercase tracking-wider text-[var(--text-tertiary)] font-semibold">
             Presenting here
           </p>
-          <ArrowRight className="h-4 w-4 text-neutral-700 rotate-90 mt-1" />
+          <ArrowRight className="h-4 w-4 text-[var(--accent)] rotate-90 mt-1" />
         </div>
 
         {/* Seats row — full cards on roomy screens */}
@@ -683,12 +695,12 @@ function PanelSection({
                 setSeats(next);
                 onEditSeat(next.length - 1);
               }}
-              className="flex w-[140px] sm:w-[160px] flex-col items-center justify-center rounded-md border border-dashed border-[#252525] py-8 transition-all hover:border-[#3a3a3a] hover:bg-[#0f0f0f]"
+              className="flex w-[140px] sm:w-[160px] flex-col items-center justify-center rounded-xl border border-dashed border-white/15 bg-transparent py-8 transition-all hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]/20"
             >
-              <span className="text-[10px] uppercase tracking-wider text-neutral-500 mb-1">
+              <span className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)] font-semibold mb-1">
                 Add panelist
               </span>
-              <span className="text-xs text-neutral-400">Up to {MAX_SEATS}</span>
+              <span className="text-xs text-[var(--text-tertiary)]">Up to {MAX_SEATS}</span>
             </button>
           )}
         </div>
@@ -701,9 +713,9 @@ function PanelSection({
               <button
                 key={i}
                 onClick={() => onEditSeat(i)}
-                className="flex items-center justify-between rounded-md border border-[#202020] bg-[#101010] px-3 py-2.5 text-left transition-all hover:bg-[#161616]"
+                className="flex items-center justify-between rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3.5 py-2.5 text-left transition-all hover:border-[var(--border-strong)]"
               >
-                <span className="flex items-center gap-2 text-sm text-white">
+                <span className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
                   <span
                     aria-hidden
                     className="inline-block h-2.5 w-2.5 rounded-full"
@@ -714,9 +726,9 @@ function PanelSection({
                     }}
                   />
                   {seat.name}
-                  <span className="text-neutral-500"> · {INTENSITY_LABELS[seat.intensity]}</span>
+                  <span className="text-[var(--text-tertiary)]"> · {INTENSITY_LABELS[seat.intensity]}</span>
                 </span>
-                <span className="text-[10px] uppercase tracking-wider text-neutral-500">
+                <span className="text-[10px] uppercase tracking-wider text-[var(--accent)] font-semibold">
                   Edit
                 </span>
               </button>
@@ -728,15 +740,15 @@ function PanelSection({
                 setSeats(next);
                 onEditSeat(next.length - 1);
               }}
-              className="flex items-center justify-center gap-1.5 rounded-md border border-dashed border-[#252525] px-3 py-2.5 text-xs text-neutral-400 transition-all hover:border-[#3a3a3a] hover:bg-[#0f0f0f]"
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-white/15 px-3 py-2.5 text-xs text-[var(--text-secondary)] transition-all hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]/20"
             >
-              <Plus className="h-3.5 w-3.5" />
+              <Plus className="h-3.5 w-3.5 text-[var(--accent)]" />
               Add panelist (up to {MAX_SEATS})
             </button>
           )}
         </div>
 
-        <p className="mt-4 text-center text-[11px] text-neutral-600">
+        <p className="mt-4 text-center text-[11px] text-[var(--text-tertiary)]">
           Click a seat to edit
         </p>
       </div>
@@ -788,11 +800,11 @@ function SeatCard({
       onClick={onClick}
       style={seatStyle}
       className={cn(
-        "group relative flex w-[140px] sm:w-[160px] flex-col items-center rounded-md border border-[#202020] p-4 transition-all hover:brightness-125",
+        "group relative flex w-[140px] sm:w-[160px] flex-col items-center rounded-xl border border-[var(--border-subtle)] p-4 transition-all hover:border-[var(--border-strong)] hover:-translate-y-0.5 shadow-sm",
         "spar-fade-up"
       )}
     >
-      <span className="absolute top-2 left-2 text-[9px] text-neutral-600 tabular-nums">
+      <span className="absolute top-2 left-2 text-[9px] text-[var(--text-tertiary)] tabular-nums font-semibold">
         {index + 1}
       </span>
       <div
@@ -802,7 +814,7 @@ function SeatCard({
       >
         {def.initials}
       </div>
-      <p className="text-center text-xs font-medium text-white leading-tight">
+      <p className="text-center text-xs font-semibold text-[var(--text-primary)] leading-tight">
         {seat.name}
       </p>
       <div className="mt-2 flex gap-1">
@@ -811,12 +823,12 @@ function SeatCard({
             key={level}
             className={cn(
               "h-1.5 w-1.5 rounded-full transition-colors",
-              level <= seat.intensity ? "bg-white" : "bg-neutral-700"
+              level <= seat.intensity ? "bg-[var(--accent)]" : "bg-white/10"
             )}
           />
         ))}
       </div>
-      <p className="mt-1.5 text-[9px] uppercase tracking-wider text-neutral-500">
+      <p className="mt-1.5 text-[9px] uppercase tracking-wider text-[var(--text-tertiary)] font-medium">
         {INTENSITY_LABELS[seat.intensity]}
       </p>
       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -977,15 +989,13 @@ function SeatEditor({
 function SectionHeader({ number, title }: { number: string; title: string }) {
   return (
     <div className="mb-5 flex items-center gap-3">
-      {/* The page is a true sequence (what you defend → how → who), so the
-          numerals earn their place — large, light, quiet. */}
       <span
         aria-hidden
-        className="text-[38px] font-extralight leading-none text-white/[0.18] tabular-nums select-none"
+        className="text-[34px] font-extralight leading-none text-[var(--accent)]/40 tabular-nums select-none"
       >
         {number}
       </span>
-      <h2 className="text-[15px] font-medium text-white tracking-tight">
+      <h2 className="text-base font-semibold text-[var(--text-primary)] tracking-tight">
         {title}
       </h2>
     </div>
@@ -1007,13 +1017,13 @@ function ToggleButton({
     <button
       onClick={onClick}
       className={cn(
-        "flex flex-1 items-center justify-center gap-2 rounded-md border px-3 py-2 text-xs font-medium transition-all",
+        "flex flex-1 items-center justify-center gap-2 rounded-xl border px-3.5 py-2.5 text-xs font-semibold transition-all",
         active
-          ? "bg-[#1b1b1b] border-[#4a4a4a] text-white ring-1 ring-white/15"
-          : "bg-[#101010] border-[#202020] text-neutral-400 hover:bg-[#161616] hover:border-[#2a2a2a]"
+          ? "border-[var(--accent)] bg-[var(--accent-soft)] text-white shadow-[0_0_12px_var(--accent-soft)]"
+          : "border-[var(--border-subtle)] bg-[var(--surface-2)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-white"
       )}
     >
-      {icon}
+      <span className={cn(active ? "text-[var(--accent)]" : "text-[var(--text-tertiary)]")}>{icon}</span>
       {label}
     </button>
   );
