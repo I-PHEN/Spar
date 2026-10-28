@@ -1,23 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import {
-  ArrowRight,
-  CheckCircle2,
-  Clock,
-  Play,
-  Search,
-  X,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import {
-  getCourseLessons,
-  getNextIncompleteLesson,
-  type Course,
-  type CourseDifficulty,
-} from "@/lib/courses";
-import { CourseCard } from "./course-card";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Compass, Plus } from "lucide-react";
+import { type Course } from "@/lib/courses";
+import { useEnrolledCourses } from "@/lib/use-enrolled-courses";
+import { MyCourseCard } from "./my-course-card";
+import { BrowseCoursesPanel } from "./browse-courses-panel";
 
 export interface CourseCatalogProps {
   courses: Course[];
@@ -27,8 +15,6 @@ export interface CourseCatalogProps {
   onStartOrContinueLesson: (courseId: string, lessonId: string) => void;
 }
 
-type SortOption = "recommended" | "shortest" | "newest";
-
 export function CourseCatalog({
   courses,
   completedLessonIds,
@@ -36,313 +22,209 @@ export function CourseCatalog({
   onSelectCourse,
   onStartOrContinueLesson,
 }: CourseCatalogProps) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("All");
-  const [selectedDifficulty, setSelectedDifficulty] = useState<
-    "All" | CourseDifficulty
-  >("All");
-  const [sortBy, setSortBy] = useState<SortOption>("recommended");
+  // Enrolled courses state (persisted to localStorage with automatic progress migration)
+  const { enrolledIds, enrollCourse, unenrollCourse } = useEnrolledCourses({
+    courses,
+    completedLessonIds,
+    recentCourseIds,
+  });
 
-  // Extract unique categories dynamically so the catalog scales to any library size
-  const categories = useMemo(() => {
-    const set = new Set<string>(["All"]);
-    for (const c of courses) {
-      if (c.category?.trim()) set.add(c.category.trim());
+  // Filter & sort enrolled courses
+  const enrolledCourses = useMemo(() => {
+    return enrolledIds
+      .map((id) => courses.find((c) => c.id === id))
+      .filter((c): c is Course => Boolean(c));
+  }, [enrolledIds, courses]);
+
+  // Browse drawer open state with URL sync (?browse=1)
+  const [isBrowseOpen, setIsBrowseOpen] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return new URLSearchParams(window.location.search).get("browse") === "1";
+    } catch {
+      return false;
     }
-    return Array.from(set);
-  }, [courses]);
+  });
 
-  // Courses currently in progress (started or recently visited)
-  const continueCourses = useMemo(() => {
-    const started = courses.filter((course) => {
-      const lessons = getCourseLessons(course);
-      const done = lessons.filter((l) => completedLessonIds.has(l.id)).length;
-      return (
-        (done > 0 && done < lessons.length) ||
-        recentCourseIds.includes(course.id)
-      );
-    });
-    return started.slice(0, 2);
-  }, [courses, completedLessonIds, recentCourseIds]);
+  const handleOpenBrowse = useCallback(() => {
+    setIsBrowseOpen(true);
+    if (typeof window !== "undefined") {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set("browse", "1");
+        window.history.pushState({}, "", url.toString());
+      } catch {
+        // Fallback for non-standard environments
+      }
+    }
+  }, []);
 
-  // Filtered and sorted catalogue
-  const filteredCourses = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    const list = courses.filter((course) => {
-      if (
-        selectedCategory !== "All" &&
-        course.category.toLowerCase() !== selectedCategory.toLowerCase()
-      ) {
-        return false;
+  const handleCloseBrowse = useCallback(() => {
+    setIsBrowseOpen(false);
+    if (typeof window !== "undefined") {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("browse");
+        window.history.pushState({}, "", url.toString());
+      } catch {
+        // Fallback
       }
-      if (
-        selectedDifficulty !== "All" &&
-        course.difficulty !== selectedDifficulty
-      ) {
-        return false;
-      }
-      if (!q) return true;
-      const lessons = getCourseLessons(course);
-      const inCourse =
-        course.title.toLowerCase().includes(q) ||
-        course.subtitle.toLowerCase().includes(q) ||
-        course.description.toLowerCase().includes(q) ||
-        course.category.toLowerCase().includes(q);
-      const inLessons = lessons.some(
-        (l) =>
-          l.title.toLowerCase().includes(q) ||
-          l.tagline.toLowerCase().includes(q)
-      );
-      return inCourse || inLessons;
-    });
+    }
+  }, []);
 
-    return [...list].sort((a, b) => {
-      if (sortBy === "shortest") {
-        return a.estimatedMinutes - b.estimatedMinutes;
+  // Listen to browser popstate for back/forward navigation with ?browse=1
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handlePopState = () => {
+      try {
+        const hasBrowse =
+          new URLSearchParams(window.location.search).get("browse") === "1";
+        setIsBrowseOpen(hasBrowse);
+      } catch {
+        // Fallback
       }
-      if (sortBy === "newest") {
-        return (
-          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-        );
-      }
-      return 0;
-    });
-  }, [courses, searchQuery, selectedCategory, selectedDifficulty, sortBy]);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 pb-32 sm:px-6 sm:py-10 md:pb-16 space-y-10">
-      {/* Page Header */}
-      <header className="space-y-2">
-        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-neutral-400">
-          Executive Academy · Learn
-        </p>
-        <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-          Build your presence.
-        </h1>
-        <p className="max-w-2xl text-sm text-neutral-400 sm:text-base">
-          Practise the skills that help you think clearly and speak with
-          confidence.
-        </p>
-      </header>
-
-      {/* Continue Learning (Only shown when the learner has courses in progress) */}
-      {continueCourses.length > 0 && (
-        <section aria-label="Continue learning" className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-300">
-              Continue learning
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {continueCourses.map((course) => {
-              const lessons = getCourseLessons(course);
-              const done = lessons.filter((l) =>
-                completedLessonIds.has(l.id)
-              ).length;
-              const pct =
-                lessons.length > 0
-                  ? Math.round((done / lessons.length) * 100)
-                  : 0;
-              const nextLesson = getNextIncompleteLesson(
-                course,
-                completedLessonIds
-              );
-
-              return (
-                <div
-                  key={course.id}
-                  className="flex flex-col justify-between gap-4 rounded-2xl border border-white/10 bg-[#121212] p-5 sm:flex-row sm:items-center hover:border-white/20 transition-all"
-                >
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <div className="flex items-center gap-2 text-xs text-neutral-400">
-                      <span className="font-medium text-neutral-300">
-                        {course.category}
-                      </span>
-                      <span>·</span>
-                      <span>
-                        <strong className="text-white">{done}</strong> of{" "}
-                        {lessons.length} lessons mastered ({pct}%)
-                      </span>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => onSelectCourse(course.id)}
-                      className="block text-left text-base font-semibold text-white hover:underline focus-visible:outline-none"
-                    >
-                      {course.title}
-                    </button>
-
-                    {done > 0 && (
-                      <p className="truncate text-xs text-neutral-400">
-                        Mastered:{" "}
-                        <span className="text-neutral-200">
-                          {lessons.filter((l) => completedLessonIds.has(l.id)).at(-1)?.title}
-                        </span>
-                      </p>
-                    )}
-
-                    {nextLesson && (
-                      <p className="truncate text-xs text-neutral-400">
-                        Up next: <span className="text-neutral-200">{nextLesson.title}</span>
-                      </p>
-                    )}
-
-                    <div className="h-1.5 w-full max-w-xs overflow-hidden rounded-full bg-white/[0.08]">
-                      <div
-                        className="h-full rounded-full bg-white transition-all"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex shrink-0 items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onSelectCourse(course.id)}
-                      className="border-white/12 bg-transparent text-xs text-neutral-200 hover:bg-white/[0.06] hover:text-white"
-                    >
-                      Roadmap
-                    </Button>
-                    {nextLesson && (
-                      <Button
-                        size="sm"
-                        onClick={() =>
-                          onStartOrContinueLesson(course.id, nextLesson.id)
-                        }
-                        className="bg-white text-black hover:bg-neutral-200 text-xs font-semibold"
-                      >
-                        <Play className="mr-1.5 h-3 w-3 fill-current" />
-                        Continue
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* Search, Category Filters & Sorting */}
-      <section aria-label="Explore courses" className="space-y-5">
-        <div className="flex flex-col gap-4 border-b border-white/[0.07] pb-5 lg:flex-row lg:items-center lg:justify-between">
-          {/* Search Input */}
-          <div className="relative w-full lg:max-w-xs">
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search courses and skills"
-              aria-label="Search courses and skills"
-              className="w-full rounded-xl border border-white/10 bg-[#0e0e0e] py-2 pl-10 pr-8 text-xs text-white placeholder:text-neutral-500 focus:border-white/30 focus:outline-none sm:text-sm"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                aria-label="Clear search"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
-          </div>
-
-          {/* Category Filter Pills + Difficulty & Sort */}
-          <div className="flex flex-wrap items-center gap-2">
-            <div
-              role="group"
-              aria-label="Filter by skill category"
-              className="flex flex-wrap items-center gap-1.5"
-            >
-              {categories.map((cat) => {
-                const active = selectedCategory === cat;
-                return (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setSelectedCategory(cat)}
-                    className={cn(
-                      "rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/50",
-                      active
-                        ? "border-white bg-white text-black font-semibold"
-                        : "border-white/10 bg-[#121212] text-neutral-300 hover:border-white/20 hover:text-white"
-                    )}
-                  >
-                    {cat}
-                  </button>
-                );
-              })}
-            </div>
-
-            <select
-              aria-label="Filter by difficulty"
-              value={selectedDifficulty}
-              onChange={(e) =>
-                setSelectedDifficulty(
-                  e.target.value as "All" | CourseDifficulty
-                )
-              }
-              className="rounded-lg border border-white/10 bg-[#121212] px-2.5 py-1.5 text-xs text-neutral-300 focus:border-white/30 focus:outline-none"
-            >
-              <option value="All">All levels</option>
-              <option value="Foundation">Foundation</option>
-              <option value="Intermediate">Intermediate</option>
-              <option value="Advanced">Advanced</option>
-            </select>
-
-            <select
-              aria-label="Sort courses"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="rounded-lg border border-white/10 bg-[#121212] px-2.5 py-1.5 text-xs text-neutral-300 focus:border-white/30 focus:outline-none"
-            >
-              <option value="recommended">Sort: Recommended</option>
-              <option value="shortest">Sort: Shortest</option>
-              <option value="newest">Sort: Newest</option>
-            </select>
-          </div>
+      {/* 1. Header */}
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between border-b border-white/[0.06] pb-6">
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--text-tertiary)]">
+            Executive Academy · Learn
+          </p>
+          <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)] sm:text-4xl">
+            Build your presence.
+          </h1>
+          <p className="max-w-2xl text-sm text-[var(--text-secondary)] sm:text-base">
+            Practise the skills that help you think clearly and speak with
+            confidence.
+          </p>
         </div>
 
-        {/* Explore Courses Grid */}
-        {filteredCourses.length === 0 ? (
-          <div className="rounded-2xl border border-white/10 bg-[#0e0e0e] px-6 py-12 text-center">
-            <p className="text-sm font-medium text-white">
-              No courses match your current search or filters.
+        {/* Primary Header Browse Button */}
+        <div className="shrink-0">
+          <button
+            type="button"
+            onClick={handleOpenBrowse}
+            aria-label="Browse full course catalog"
+            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/[0.04] px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition-all hover:border-white/40 hover:bg-white/[0.08] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+          >
+            <Compass className="h-4 w-4 text-[var(--accent)]" />
+            <span>Browse courses</span>
+          </button>
+        </div>
+      </header>
+
+      {/* 2. My courses (The Primary Content) */}
+      <section aria-label="Continue learning" className="space-y-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+              Continue learning
+            </h2>
+            <p className="text-base sm:text-lg font-bold text-[var(--text-primary)]">
+              My courses
             </p>
-            <p className="mt-1 text-xs text-neutral-400">
-              Try clearing your search query or switching to All categories.
+          </div>
+          {enrolledCourses.length > 0 && (
+            <span className="text-xs text-[var(--text-secondary)]">
+              {enrolledCourses.length}{" "}
+              {enrolledCourses.length === 1 ? "course" : "courses"} in training plan
+            </span>
+          )}
+        </div>
+
+        {/* Empty State */}
+        {enrolledCourses.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-[20px] border border-[var(--border-subtle)] bg-[var(--surface-1)] px-6 py-12 text-center shadow-lg">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-[var(--accent)] mb-4">
+              <Compass className="h-7 w-7" />
+            </div>
+            <h3 className="text-lg font-bold text-white">
+              Pick your first course to begin training.
+            </h3>
+            <p className="mt-1.5 max-w-md text-xs sm:text-sm text-[var(--text-secondary)]">
+              Browse interactive courses on high-stakes communication, defending under pressure, and executive presence.
             </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setSearchQuery("");
-                setSelectedCategory("All");
-                setSelectedDifficulty("All");
-              }}
-              className="mt-4 border-white/15 bg-transparent text-xs text-white hover:bg-white/[0.06]"
+            <button
+              type="button"
+              onClick={handleOpenBrowse}
+              className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-full px-7 text-xs font-bold text-white transition-all spar-tactile-btn shadow-md active:scale-95"
             >
-              Reset filters
-            </Button>
+              <Compass className="h-4 w-4" />
+              <span>Browse courses</span>
+            </button>
+
+            {/* Quick suggested course pills */}
+            {courses.length > 0 && (
+              <div className="mt-8 pt-6 border-t border-white/[0.06] w-full max-w-md">
+                <p className="text-[11px] font-mono uppercase tracking-wider text-[var(--text-tertiary)] mb-3">
+                  Recommended starters
+                </p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {courses.slice(0, 3).map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => enrollCourse(c.id)}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-xs text-neutral-300 transition-colors hover:border-white/30 hover:bg-white/[0.07] hover:text-white"
+                    >
+                      <Plus className="h-3 w-3 text-[var(--accent)]" />
+                      <span>{c.title}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {filteredCourses.map((course) => (
-              <CourseCard
+          <div className="space-y-4">
+            {/* Vertically stacked full-width course cards */}
+            {enrolledCourses.map((course, idx) => (
+              <MyCourseCard
                 key={course.id}
                 course={course}
                 completedLessonIds={completedLessonIds}
-                onSelectCourse={onSelectCourse}
+                isHeroCourse={idx === 0}
+                defaultExpanded={idx === 0}
+                onStartOrContinueLesson={onStartOrContinueLesson}
+                onStartLesson={onStartOrContinueLesson}
+                onRemoveCourse={unenrollCourse}
               />
             ))}
+
+            {/* End-of-list card */}
+            <button
+              type="button"
+              onClick={handleOpenBrowse}
+              className="group flex w-full items-center justify-center gap-3 rounded-[20px] border-2 border-dashed border-white/15 bg-white/[0.015] py-5 px-6 text-sm font-semibold text-[var(--text-secondary)] transition-all duration-200 hover:border-white/30 hover:bg-white/[0.04] hover:text-white"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-neutral-400 transition-colors group-hover:border-white/30 group-hover:text-white">
+                <Plus className="h-4 w-4" />
+              </div>
+              <span>Add another course</span>
+            </button>
           </div>
         )}
       </section>
+
+      {/* 3. In-Page Browse Courses Slide-Over Drawer / Bottom Sheet */}
+      <BrowseCoursesPanel
+        open={isBrowseOpen}
+        onClose={handleCloseBrowse}
+        courses={courses}
+        enrolledCourseIds={enrolledIds}
+        onEnrollCourse={enrollCourse}
+        onSelectCourse={(courseId) => {
+          handleCloseBrowse();
+          onSelectCourse(courseId);
+        }}
+      />
     </div>
   );
 }
