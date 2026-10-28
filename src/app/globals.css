@@ -88,9 +88,8 @@
   --muted: oklch(0.19 0 0);
   --muted-foreground: oklch(0.60 0 0);  /* brighter for readability */
 
-  /* Accent */
-  --accent: oklch(0.22 0 0);
-  --accent-foreground: oklch(0.95 0 0);
+  /* Accent Foreground */
+  --accent-foreground: #FFFFFF;
 
   --destructive: oklch(0.62 0.18 25);
   --destructive-foreground: oklch(0.98 0 0);

@@ -77,7 +77,29 @@ export function CourseRoadmap({
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 pb-16 sm:px-6 sm:py-8 lg:pb-20 space-y-6">
+    <div className="relative min-h-screen bg-[var(--bg-base)] text-[var(--text-primary)]">
+      {/* Background Atmosphere: Top-center ambient lighting (Roadmap level - softest dome) + subtle texture */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 z-0 overflow-hidden"
+      >
+        <div
+          className="absolute -top-[140px] left-1/2 h-[640px] w-[960px] -translate-x-1/2 rounded-full opacity-25 blur-[120px]"
+          style={{
+            background:
+              "radial-gradient(circle, var(--accent-soft) 0%, rgba(47,101,246,0.02) 40%, transparent 65%)",
+          }}
+        />
+        <div
+          className="absolute inset-0 opacity-[0.025] mix-blend-overlay"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+            backgroundRepeat: "repeat",
+          }}
+        />
+      </div>
+
+      <div className="relative z-10 mx-auto max-w-6xl px-4 py-6 pb-16 sm:px-6 sm:py-8 lg:pb-20 space-y-6">
       {/* Top Breadcrumb Navigation */}
       <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs">
         <button
@@ -241,6 +263,7 @@ export function CourseRoadmap({
             </div>
           )}
         </main>
+      </div>
       </div>
     </div>
   );

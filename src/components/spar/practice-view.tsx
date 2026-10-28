@@ -233,10 +233,10 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
         className="pointer-events-none fixed inset-0 z-0 overflow-hidden"
       >
         <div
-          className="absolute -top-[140px] left-1/2 h-[640px] w-[960px] -translate-x-1/2 rounded-full opacity-65 blur-[110px]"
+          className="absolute -top-[140px] left-1/2 h-[640px] w-[960px] -translate-x-1/2 rounded-full opacity-50 blur-[110px]"
           style={{
             background:
-              "radial-gradient(circle, var(--accent-soft) 0%, rgba(255,107,61,0.03) 45%, transparent 70%)",
+              "radial-gradient(circle, var(--accent-soft) 0%, rgba(47,101,246,0.03) 45%, transparent 70%)",
           }}
         />
         <div
@@ -595,7 +595,7 @@ function ModeSection({
               className={cn(
                 "w-full text-left rounded-xl border p-4.5 transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-white/20",
                 isSelected
-                  ? "bg-[var(--surface-2)] border-[var(--accent)] shadow-[inset_0_0_0_1px_var(--accent),0_0_16px_var(--accent-soft)]"
+                  ? "bg-[var(--surface-2)] border-[var(--accent)] shadow-[inset_0_0_0_1px_var(--accent),0_4px_12px_rgba(0,0,0,0.4)]"
                   : "bg-[var(--surface-2)]/60 border-[var(--border-subtle)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-2)]"
               )}
             >
@@ -633,7 +633,7 @@ function ModeSection({
                 className={cn(
                   "text-xs px-3 py-1.5 rounded-full border transition-colors",
                   drillTarget === target.id
-                    ? "bg-[var(--accent-soft)] border-[var(--accent)] text-white font-medium shadow-[0_0_8px_var(--accent-soft)]"
+                    ? "bg-[var(--accent)] border-[var(--accent)] text-white font-semibold shadow-sm"
                     : "bg-[var(--surface-2)] border-[var(--border-subtle)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-white"
                 )}
               >
@@ -668,7 +668,7 @@ function PanelSection({
       <div className="relative rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-2)]/50 p-6 overflow-x-auto shadow-inner">
         {/* "YOU" position */}
         <div className="flex flex-col items-center mb-6">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[var(--accent)]/50 bg-[var(--accent-soft)] shadow-[0_0_16px_var(--accent-soft)]">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[var(--accent)] bg-[var(--surface-1)] shadow-md">
             <span className="text-sm font-bold text-white">YOU</span>
           </div>
           <p className="mt-2 text-[10px] uppercase tracking-wider text-[var(--text-tertiary)] font-semibold">
@@ -695,7 +695,7 @@ function PanelSection({
                 setSeats(next);
                 onEditSeat(next.length - 1);
               }}
-              className="flex w-[140px] sm:w-[160px] flex-col items-center justify-center rounded-xl border border-dashed border-white/15 bg-transparent py-8 transition-all hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]/20"
+              className="flex w-[140px] sm:w-[160px] flex-col items-center justify-center rounded-xl border border-dashed border-white/15 bg-transparent py-8 transition-all hover:border-[var(--accent)] hover:bg-white/[0.04]"
             >
               <span className="text-[10px] uppercase tracking-wider text-[var(--text-secondary)] font-semibold mb-1">
                 Add panelist
@@ -1015,16 +1015,17 @@ function ToggleButton({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className={cn(
-        "flex flex-1 items-center justify-center gap-2 rounded-xl border px-3.5 py-2.5 text-xs font-semibold transition-all",
+        "flex flex-1 items-center justify-center gap-2 rounded-xl border px-3.5 py-2.5 text-xs font-semibold transition-all shadow-sm",
         active
-          ? "border-[var(--accent)] bg-[var(--accent-soft)] text-white shadow-[0_0_12px_var(--accent-soft)]"
+          ? "border-[var(--accent)] bg-[var(--accent)] text-white"
           : "border-[var(--border-subtle)] bg-[var(--surface-2)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-white"
       )}
     >
-      <span className={cn(active ? "text-[var(--accent)]" : "text-[var(--text-tertiary)]")}>{icon}</span>
-      {label}
+      <span className={cn(active ? "text-white" : "text-[var(--text-tertiary)]")}>{icon}</span>
+      <span>{label}</span>
     </button>
   );
 }

@@ -1,14 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import {
-  ChevronDown,
-  ChevronUp,
-  MoreHorizontal,
-  Play,
-  Trash2,
-} from "lucide-react";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { ArrowRight, MoreHorizontal, Play, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   getCourseLessons,
@@ -16,15 +9,13 @@ import {
   type Course,
 } from "@/lib/courses";
 import { CourseEmblem } from "./course-emblem";
-import { InlineRoadmapTrack } from "./inline-roadmap-track";
 
 export interface MyCourseCardProps {
   course: Course;
   completedLessonIds: ReadonlySet<string>;
   isHeroCourse?: boolean;
-  defaultExpanded?: boolean;
+  onSelectCourse: (courseId: string) => void;
   onStartOrContinueLesson: (courseId: string, lessonId: string) => void;
-  onStartLesson: (courseId: string, lessonId: string) => void;
   onRemoveCourse: (courseId: string) => void;
 }
 
@@ -32,14 +23,11 @@ export function MyCourseCard({
   course,
   completedLessonIds,
   isHeroCourse = false,
-  defaultExpanded = false,
+  onSelectCourse,
   onStartOrContinueLesson,
-  onStartLesson,
   onRemoveCourse,
 }: MyCourseCardProps) {
-  const [isRoadmapOpen, setIsRoadmapOpen] = useState(defaultExpanded);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const shouldReduceMotion = useReducedMotion();
 
   const lessons = getCourseLessons(course);
   const completedCount = lessons.filter((l) =>
@@ -138,16 +126,20 @@ export function MyCourseCard({
             </p>
 
             <div>
-              <h3 className="text-lg sm:text-xl font-bold tracking-tight text-[var(--text-primary)]">
+              <button
+                type="button"
+                onClick={() => onSelectCourse(course.id)}
+                className="text-left text-lg sm:text-xl font-bold tracking-tight text-[var(--text-primary)] hover:underline focus-visible:outline-none"
+              >
                 {course.title}
-              </h3>
+              </button>
               <p className="mt-1 text-xs sm:text-sm text-[var(--text-secondary)] line-clamp-1">
                 {course.subtitle || course.description}
               </p>
             </div>
 
-            {/* Progress Bar & Stats */}
-            <div className="space-y-1.5 pt-1">
+            {/* High-Contrast Solid Progress Bar & Stats */}
+            <div className="space-y-2 pt-1">
               <div className="flex items-center justify-between text-xs text-[var(--text-secondary)]">
                 <span>
                   <strong className="text-[var(--text-primary)] font-semibold">
@@ -156,13 +148,21 @@ export function MyCourseCard({
                   of {totalCount} lessons mastered
                   <span className="sr-only"> ({completedCount} of {totalCount} completed)</span>
                 </span>
-                <span className="font-mono tabular-nums text-[var(--accent)] font-semibold">
+                <span
+                  className={cn(
+                    "font-mono tabular-nums font-semibold",
+                    progressPct === 100 ? "text-emerald-400" : "text-white"
+                  )}
+                >
                   {progressPct}%
                 </span>
               </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.08]">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-[#181822] border border-white/[0.08]">
                 <div
-                  className="h-full rounded-full bg-[var(--accent)] transition-all duration-500 shadow-[0_0_8px_var(--accent-soft)]"
+                  className={cn(
+                    "h-full rounded-full transition-all duration-500",
+                    progressPct === 100 ? "bg-emerald-400" : "bg-[var(--accent)]"
+                  )}
                   style={{ width: `${progressPct}%` }}
                 />
               </div>
@@ -178,7 +178,7 @@ export function MyCourseCard({
               </p>
             ) : (
               <p className="text-xs text-emerald-400 font-medium">
-                All lessons mastered! Click below to review.
+                All lessons mastered! Click Roadmap to review.
               </p>
             )}
           </div>
@@ -196,38 +196,14 @@ export function MyCourseCard({
 
             <button
               type="button"
-              onClick={() => setIsRoadmapOpen((prev) => !prev)}
-              aria-expanded={isRoadmapOpen}
-              className="inline-flex items-center justify-center gap-1.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:text-white py-1 px-2 focus-visible:outline-none"
+              onClick={() => onSelectCourse(course.id)}
+              className="inline-flex items-center justify-center gap-1.5 rounded-full border border-white/12 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-[var(--text-secondary)] transition-all hover:border-white/30 hover:bg-white/[0.08] hover:text-white focus-visible:outline-none"
             >
               <span>Roadmap</span>
-              {isRoadmapOpen ? (
-                <ChevronUp className="h-3.5 w-3.5 text-neutral-400" />
-              ) : (
-                <ChevronDown className="h-3.5 w-3.5 text-neutral-400" />
-              )}
+              <ArrowRight className="h-3 w-3 text-neutral-400" />
             </button>
           </div>
         </div>
-
-        {/* Collapsible Inline Roadmap Track */}
-        <AnimatePresence initial={false}>
-          {isRoadmapOpen && (
-            <motion.div
-              initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0, height: 0 }}
-              animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, height: "auto" }}
-              exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, height: 0 }}
-              transition={{ duration: 0.25, ease: "easeOut" }}
-              className="mt-6 pt-5 border-t border-white/[0.06] overflow-hidden"
-            >
-              <InlineRoadmapTrack
-                course={course}
-                completedLessonIds={completedLessonIds}
-                onStartLesson={(lessonId) => onStartLesson(course.id, lessonId)}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     </div>
   );
