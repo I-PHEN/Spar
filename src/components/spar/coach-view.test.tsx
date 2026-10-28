@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { DEFAULT_COURSES } from "@/lib/courses";
 import { CoachView, ExecutiveBriefingDeck } from "./coach-view";
+import { LessonPlayer } from "./coach/lesson-player";
 import { DebriefContent } from "./debrief-view";
 
 describe("CoachView (3-Screen Learner Experience)", () => {
@@ -103,7 +104,7 @@ describe("CoachView (3-Screen Learner Experience)", () => {
     expect(markup).toContain("Start");
   });
 
-  test("Screen C (Interactive Lesson Player): renders full-screen theater stage with Hook & Attempt stage and Exit to roadmap action", () => {
+  test("Screen C (Interactive Lesson Player): renders full-screen theater stage with Hook & Reflex stage and Exit to roadmap action", () => {
     const markup = renderToStaticMarkup(
       <CoachView
         onSessionCreated={() => {}}
@@ -118,9 +119,9 @@ describe("CoachView (3-Screen Learner Experience)", () => {
     expect(markup).toContain("fixed inset-0 z-50");
     expect(markup).toContain("Exit to roadmap");
     expect(markup).toContain("Surviving the Friendly Trap");
-    expect(markup).toContain("1. Scenario &amp; Attempt");
-    expect(markup).toContain("Speak response");
-    expect(markup).toContain("Submit attempt &amp; see principle");
+    expect(markup).toContain("1. Reflex Check");
+    expect(markup).toContain("Which instinct is fatal here?");
+    expect(markup).toContain("Continue");
   });
 
   test("Course-Focused Debrief: renders Course Drill Completed banner and direct roadmap return buttons while omitting heavy full-practice telemetry", () => {
@@ -273,6 +274,42 @@ describe("ExecutiveBriefingDeck (4-Card Lesson Presentation)", () => {
       "The room builds the reflex. The real world builds the leader."
     );
     expect(m).toContain("Your 24-Hour Real-World Challenge");
+  });
+});
+
+describe("LessonPlayer (4-Slide Brilliant Minimalist Flow)", () => {
+  const course = DEFAULT_COURSES[0];
+  const lesson = course.modules[0].lessons[0];
+
+  test("Slide 1 (The Pressure Test): renders curveball prompt, 2 bite-sized choice cards, and zero text walls", () => {
+    const markup = renderToStaticMarkup(
+      <LessonPlayer
+        course={course}
+        lesson={lesson}
+        isCompleted={false}
+        launchingChamber={false}
+        onBackToRoadmap={() => {}}
+        onLaunchChamber={() => {}}
+        onCompleteLesson={() => {}}
+      />
+    );
+
+    // Segmented progress bar
+    expect(markup).toContain("1. Reflex Check");
+    expect(markup).toContain("2. Tactical Model");
+    expect(markup).toContain("3. Speaking Drill");
+    expect(markup).toContain("4. Breakdown");
+
+    // Clean hook prompt & choice cards
+    expect(markup).toContain(lesson.practice?.hookPrompt || lesson.slides.tape.prompt);
+    expect(markup).toContain("Which instinct is fatal here?");
+    expect(markup).toContain("Approach A");
+    expect(markup).toContain("Approach B");
+    expect(markup).toContain("Continue");
+
+    // Must NOT contain cluttered full-page textarea or large forms in Slide 1
+    expect(markup).not.toContain("Speak with microphone or type your immediate answer");
+    expect(markup).not.toContain("CHOOSE YOUR REFLEX (OR SPEAK CUSTOM BELOW):");
   });
 });
 

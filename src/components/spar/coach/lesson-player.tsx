@@ -7,26 +7,23 @@ import {
   CheckCircle2,
   Clock,
   Mic,
-  MicOff,
   Play,
+  RotateCcw,
   Square,
+  Swords,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { ARCHETYPES } from "@/lib/personas";
 import {
   ACTIVITY_TYPE_LABELS,
-  SPAR_SIGNATURE_HEADLINE,
-  SPAR_SIGNATURE_MANIFESTO,
   evaluatePracticeAttempt,
-  getRealWorldChallenge,
   type Course,
   type CourseLesson,
   type SlideVisualMedia,
+  type PracticeEvaluationResult,
 } from "@/lib/courses";
-import { LessonFeedback } from "./lesson-feedback";
 
 export type LessonStageIndex = 0 | 1 | 2 | 3;
 
@@ -35,10 +32,10 @@ const LESSON_STAGES: Array<{
   label: string;
   short: string;
 }> = [
-  { index: 0, label: "1. Scenario & Attempt", short: "1. Attempt" },
-  { index: 1, label: "2. Core Principle", short: "2. Principle" },
-  { index: 2, label: "3. Demonstration", short: "3. Demo" },
-  { index: 3, label: "4. Retry & Feedback", short: "4. Feedback" },
+  { index: 0, label: "1. Reflex Check", short: "1. Reflex" },
+  { index: 1, label: "2. Tactical Model", short: "2. Model" },
+  { index: 2, label: "3. Speaking Drill", short: "3. Drill" },
+  { index: 3, label: "4. Breakdown", short: "4. Score" },
 ];
 
 type MicStatus = "ready" | "listening" | "processing" | "finished" | "error";
@@ -90,14 +87,18 @@ export function LessonPlayer({
     setStageState({ lessonId: lesson.id, stage: next });
   }
 
-  const [initialAttempt, setInitialAttempt] = useState("");
-  const [retryAttempt, setRetryAttempt] = useState("");
-  const [showFeedback, setShowFeedback] = useState(false);
+  // Slide 1 Instinct Choice
+  const [selectedInstinct, setSelectedInstinct] = useState<"weak" | "strong" | null>(null);
 
-  // Microphone recording state
+  // Slide 3 Speaking Drill Response & Mic
+  const [drillResponse, setDrillResponse] = useState("");
+  const [showTypeInput, setShowTypeInput] = useState(false);
   const [micStatus, setMicStatus] = useState<MicStatus>("ready");
   const [micError, setMicError] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+
+  // Slide 4 Evaluation State
+  const [evaluation, setEvaluation] = useState<PracticeEvaluationResult | null>(null);
 
   useEffect(() => {
     return () => {
@@ -112,36 +113,25 @@ export function LessonPlayer({
   const activityLabel =
     ACTIVITY_TYPE_LABELS[lesson.activityType ?? "lesson"];
 
-  const hookContext =
-    practice?.hookContext ||
-    `${course.title} · Scenario with ${roomConfig.personaName}`;
-  const hookSpeaker =
-    practice?.hookSpeaker ||
-    slides.tape.speakerName ||
-    `${roomConfig.personaName} · ${archetypeDef.tagline}`;
   const hookPrompt = practice?.hookPrompt || slides.tape.prompt;
-  const timeLimitSeconds = practice?.timeLimitSeconds ?? 30;
-
-  const retryContext =
-    practice?.retryContext ||
-    `New Situation · Apply ${slides.mentalModel.headline}`;
   const retryPrompt = practice?.retryPrompt || slides.mission.openingAttack;
-  const differenceSummary =
-    practice?.differenceSummary ||
-    slides.tape.differenceSummary ||
-    slides.tape.strongWhy;
+  const targetMaxWords = practice?.targetMaxWords ?? 30;
 
-  function startMicRecording(target: "initial" | "retry") {
+  function startMicRecording() {
     setMicError(null);
-    const win = typeof window !== "undefined" ? (window as unknown as Record<string, unknown>) : null;
+    const win =
+      typeof window !== "undefined"
+        ? (window as unknown as Record<string, unknown>)
+        : null;
     const SpeechRecCtor = (win?.SpeechRecognition ||
-      win?.webkitSpeechRecognition) as (new () => SpeechRecognitionInstance) | undefined;
+      win?.webkitSpeechRecognition) as
+      | (new () => SpeechRecognitionInstance)
+      | undefined;
 
     if (!SpeechRecCtor) {
       setMicStatus("error");
-      setMicError(
-        "Browser speech recognition is unavailable in this browser. Type your response below."
-      );
+      setMicError("Voice input is not supported in this browser. Please type below.");
+      setShowTypeInput(true);
       return;
     }
 
@@ -160,24 +150,20 @@ export function LessonPlayer({
           }
         }
         const text = parts.join(" ").trim();
-        if (target === "initial") {
-          setInitialAttempt(text);
-        } else {
-          setRetryAttempt(text);
+        if (text) {
+          setDrillResponse(text);
+          setMicStatus("listening");
         }
       };
 
       rec.onerror = (event) => {
         setMicStatus("error");
-        if (event.error === "not-allowed") {
-          setMicError(
-            "Microphone permission was denied. Type your response below."
-          );
+        if (event?.error === "not-allowed") {
+          setMicError("Microphone permission was denied. Please type below.");
         } else {
-          setMicError(
-            "Could not capture audio. You can type your response directly below."
-          );
+          setMicError("Could not capture audio. Please type below.");
         }
+        setShowTypeInput(true);
       };
 
       rec.onend = () => {
@@ -189,9 +175,8 @@ export function LessonPlayer({
       rec.start();
     } catch {
       setMicStatus("error");
-      setMicError(
-        "Microphone could not be started. Type your response below."
-      );
+      setMicError("Microphone could not be started. Please type below.");
+      setShowTypeInput(true);
     }
   }
 
@@ -203,30 +188,18 @@ export function LessonPlayer({
     setMicStatus("finished");
   }
 
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        onBackToRoadmap();
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onBackToRoadmap]);
-
-  const activeResponseToEvaluate =
-    retryAttempt.trim() || initialAttempt.trim();
-  const evaluation = evaluatePracticeAttempt(activeResponseToEvaluate, lesson);
+  function handleCheckDrillResponse() {
+    stopMicRecording();
+    const evaluated = evaluatePracticeAttempt(drillResponse, lesson);
+    setEvaluation(evaluated);
+    setStage(3);
+  }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={lesson.title}
-      className="fixed inset-0 z-50 flex flex-col bg-[#070707] overflow-hidden"
-    >
-      {/* Full-Screen Sticky Theater Top Bar */}
-      <header className="sticky top-0 z-20 border-b border-[#1a1a1a] bg-[#0a0a0a]/95 backdrop-blur-md shrink-0">
-        <div className="mx-auto max-w-5xl px-4 py-3 sm:px-6 space-y-2.5">
+    <div className="fixed inset-0 z-50 flex flex-col justify-between bg-[#070707] text-white select-none overflow-hidden">
+      {/* Top Theater Header (Compact) */}
+      <header className="border-b border-[#1a1a1a] bg-[#0a0a0a]/95 backdrop-blur-xl px-4 py-3 sm:px-6 shrink-0">
+        <div className="mx-auto max-w-4xl space-y-2.5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <button
@@ -316,399 +289,348 @@ export function LessonPlayer({
 
       {/* Centered Presentation Folio with Zero-Scroll Sizing */}
       <div className="mx-auto flex w-full max-w-4xl flex-1 items-center justify-center p-3 sm:p-6 overflow-hidden">
-        <div className="w-full h-full max-h-[620px] rounded-3xl border border-white/10 bg-[#121212] p-5 sm:p-7 flex flex-col justify-between relative shadow-2xl overflow-hidden">
+        <div className="w-full h-full max-h-[580px] rounded-3xl border border-white/10 bg-[#121212] p-5 sm:p-7 flex flex-col justify-between relative shadow-2xl overflow-hidden">
           {/* Zero-Scroll Stage Body */}
           <div className="flex-1 flex flex-col justify-between overflow-hidden pb-3">
-            {/* STAGE 0: HOOK & INITIAL ATTEMPT (Think & Speak First) */}
+            {/* SLIDE 1: THE PRESSURE TEST (Hook & Reflex Check) */}
             {stage === 0 && (
-              <section className="flex-1 flex flex-col justify-between space-y-3">
-                {/* Context & Main Question */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-mono uppercase tracking-wider text-neutral-400">
-                      {hookContext} · {hookSpeaker}
-                    </span>
-                    <span className="text-[11px] font-mono text-neutral-400">
-                      Target: ≤ {practice?.targetMaxWords ?? 35} words
-                    </span>
+              <section className="flex-1 flex flex-col justify-between py-1">
+                {/* Header: Panelist prompt */}
+                <div className="space-y-2 text-center max-w-xl mx-auto">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-3.5 py-1 text-xs text-neutral-300">
+                    <span className="font-semibold text-white">{roomConfig.personaName}</span>
+                    <span className="text-neutral-500">·</span>
+                    <span className="text-neutral-400">{archetypeDef.tagline}</span>
                   </div>
+
                   <h1 className="text-xl sm:text-2xl font-bold leading-snug tracking-tight text-white line-clamp-2">
                     “{hookPrompt}”
                   </h1>
-                  <p className="text-xs sm:text-sm text-neutral-300">
-                    How would you answer right now? Pick an approach or speak your response.
+                  <p className="text-xs sm:text-sm text-neutral-400 font-medium">
+                    Which instinct is fatal here? Pick one to test your intuition.
                   </p>
                 </div>
 
-                {/* Optional Quick Reflex Starters */}
-                {slides.tape.weakResponse && slides.tape.strongResponse && (
-                  <div className="space-y-1.5">
-                    <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
-                      Choose your reflex (or speak custom below):
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setInitialAttempt(slides.tape.weakResponse)}
-                        className={cn(
-                          "rounded-xl border p-3 text-left text-xs transition-all",
-                          initialAttempt === slides.tape.weakResponse
-                            ? "border-white bg-white/10 text-white font-medium"
-                            : "border-white/10 bg-[#101010] text-neutral-300 hover:border-white/20 hover:bg-[#141414] hover:text-white"
-                        )}
-                      >
-                        <span className="font-mono text-[9px] text-neutral-400 block mb-0.5">
-                          Approach A
-                        </span>
-                        <p className="line-clamp-2">
-                          “{slides.tape.weakResponse}”
-                        </p>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setInitialAttempt(slides.tape.strongResponse)}
-                        className={cn(
-                          "rounded-xl border p-3 text-left text-xs transition-all",
-                          initialAttempt === slides.tape.strongResponse
-                            ? "border-white bg-white/10 text-white font-medium"
-                            : "border-white/10 bg-[#101010] text-neutral-300 hover:border-white/20 hover:bg-[#141414] hover:text-white"
-                        )}
-                      >
-                        <span className="font-mono text-[9px] text-neutral-400 block mb-0.5">
-                          Approach B
-                        </span>
-                        <p className="line-clamp-2">
-                          “{slides.tape.strongResponse}”
-                        </p>
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Learner Action: Microphone + Response Input */}
-                <div className="space-y-2 rounded-xl border border-white/10 bg-[#101010] p-3 sm:p-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      {micStatus === "listening" ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          onClick={stopMicRecording}
-                          className="rounded-full bg-white text-black hover:bg-neutral-200 text-xs font-semibold px-3.5 h-7"
-                        >
-                          <Square className="mr-1.5 h-3 w-3 fill-current" />
-                          Stop
-                        </Button>
-                      ) : (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => startMicRecording("initial")}
-                          className="rounded-full border-white/15 bg-white/[0.04] text-xs text-white hover:bg-white/[0.08] px-3.5 h-7"
-                        >
-                          <Mic className="mr-1.5 h-3 w-3" />
-                          Speak response
-                        </Button>
-                      )}
-
-                      <span className="text-[11px] font-mono text-neutral-400">
-                        {micStatus === "listening" && "● Listening..."}
-                        {micStatus === "processing" && "Processing..."}
-                        {micStatus === "finished" && "Audio captured"}
-                        {micStatus === "ready" && "Mic ready or type below"}
+                {/* 2 Bite-Sized Choice Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl mx-auto w-full py-2">
+                  {/* Option A: Weak */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedInstinct("weak")}
+                    className={cn(
+                      "rounded-2xl border p-4 text-left transition-all duration-200 cursor-pointer active:scale-[0.98] flex flex-col justify-between space-y-2 shadow-lg",
+                      selectedInstinct === "weak"
+                        ? "border-white/50 bg-[#161616] ring-1 ring-white/30"
+                        : "border-white/10 bg-[#121212] hover:border-white/25 hover:bg-[#141414]"
+                    )}
+                  >
+                    <div className="space-y-1">
+                      <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-neutral-400 block">
+                        Approach A · {slides.tape.weakBadges?.[0] || "Defend with Optimism"}
                       </span>
-                    </div>
-                  </div>
-
-                  {micError && (
-                    <div className="flex items-start gap-1.5 rounded-lg border border-white/15 bg-white/[0.03] px-2.5 py-1 text-[11px] text-neutral-300">
-                      <MicOff className="h-3 w-3 shrink-0 text-neutral-400 mt-0.5" />
-                      <span>{micError}</span>
-                    </div>
-                  )}
-
-                  <Textarea
-                    value={initialAttempt}
-                    onChange={(e) => setInitialAttempt(e.target.value)}
-                    rows={2}
-                    placeholder="Speak with microphone or type your immediate answer..."
-                    aria-label="Your initial response"
-                    className="border-white/10 bg-[#0a0a0a] text-xs sm:text-sm text-white placeholder:text-neutral-500 rounded-lg resize-none"
-                  />
-                </div>
-              </section>
-            )}
-
-            {/* STAGE 1: DEBRIEF (Teach One Principle at a Time) */}
-            {stage === 1 && (
-              <section className="flex-1 flex flex-col justify-between space-y-3">
-                {/* Attempt Recap Pill (if provided) */}
-                {initialAttempt.trim().length > 0 && (
-                  <div className="rounded-xl border border-white/10 bg-[#101010] px-3.5 py-2">
-                    <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
-                      Your Initial Attempt
-                    </p>
-                    <p className="text-xs text-neutral-200 line-clamp-1 italic">
-                      “{initialAttempt.trim()}”
-                    </p>
-                  </div>
-                )}
-
-                {/* Core Principle Headline */}
-                <div className="space-y-1">
-                  <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
-                    Core Operational Model
-                  </p>
-                  <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white line-clamp-1">
-                    {slides.mentalModel.headline}
-                  </h2>
-                  <p className="text-xs sm:text-sm text-neutral-300 line-clamp-2">
-                    {slides.mentalModel.body}
-                  </p>
-                </div>
-
-                {/* Highlighted Golden Rule */}
-                <div className="rounded-xl border border-white/20 bg-white/[0.03] p-4">
-                  <p className="text-[10px] font-mono font-semibold uppercase tracking-[0.2em] text-neutral-400">
-                    The Golden Rule
-                  </p>
-                  <p className="mt-1 text-sm sm:text-base font-bold text-white">
-                    “{slides.mentalModel.goldenRule}”
-                  </p>
-                </div>
-
-                {/* 3 Concise Steps */}
-                {slides.mentalModel.steps && slides.mentalModel.steps.length > 0 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                    {slides.mentalModel.steps.map((s) => (
-                      <div
-                        key={s.step}
-                        className="rounded-xl border border-white/10 bg-[#141414] p-3 space-y-0.5"
-                      >
-                        <span className="font-mono text-[10px] text-neutral-400">
-                          0{s.step}
-                        </span>
-                        <h3 className="text-xs font-semibold text-white truncate">
-                          {s.label}
-                        </h3>
-                        <p className="text-[11px] text-neutral-400 line-clamp-2">
-                          {s.detail}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Common Trap Note */}
-                <div className="rounded-xl border border-white/10 bg-[#101010] px-3.5 py-2 text-xs">
-                  <span className="font-mono uppercase tracking-wider text-neutral-300 font-semibold mr-1.5">
-                    Trap to avoid:
-                  </span>
-                  <span className="text-neutral-400 line-clamp-1">
-                    {slides.trap.headline} — {slides.trap.costOfFailure}
-                  </span>
-                </div>
-              </section>
-            )}
-
-            {/* STAGE 2: DEMONSTRATION (Show What Good Looks Like) */}
-            {stage === 2 && (
-              <section className="flex-1 flex flex-col justify-between space-y-3">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
-                    Demonstration Film Breakdown
-                  </p>
-                  <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white line-clamp-2">
-                    “{slides.tape.prompt}”
-                  </h2>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {/* Ineffective Response */}
-                  <div className="flex flex-col justify-between rounded-xl border border-white/10 bg-[#101010] p-4 space-y-2">
-                    <div>
-                      <span className="text-[11px] font-mono uppercase tracking-wider text-neutral-400 line-through">
-                        Ineffective response
-                      </span>
-                      <p className="mt-1 text-xs italic text-neutral-300 line-clamp-3">
+                      <p className="text-xs sm:text-sm text-neutral-200 line-clamp-2">
                         “{slides.tape.weakResponse}”
                       </p>
                     </div>
-                    <p className="border-t border-white/[0.06] pt-2 text-[11px] text-neutral-400">
-                      <strong className="text-neutral-300">Why it fails: </strong>
-                      <span className="line-clamp-2">{slides.tape.weakCritique}</span>
-                    </p>
-                  </div>
+                    <span className="text-[11px] font-semibold text-neutral-400">
+                      {selectedInstinct === "weak" ? "Amateur Trap" : "Select this reflex"}
+                    </span>
+                  </button>
 
-                  {/* Stronger Response */}
-                  <div className="flex flex-col justify-between rounded-xl border border-white/20 bg-white/[0.03] p-4 space-y-2 shadow-sm">
-                    <div>
-                      <span className="text-[11px] font-mono uppercase tracking-wider text-white font-semibold">
-                        Stronger response
+                  {/* Option B: Strong */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedInstinct("strong")}
+                    className={cn(
+                      "rounded-2xl border p-4 text-left transition-all duration-200 cursor-pointer active:scale-[0.98] flex flex-col justify-between space-y-2 shadow-lg",
+                      selectedInstinct === "strong"
+                        ? "border-white bg-[#181818] ring-1 ring-white/50 shadow-[0_0_20px_rgba(255,255,255,0.15)]"
+                        : "border-white/10 bg-[#121212] hover:border-white/25 hover:bg-[#141414]"
+                    )}
+                  >
+                    <div className="space-y-1">
+                      <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-neutral-300 block">
+                        Approach B · {slides.tape.strongBadges?.[0] || "Anchor on the Floor"}
                       </span>
-                      <p className="mt-1 text-xs font-medium text-white line-clamp-3">
+                      <p className="text-xs sm:text-sm text-white font-medium line-clamp-2">
                         “{slides.tape.strongResponse}”
                       </p>
                     </div>
-                    <p className="border-t border-white/10 pt-2 text-[11px] text-neutral-300">
-                      <strong className="text-white">Why it works: </strong>
-                      <span className="line-clamp-2">{slides.tape.strongWhy}</span>
-                    </p>
-                  </div>
+                    <span className="text-[11px] font-semibold text-neutral-300">
+                      {selectedInstinct === "strong" ? "Executive Move" : "Select this reflex"}
+                    </span>
+                  </button>
                 </div>
 
-                {/* Specific Difference Callout */}
-                <div className="rounded-xl border border-white/10 bg-[#141414] px-4 py-2.5">
-                  <p className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
-                    The Critical Distinction
+                {/* Instant Micro-Feedback Callout */}
+                <div className="min-h-[56px] max-w-2xl mx-auto w-full flex items-center">
+                  {selectedInstinct === "weak" ? (
+                    <div className="w-full rounded-xl border border-white/20 bg-white/[0.04] p-3 text-xs flex items-start gap-2.5 animate-in fade-in duration-200">
+                      <span className="font-mono text-[10px] uppercase tracking-wider text-neutral-400 font-bold shrink-0 mt-0.5">
+                        AMATEUR TRAP:
+                      </span>
+                      <span className="text-neutral-200">{slides.tape.weakCritique}</span>
+                    </div>
+                  ) : selectedInstinct === "strong" ? (
+                    <div className="w-full rounded-xl border border-white/30 bg-white/[0.06] p-3 text-xs flex items-start gap-2.5 animate-in fade-in duration-200">
+                      <span className="font-mono text-[10px] uppercase tracking-wider text-white font-bold shrink-0 mt-0.5">
+                        EXECUTIVE MOVE:
+                      </span>
+                      <span className="text-white">{slides.tape.strongWhy}</span>
+                    </div>
+                  ) : (
+                    <div className="w-full text-center text-xs text-neutral-500 font-mono">
+                      Tap Approach A or B to test your reflex before continuing
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* SLIDE 2: TACTICAL GEOMETRY (Visual Mental Model) */}
+            {stage === 1 && (
+              <section className="flex-1 flex flex-col justify-between py-1">
+                {/* Header */}
+                <div className="space-y-1 text-center max-w-xl mx-auto">
+                  <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-neutral-400 font-semibold">
+                    TACTICAL GEOMETRY
+                  </span>
+                  <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white line-clamp-1">
+                    {slides.mentalModel.headline}
+                  </h2>
+                </div>
+
+                {/* Centerpiece: Tactical Visual SVG Diagram */}
+                <div className="w-full max-w-lg mx-auto py-1 flex items-center justify-center">
+                  {renderVisual ? (
+                    renderVisual(slides.mentalModel.visual || slides.trap.visual)
+                  ) : (
+                    <div className="rounded-xl border border-white/10 bg-[#0e0e0e] p-6 text-center text-xs text-neutral-400">
+                      Tactical Framework Diagram
+                    </div>
+                  )}
+                </div>
+
+                {/* Golden Rule Card */}
+                <div className="max-w-xl mx-auto w-full rounded-2xl border border-white/15 bg-white/[0.04] p-4 text-center space-y-1 shadow-md">
+                  <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400">
+                    THE GOLDEN RULE
                   </p>
-                  <p className="mt-0.5 text-xs text-neutral-200 line-clamp-2">
-                    {differenceSummary}
+                  <p className="text-sm sm:text-base font-bold text-white leading-snug">
+                    “{slides.mentalModel.goldenRule}”
                   </p>
                 </div>
               </section>
             )}
 
-            {/* STAGE 3: RETRY IN A NEW SITUATION & EVIDENCE-BASED FEEDBACK */}
-            {stage === 3 && (
-              <section className="flex-1 flex flex-col justify-between space-y-3">
-                {!showFeedback ? (
-                  <>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">
-                          {retryContext}
-                        </span>
-                        <span className="text-[10px] font-mono text-neutral-400">
-                          Target: ≤ {practice?.targetMaxWords ?? 35}w
-                        </span>
-                      </div>
-                      <h2 className="text-lg sm:text-xl font-bold leading-snug tracking-tight text-white line-clamp-2">
-                        “{retryPrompt}”
-                      </h2>
+            {/* SLIDE 3: SPEAKING DRILL (Voice / Text Practice Rep) */}
+            {stage === 2 && (
+              <section className="flex-1 flex flex-col justify-between py-1">
+                {/* Header & Prompt */}
+                <div className="space-y-2 text-center max-w-xl mx-auto">
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-neutral-400 font-semibold">
+                      SPEAKING DRILL · TARGET ≤ {targetMaxWords} WORDS
+                    </span>
+                  </div>
+
+                  <h2 className="text-lg sm:text-xl font-bold leading-snug tracking-tight text-white line-clamp-2">
+                    “{retryPrompt}”
+                  </h2>
+                  <p className="text-xs text-neutral-400">
+                    Deliver your answer applying the Golden Rule.
+                  </p>
+                </div>
+
+                {/* Centerpiece: Tactile Pulsing Mic Button */}
+                <div className="flex flex-col items-center justify-center space-y-3 py-2">
+                  <button
+                    type="button"
+                    onClick={micStatus === "listening" ? stopMicRecording : startMicRecording}
+                    aria-label={micStatus === "listening" ? "Stop recording" : "Speak response"}
+                    className={cn(
+                      "relative flex h-20 w-20 sm:h-24 sm:w-24 items-center justify-center rounded-full border transition-all duration-300 active:scale-95 cursor-pointer shadow-2xl",
+                      micStatus === "listening"
+                        ? "border-white bg-white text-black shadow-[0_0_35px_rgba(255,255,255,0.45)] animate-pulse"
+                        : "border-white/20 bg-white/[0.06] text-white hover:border-white/40 hover:bg-white/[0.1] shadow-lg"
+                    )}
+                  >
+                    {micStatus === "listening" ? (
+                      <Square className="h-8 w-8 fill-current" />
+                    ) : (
+                      <Mic className="h-8 w-8" />
+                    )}
+                  </button>
+
+                  <div className="text-center space-y-1">
+                    <p className="font-mono text-xs font-semibold text-neutral-300">
+                      {micStatus === "listening"
+                        ? "● Listening... tap when finished"
+                        : micStatus === "processing"
+                        ? "Processing audio..."
+                        : drillResponse
+                        ? "Tap mic to re-record"
+                        : "Tap mic to speak response"}
+                    </p>
+
+                    {/* Word Counter Badge */}
+                    <div className="inline-flex items-center gap-1.5 font-mono text-xs text-neutral-400">
+                      <span>{drillResponse.trim() ? drillResponse.trim().split(/\s+/).length : 0}</span>
+                      <span>/</span>
+                      <span>{targetMaxWords} words</span>
                     </div>
+                  </div>
 
-                    <div className="space-y-3 rounded-xl border border-white/10 bg-[#101010] p-3.5">
-                      {/* In-Situ Sparring Partner Pill */}
-                      <div className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-[#0a0a0a] p-2.5">
-                        <div className="flex items-center gap-2">
-                          <div className="flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-white/10 font-mono text-[11px] font-bold text-white">
-                            {roomConfig.personaName.slice(0, 1)}
-                          </div>
-                          <span className="text-xs font-semibold text-white">
-                            {roomConfig.personaName}
-                          </span>
-                        </div>
-
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={launchingChamber}
-                          onClick={() => onLaunchChamber(course, lesson)}
-                          className="rounded-full border-white/15 bg-white/[0.04] text-[11px] text-white hover:bg-white/[0.09] px-3 h-6"
-                        >
-                          <Play className="mr-1 h-2.5 w-2.5 fill-current" />
-                          Live Room
-                        </Button>
-                      </div>
-
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          {micStatus === "listening" ? (
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={stopMicRecording}
-                              className="rounded-full bg-white text-black hover:bg-neutral-200 text-xs font-semibold px-3 h-7"
-                            >
-                              <Square className="mr-1 h-3 w-3 fill-current" />
-                              Stop
-                            </Button>
-                          ) : (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => startMicRecording("retry")}
-                              className="rounded-full border-white/15 bg-white/[0.04] text-xs text-white hover:bg-white/[0.08] px-3 h-7"
-                            >
-                              <Mic className="mr-1 h-3 w-3" />
-                              Record
-                            </Button>
-                          )}
-                          <span className="text-[11px] font-mono text-neutral-400">
-                            {micStatus === "listening"
-                              ? "● Listening..."
-                              : "Speak or type your answer"}
-                          </span>
-                        </div>
-                      </div>
-
-                      <Textarea
-                        value={retryAttempt}
-                        onChange={(e) => setRetryAttempt(e.target.value)}
-                        rows={2}
-                        placeholder="Deliver your response applying the principle..."
-                        aria-label="Your retry response"
-                        className="border-white/10 bg-[#0a0a0a] text-xs sm:text-sm text-white placeholder:text-neutral-500 rounded-lg resize-none"
-                      />
-                    </div>
-
-                    {/* Spar Signature 24-Hour Transfer Card */}
-                    <div className="rounded-xl border border-white/15 bg-white/[0.02] p-3 space-y-1">
-                      <div className="flex items-center justify-between text-[10px] font-mono text-neutral-400">
-                        <span>SPAR 24-HOUR FIELD CHALLENGE</span>
-                      </div>
-                      <p className="text-xs text-white font-medium line-clamp-2">
-                        “{getRealWorldChallenge(lesson)}”
+                  {/* Display Captured Response */}
+                  {drillResponse ? (
+                    <div className="w-full max-w-lg rounded-xl border border-white/10 bg-[#0a0a0a] p-3 text-center">
+                      <p className="text-xs sm:text-sm text-neutral-200 italic line-clamp-2">
+                        “{drillResponse}”
                       </p>
                     </div>
-                  </>
-                ) : (
-                  <LessonFeedback
-                    learnerResponse={activeResponseToEvaluate}
-                    evaluation={evaluation}
-                    launchingChamber={launchingChamber}
-                    onRetry={() => {
-                      setShowFeedback(false);
-                    }}
-                    onLaunchChamber={() => onLaunchChamber(course, lesson)}
-                    onCompleteLesson={() => {
-                      onCompleteLesson(course.id, lesson.id);
-                      onBackToRoadmap();
-                    }}
-                  />
+                  ) : null}
+
+                  {/* Type Toggle or Input */}
+                  {showTypeInput ? (
+                    <div className="w-full max-w-lg">
+                      <input
+                        type="text"
+                        value={drillResponse}
+                        onChange={(e) => setDrillResponse(e.target.value)}
+                        placeholder={`Deliver answer under ${targetMaxWords} words...`}
+                        className="w-full rounded-xl border border-white/15 bg-[#0a0a0a] px-4 py-2.5 text-xs sm:text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:border-white/40"
+                      />
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowTypeInput(true)}
+                      className="text-[11px] text-neutral-500 hover:text-neutral-300 transition-colors underline-offset-4 hover:underline"
+                    >
+                      Or type your response
+                    </button>
+                  )}
+                </div>
+
+                {/* Mic Error Callout */}
+                {micError && (
+                  <div className="max-w-lg mx-auto w-full text-center text-xs text-neutral-400">
+                    {micError}
+                  </div>
                 )}
+              </section>
+            )}
+
+            {/* SLIDE 4: INSTANT BREAKDOWN & SCORE */}
+            {stage === 3 && (
+              <section className="flex-1 flex flex-col justify-between py-1">
+                {/* Header */}
+                <div className="text-center space-y-1 max-w-xl mx-auto">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-bold">
+                    PERFORMANCE BREAKDOWN
+                  </span>
+                  <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+                    {evaluation?.passedCriteriaCount === evaluation?.totalCriteriaCount
+                      ? "Lesson Mastered"
+                      : "Attempt Completed"}
+                  </h2>
+                </div>
+
+                {/* 3 Metric Pills */}
+                <div className="grid grid-cols-3 gap-2.5 max-w-xl mx-auto w-full">
+                  {/* Directness */}
+                  <div className="rounded-xl border border-white/10 bg-[#141414] p-3 text-center">
+                    <span className="font-mono text-[9px] uppercase tracking-wider text-neutral-400 block">
+                      Directness
+                    </span>
+                    <span className={cn(
+                      "text-xs sm:text-sm font-semibold truncate block mt-0.5",
+                      evaluation?.hasDirectOpening ? "text-white" : "text-neutral-400"
+                    )}>
+                      {evaluation?.hasDirectOpening ? "Direct Start" : "Stalled Opener"}
+                    </span>
+                  </div>
+
+                  {/* Concision */}
+                  <div className="rounded-xl border border-white/10 bg-[#141414] p-3 text-center">
+                    <span className="font-mono text-[9px] uppercase tracking-wider text-neutral-400 block">
+                      Concision
+                    </span>
+                    <span className="text-xs sm:text-sm font-semibold font-mono text-white truncate block mt-0.5 tabular-nums">
+                      {evaluation?.wordCount ?? 0}/{targetMaxWords}w
+                    </span>
+                  </div>
+
+                  {/* Clean Speech */}
+                  <div className="rounded-xl border border-white/10 bg-[#141414] p-3 text-center">
+                    <span className="font-mono text-[9px] uppercase tracking-wider text-neutral-400 block">
+                      Clean Speech
+                    </span>
+                    <span className="text-xs sm:text-sm font-semibold text-white truncate block mt-0.5">
+                      {(evaluation?.detectedHedges.length ?? 0) === 0 ? "0 Hedges" : `${evaluation?.detectedHedges.length} Hedges`}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Side-by-Side Comparison */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl mx-auto w-full">
+                  <div className="rounded-xl border border-white/10 bg-[#0e0e0e] p-3 space-y-1">
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-neutral-400 block">
+                      Your Delivery
+                    </span>
+                    <p className="text-xs text-neutral-300 italic line-clamp-2">
+                      “{drillResponse || "No response provided"}”
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-white/20 bg-white/[0.04] p-3 space-y-1">
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-white font-semibold block">
+                      Executive Benchmark
+                    </span>
+                    <p className="text-xs text-white font-medium line-clamp-2">
+                      “{evaluation?.suggestedRewrite || slides.tape.strongResponse}”
+                    </p>
+                  </div>
+                </div>
+
+                {/* Takeaway Insight */}
+                <div className="max-w-xl mx-auto w-full rounded-xl border border-white/10 bg-[#141414] p-3 text-xs text-neutral-300 flex items-start gap-2">
+                  <span className="font-mono text-[10px] uppercase font-bold text-neutral-400 shrink-0 mt-0.5">
+                    TAKEAWAY:
+                  </span>
+                  <span className="line-clamp-2">
+                    {evaluation?.toImprove || evaluation?.didWell || "Keep delivery sharp and direct."}
+                  </span>
+                </div>
               </section>
             )}
           </div>
 
           {/* Pinned Bottom Action Footer Inside Folio (Zero-Scroll Controls) */}
-          <footer className="border-t border-white/[0.08] pt-3 shrink-0">
+          <footer className="border-t border-white/[0.08] pt-3 shrink-0 flex items-center justify-between">
             {stage === 0 && (
-              <div className="flex flex-wrap items-center justify-between gap-3">
+              <>
                 <button
                   type="button"
                   onClick={() => setStage(1)}
                   className="text-xs font-medium text-neutral-400 hover:text-white transition-colors"
                 >
-                  Skip to principle →
+                  Skip reflex →
                 </button>
 
                 <Button
+                  type="button"
                   onClick={() => setStage(1)}
                   className="rounded-full bg-white text-black hover:bg-neutral-200 text-xs sm:text-sm font-semibold px-6 py-2.5 h-10 shadow-md"
                 >
-                  Submit attempt &amp; see principle
+                  Continue
                   <ArrowRight className="ml-1.5 h-4 w-4" />
                 </Button>
-              </div>
+              </>
             )}
 
             {stage === 1 && (
-              <div className="flex items-center justify-between">
+              <>
                 <Button
                   variant="outline"
                   size="sm"
@@ -724,14 +646,14 @@ export function LessonPlayer({
                   onClick={() => setStage(2)}
                   className="rounded-full bg-white text-black hover:bg-neutral-200 text-xs sm:text-sm font-semibold px-6 h-9 shadow-md"
                 >
-                  See demonstration
+                  Try Speaking Drill
                   <ArrowRight className="ml-1.5 h-4 w-4" />
                 </Button>
-              </div>
+              </>
             )}
 
             {stage === 2 && (
-              <div className="flex items-center justify-between">
+              <>
                 <Button
                   variant="outline"
                   size="sm"
@@ -744,43 +666,58 @@ export function LessonPlayer({
 
                 <Button
                   size="sm"
+                  disabled={drillResponse.trim().length === 0}
+                  onClick={handleCheckDrillResponse}
+                  className="rounded-full bg-white text-black hover:bg-neutral-200 text-xs sm:text-sm font-semibold px-6 h-9 shadow-md disabled:opacity-40"
+                >
+                  Check Response
+                  <ArrowRight className="ml-1.5 h-4 w-4" />
+                </Button>
+              </>
+            )}
+
+            {stage === 3 && (
+              <>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setDrillResponse("");
+                      setStage(2);
+                    }}
+                    className="rounded-full border-white/15 bg-transparent text-xs text-neutral-300 px-4 h-9"
+                  >
+                    <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                    Try Another Rep
+                  </Button>
+
+                  {onLaunchChamber && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={launchingChamber}
+                      onClick={() => onLaunchChamber(course, lesson)}
+                      className="rounded-full border-white/15 bg-white/[0.04] text-xs text-neutral-200 hover:text-white px-3.5 h-9"
+                    >
+                      <Swords className="mr-1.5 h-3.5 w-3.5" />
+                      Live Chamber
+                    </Button>
+                  )}
+                </div>
+
+                <Button
+                  size="sm"
                   onClick={() => {
-                    setShowFeedback(false);
-                    setStage(3);
+                    onCompleteLesson(course.id, lesson.id);
+                    onBackToRoadmap();
                   }}
                   className="rounded-full bg-white text-black hover:bg-neutral-200 text-xs sm:text-sm font-semibold px-6 h-9 shadow-md"
                 >
-                  Practise new situation
+                  Complete Lesson
                   <ArrowRight className="ml-1.5 h-4 w-4" />
                 </Button>
-              </div>
-            )}
-
-            {stage === 3 && !showFeedback && (
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setStage(2)}
-                  className="rounded-full border-white/15 bg-transparent text-xs text-neutral-300 px-4 h-9"
-                >
-                  <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-                  Back
-                </Button>
-
-                <Button
-                  size="sm"
-                  disabled={
-                    retryAttempt.trim().length === 0 &&
-                    initialAttempt.trim().length === 0
-                  }
-                  onClick={() => setShowFeedback(true)}
-                  className="rounded-full bg-white text-black hover:bg-neutral-200 text-xs sm:text-sm font-semibold px-6 h-9 shadow-md disabled:opacity-40"
-                >
-                  Evaluate my response
-                  <ArrowRight className="ml-1.5 h-4 w-4" />
-                </Button>
-              </div>
+              </>
             )}
           </footer>
         </div>
