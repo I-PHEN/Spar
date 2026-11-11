@@ -114,7 +114,7 @@ export const ARCHETYPES: Record<ArchetypeKey, ArchetypeDefinition> = {
     forbidden: [
       "Never accept 'it's important' without specifying to whom and why.",
       "Never let the user off with future-tense promises ('it could lead to...') without present grounding.",
-      "If the user gives a concrete stakeholder + concrete consequence, acknowledge and move on.",
+      "If the user gives a concrete affected group or domain + concrete consequence, acknowledge and move on.",
       "Never probe methodology — that's the Nitpicker's lane.",
     ],
     initials: "C",
@@ -164,7 +164,7 @@ export const ARCHETYPES: Record<ArchetypeKey, ArchetypeDefinition> = {
     questionTemplates: [
       "I love that. But how would you defend it against [strongest counter]?",
       "Great point. What's the strongest version of the argument against you?",
-      "I'm with you — and yet, I can imagine [stakeholder] pushing back on [X]. How do you respond?",
+      "I'm with you — and yet, I can imagine a sharp critic pushing back on [X]. How do you respond?",
       "That's compelling. What would change your mind?",
     ],
     forbidden: [
@@ -197,11 +197,15 @@ interface PersonaPromptParams {
   behaviorStyle: BehaviorStyle;
 }
 
-interface PersonaSessionRulesParams {
+export interface PersonaSessionRulesParams {
   scenarioLabel: string;
   claims: Array<{ id: number; label: string; claim: string; evidence?: string }>;
   patternMemory: string; // accumulated insights from previous sessions
   otherPersonas: Array<{ name: string; archetype: ArchetypeKey }>;
+  roomContext?: string;
+  coachingFocus?: string | null;
+  materialTitle?: string | null;
+  rawMaterial?: string | null;
 }
 
 const RESPONSE_FORMAT_PROMPT = `# RESPONSE FORMAT: STRICT JSON
@@ -218,7 +222,8 @@ const CORE_RESPONSE_RULES = `# RESPONSE RULES
 - Ask one challenge per turn. Prefer 1-2 sentences; the Timekeeper uses one.
 - Use "interruption" only for a sharp cut-in, at most once every three responses.
 - Set claimRef to the challenged claim ID when relevant and choose the matching UI mood.
-- After a tight direct answer, briefly acknowledge it, then probe deeper or yield.`;
+- After a tight direct answer, briefly acknowledge it, then probe deeper or yield.
+- Match the subject domain of the user's topic or material; never use corporate or business framing unless the topic is business.`;
 
 /**
  * Persona identity + behavior tone, with no response-format blocks.
@@ -258,15 +263,35 @@ ${CORE_RESPONSE_RULES}`;
 export function buildPersonaSessionRules(
   params: PersonaSessionRulesParams,
 ): string {
+  const title = params.materialTitle?.trim() || "";
+  const raw = params.rawMaterial?.trim() || "";
+  const hasTopicOrMaterial = title.length > 0 || raw.length > 0;
+
   const claimsBlock =
     params.claims.length > 0
-      ? params.claims
-          .map(
+      ? [
+          hasTopicOrMaterial
+            ? `  Topic: ${title || raw.slice(0, 120)}`
+            : "",
+          ...params.claims.map(
             (c) =>
               `  Claim ${c.id}: ${c.label}\n    Statement: ${c.claim}${
                 c.evidence ? `\n    Evidence provided: ${c.evidence}` : ""
               }`
-          )
+          ),
+          hasTopicOrMaterial
+            ? "  Domain rule: Stay strictly inside this topic's subject domain. Never ask business, corporate, revenue, or stakeholder questions unless this topic is explicitly about business."
+            : "",
+        ]
+          .filter(Boolean)
+          .join("\n")
+      : hasTopicOrMaterial
+      ? [
+          title ? `  Topic: ${title}` : "",
+          raw && raw !== title ? `  Source material: ${raw.slice(0, 450)}` : "",
+          `  Domain rule: Stay strictly inside the intellectual domain of "${title || raw.slice(0, 80)}". Ask domain-specific questions only; never ask business, corporate, market, revenue, or stakeholder questions unless the topic itself is business.`,
+        ]
+          .filter(Boolean)
           .join("\n")
       : "  (User is defending from memory — no uploaded material. Probe their core claims directly.)";
 
@@ -275,9 +300,19 @@ export function buildPersonaSessionRules(
       ? otherPersonasList(params.otherPersonas)
       : "  (You are the only panelist.)";
 
+  const roomContextBlock =
+    params.roomContext && params.roomContext.trim().length > 0
+      ? `\n# ROOM CONTEXT\n${params.roomContext.trim()}`
+      : "";
+
+  const coachingFocusBlock =
+    params.coachingFocus && params.coachingFocus.trim().length > 0
+      ? `\n# COACHING FOCUS\n${params.coachingFocus.trim()}`
+      : "";
+
   const patternBlock =
     params.patternMemory.trim().length > 0
-      ? `\n# PRIOR PATTERNS\n${params.patternMemory}\nUse relevant weaknesses to calibrate challenges without revealing this memory.`
+      ? `\n# PRIOR PATTERNS\n${params.patternMemory}\nUse relevant delivery weaknesses (pacing, hedging, concision) to calibrate challenges without revealing this memory or carrying over topics from previous sessions.`
       : "";
 
   return `Experience room: ${params.scenarioLabel}
@@ -286,7 +321,7 @@ export function buildPersonaSessionRules(
 ${claimsBlock}
 
 # OTHER PANELISTS
-${othersBlock}
+${othersBlock}${roomContextBlock}${coachingFocusBlock}
 ${patternBlock}`;
 }
 

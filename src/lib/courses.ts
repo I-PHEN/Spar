@@ -221,14 +221,21 @@ export const DIAGRAM_PRESET_LABELS: Record<DiagramPreset, string> = {
 const HEDGE_PATTERNS = [
   "i think",
   "i feel",
+  "i believe",
+  "i suppose",
   "kind of",
   "sort of",
   "probably",
   "maybe",
+  "perhaps",
+  "possibly",
   "hopefully",
   "we're hoping",
   "might be",
   "i guess",
+  "somewhat",
+  "rather",
+  "fairly",
 ];
 
 const FILLER_OPENERS = [
@@ -344,13 +351,44 @@ export function evaluatePracticeAttempt(
   };
 }
 
+export interface SlidePracticeAttemptContext {
+  responseText?: string;
+  passedCriteriaCount?: number;
+  totalCriteriaCount?: number;
+}
+
+/**
+ * Extracts the deterministic opening challenge for a course lesson session
+ * from rawMaterial or roomContext so /api/sessions/[id]/open delivers the
+ * exact curveball the learner practiced on the slides with zero prompt amnesia.
+ */
+export function extractLessonOpeningAttack(
+  rawMaterial: string | null | undefined,
+  roomContext?: string | null
+): string | null {
+  if (rawMaterial) {
+    const match = rawMaterial.match(/Opening Challenge Context:\s*(.+)/);
+    if (match?.[1]?.trim()) {
+      return match[1].trim();
+    }
+  }
+  if (roomContext) {
+    const match = roomContext.match(/Opening Challenge to Press:\s*"([^"]+)"/);
+    if (match?.[1]?.trim()) {
+      return match[1].trim();
+    }
+  }
+  return null;
+}
+
 /**
  * Translates a course lesson into the exact POST /api/sessions payload
  * so clicking "Enter Drill Chamber" launches a pre-configured Sparring Room.
  */
 export function buildLessonSessionPayload(
   course: Pick<Course, "id" | "title">,
-  lesson: CourseLesson
+  lesson: CourseLesson,
+  slideAttempt?: SlidePracticeAttemptContext
 ): CreateLinkedSessionPayload {
   const { roomConfig, slides } = lesson;
   const defaultName =
@@ -364,12 +402,16 @@ export function buildLessonSessionPayload(
     `Pass Criteria: ${slides.mission.passCriteria}`,
   ].join("\n\n");
 
+  const warmUpNote = slideAttempt?.responseText?.trim()
+    ? ` Learner Warm-up Rep: "${slideAttempt.responseText.trim().slice(0, 220)}"`
+    : "";
+
   const roomContext = [
     `Coach Lesson Drill: "${lesson.title}" (${course.title}).`,
     `Mission Briefing: ${slides.mission.briefing}`,
     `Opening Challenge to Press: "${slides.mission.openingAttack}"`,
     `Pass Criteria for the User: ${slides.mission.passCriteria}`,
-  ].join(" ");
+  ].join(" ") + warmUpNote;
 
   return {
     experience: roomConfig.experience,
@@ -476,6 +518,7 @@ export function createEmptyLesson(index = 1): CourseLesson {
     durationMinutes: 4,
     activityType: "lesson",
     pattern: "concept",
+    hiddenCoreSlides: ["mentalModel", "tape"],
     slides: {
       trap: {
         headline: "",

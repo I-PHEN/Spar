@@ -4,6 +4,7 @@ import {
   buildLessonSessionPayload,
   createEmptyCourse,
   evaluatePracticeAttempt,
+  extractLessonOpeningAttack,
   getCourseLessonCount,
   getCourseLessons,
   getNextIncompleteLesson,
@@ -51,6 +52,19 @@ describe("courses schema & lesson-to-chamber linking", () => {
         seatOrder: 0,
       },
     ]);
+
+    expect(
+      extractLessonOpeningAttack(payload.rawMaterial, payload.roomContext)
+    ).toBe(lesson.slides.mission.openingAttack);
+
+    const payloadWithRep = buildLessonSessionPayload(course, lesson, {
+      responseText: "Yes — Q3 churn rose 1.8% across 14 SMB accounts.",
+      passedCriteriaCount: 4,
+      totalCriteriaCount: 4,
+    });
+    expect(payloadWithRep.roomContext).toContain(
+      'Learner Warm-up Rep: "Yes — Q3 churn rose 1.8% across 14 SMB accounts."'
+    );
   });
 
   test("getNextIncompleteLesson returns the first unmastered lesson in syllabus order", () => {

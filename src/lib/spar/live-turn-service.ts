@@ -7,6 +7,7 @@ import {
   buildBoardroomInterruptInstruction,
   getDrillAcknowledgment,
   getDrillCorrection,
+  selectNextPersona,
 } from "@/lib/drills";
 import { buildPatternMemoryContext } from "@/lib/llm";
 import { applyMetricEvent, type TurnMetricEvent, type TurnMetricRecord } from "@/lib/observability/turn-metrics";
@@ -323,9 +324,11 @@ async function defaultLoadContext(request: LiveTurnRequest, signal: AbortSignal)
   abortIfNeeded(signal);
   if (!session) throw new Error("Session not found.");
   if (session.status !== "active" && session.status !== "presenting") throw new Error(`Session not active (status: ${session.status}).`);
-  const persona = request.forcedPersonaId
-    ? session.personas.find(item => item.id === request.forcedPersonaId)
-    : session.personas[0];
+  const persona = selectNextPersona(
+    session.personas,
+    session.messages,
+    request.forcedPersonaId,
+  );
   if (!persona) throw new Error("No persona available.");
   const experience = session.experience as ExperienceKey;
   const stablePrefix = getCachedPrompt(request.sessionId, persona.id) ?? buildPersonaStablePrefix({
@@ -348,15 +351,24 @@ async function defaultLoadContext(request: LiveTurnRequest, signal: AbortSignal)
   if (!cached) {
     setCachedSession(request.sessionId, { systemPrompt: stablePrefix, personaIds: session.personas.map(item => item.id),
       personaMap, claims, scenarioLabel: scenario?.label ?? "Custom Session", roomContext: session.roomContext ?? scenario?.roomContext ?? "",
-      experience, drillTarget: session.drillTarget, coachingEnabled: session.coachingEnabled });
+      experience, drillTarget: session.drillTarget, coachingEnabled: session.coachingEnabled, coachingFocus: session.coachingFocus,
+      materialTitle: session.materialTitle, rawMaterial: session.rawMaterial });
     cached = getCachedSession(request.sessionId);
   }
   const history = session.messages.map(message => message.role === "user"
     ? { role: "user" as const, content: message.content }
     : { role: "assistant" as const, content: `${personaMap.get(message.personaId ?? "")?.name ?? "Panelist"}: ${message.content}` });
   const rules = [
-    buildPersonaSessionRules({ scenarioLabel: cached?.scenarioLabel ?? "Custom Session", claims,
-      patternMemory, otherPersonas: [...personaMap.values()].filter(item => item.id !== persona.id).map(item => ({ name: item.name, archetype: item.archetype as ArchetypeKey })) }),
+    buildPersonaSessionRules({
+      scenarioLabel: cached?.scenarioLabel ?? "Custom Session",
+      claims,
+      patternMemory,
+      otherPersonas: [...personaMap.values()].filter(item => item.id !== persona.id).map(item => ({ name: item.name, archetype: item.archetype as ArchetypeKey })),
+      roomContext: session.roomContext ?? "",
+      coachingFocus: session.coachingFocus ?? null,
+      materialTitle: session.materialTitle ?? null,
+      rawMaterial: session.rawMaterial ?? null,
+    }),
     experienceRules(experience, session.drillTarget),
     request.isInterrupt && experience === "boardroom" ? buildBoardroomInterruptInstruction() : "",
     request.drillClean && experience === "drill" ? buildDrillNextQuestionInstruction((session.drillTarget as DrillTarget) || "hedging") : "",

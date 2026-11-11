@@ -3,12 +3,6 @@
 // Receives a user message (or a "continue" signal), generates the next
 // persona's response, returns it. The frontend calls this repeatedly until
 // `isUserTurn` is true.
-//
-// Rules:
-//   - After a user submits, up to 2 personas respond (round-robin).
-//   - For 1-persona panels, only 1 persona responds per user turn.
-//   - The next persona to speak is the one after the last persona who spoke.
-//   - All persona responses see the full transcript (so they don't repeat).
 
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -32,9 +26,6 @@ interface SparBody {
   forcedPersonaId?: string;
 }
 
-// One persona asks → user answers → next persona asks.
-// This is the correct sparring flow. The user must get to respond
-// after EACH question, not after two personas have spoken.
 const PERSONAS_PER_USER_TURN = 1;
 
 export async function POST(
@@ -74,7 +65,6 @@ export async function POST(
     );
   }
 
-  // If user message provided, persist it.
   let lastUserMessageContent: string | null = null;
   if (body.userMessage && body.userMessage.trim().length > 0) {
     const trimmed = body.userMessage.trim().slice(0, 5000);
@@ -87,14 +77,12 @@ export async function POST(
       },
     });
     lastUserMessageContent = trimmed;
-    // Refresh messages list
     session.messages = await db.sessionMessage.findMany({
       where: { sessionId: session.id },
       orderBy: { createdAt: "asc" },
     });
   }
 
-  // Count persona messages since the last user message.
   const messagesSinceLastUser: typeof session.messages = [];
   for (let i = session.messages.length - 1; i >= 0; i--) {
     if (session.messages[i].role === "user") break;
@@ -106,7 +94,6 @@ export async function POST(
     (m) => m.role === "persona"
   ).length;
 
-  // If we've already hit the cap for this turn, hand control back to the user.
   if (responsesThisTurn >= Math.min(PERSONAS_PER_USER_TURN, personasCount)) {
     return NextResponse.json({
       isUserTurn: true,
@@ -115,9 +102,6 @@ export async function POST(
     });
   }
 
-  // Determine next persona.
-  // If forcedPersonaId is provided (an interrupt), use that persona.
-  // Otherwise, round-robin after the last persona to speak.
   let nextPersona;
   if (body.forcedPersonaId) {
     nextPersona = session.personas.find((p) => p.id === body.forcedPersonaId);
@@ -141,7 +125,6 @@ export async function POST(
     return NextResponse.json({ error: "No persona available" }, { status: 500 });
   }
 
-  // Build the transcript string for the LLM.
   const transcriptStr = session.messages
     .map((m) => {
       if (m.role === "user") return `User: ${m.content}`;
@@ -161,8 +144,6 @@ export async function POST(
   const scenario = SCENARIOS[session.scenario as keyof typeof SCENARIOS];
   const scenarioLabel = scenario?.label || "Custom Session";
 
-  // For Defense experience, the persona system prompt should know the user
-  // already presented and the transcript is in the conversation history.
   const experienceContext =
     session.experience === "defense"
       ? "\n## EXPERIENCE: DEFENSE\nThe user has already presented their material. The transcript above includes their full presentation. Ask questions about what they actually said — reference specific points from their presentation."
@@ -195,8 +176,6 @@ export async function POST(
       })),
   });
 
-  // The "user message" the LLM should respond to: the most recent user message,
-  // or — if this is a continuation — the latest user message in the transcript.
   let userMessageForLlm = lastUserMessageContent;
   if (!userMessageForLlm) {
     const lastUserMsg = [...session.messages].reverse().find((m) => m.role === "user");
@@ -214,7 +193,10 @@ export async function POST(
     transcript: transcriptStr,
     userMessage: userMessageForLlm,
     isInterrupt: body.isInterrupt || false,
-    // For drill interrupts, add the drill-specific interrupt instruction
+    roomContext: session.roomContext || scenario?.roomContext || "",
+    coachingFocus: session.coachingFocus ?? null,
+    materialTitle: session.materialTitle ?? null,
+    rawMaterial: session.rawMaterial ?? null,
     extraInterruptInstruction:
       body.isInterrupt && session.experience === "drill"
         ? buildDrillInterruptInstruction(
@@ -223,7 +205,6 @@ export async function POST(
         : undefined,
   });
 
-  // Persist persona response.
   const message = await db.sessionMessage.create({
     data: {
       sessionId: session.id,
@@ -235,14 +216,12 @@ export async function POST(
     },
   });
 
-  // Generate TTS audio for the persona response.
   const audio = await generatePersonaAudio(
     response.content,
     nextPersona.archetype as ArchetypeKey,
     nextPersona.behaviorStyle as "gentle" | "moderate" | "aggressive"
   );
 
-  // Determine if this was the last response for this turn.
   const newResponsesThisTurn = responsesThisTurn + 1;
   const isUserTurn =
     newResponsesThisTurn >= Math.min(PERSONAS_PER_USER_TURN, personasCount);

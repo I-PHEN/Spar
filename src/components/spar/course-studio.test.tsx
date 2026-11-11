@@ -14,6 +14,16 @@ describe("CourseStudio (Creator Portal)", () => {
     expect(m).not.toContain("1. Course Settings");
   });
 
+  test("defaults after unlock to the uncluttered Courses Library screen with existing courses and Create New Course button", () => {
+    const m = renderToStaticMarkup(
+      <CourseStudio initialCourses={DEFAULT_COURSES} initialUnlocked={true} />
+    );
+    expect(m).toContain("Your Courses");
+    expect(m).toContain("Create New Course");
+    expect(m).toContain(DEFAULT_COURSES[0].title);
+    expect(m).not.toContain("Slide Filmstrip");
+  });
+
   test("renders Screen 1 (Course & Syllabus) with clean single-column course settings and syllabus outline", () => {
     const m = renderToStaticMarkup(
       <CourseStudio
@@ -65,4 +75,3 @@ describe("CourseStudio (Creator Portal)", () => {
     expect(m).toContain("Test This Room Live");
   });
 });
-

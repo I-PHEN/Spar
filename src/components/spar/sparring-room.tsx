@@ -39,6 +39,7 @@ import {
   type PresenceState,
 } from "./room-state";
 import { ARCHETYPES } from "@/lib/personas";
+import { evaluateDrillTurn, getDrillDefinition } from "@/lib/drills";
 import { useVoiceRecognition, playBase64Audio } from "@/hooks/use-voice";
 import { useTurnController, type UseTurnControllerResult } from "@/hooks/use-turn-controller";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
@@ -127,8 +128,10 @@ export function SparringRoom({
   const [personas, setPersonas] = useState<SessionPersona[]>([]);
   const [claims, setClaims] = useState<ExtractedClaim[]>([]);
   const [rawMaterial, setRawMaterial] = useState<string>("");
+  const [materialTitle, setMaterialTitle] = useState<string | null>(null);
   const [scenarioLabel, setScenarioLabel] = useState<string>("");
   const [roomContext, setRoomContext] = useState<string>("");
+  const [coachingFocus, setCoachingFocus] = useState<string | null>(null);
   const [captions, setCaptions] = useState<CaptionEntry[]>([]);
   // Defense flow state
   const [isPresenting, setIsPresenting] = useState(false);
@@ -160,6 +163,12 @@ export function SparringRoom({
   // Shown in the UI as "Attempt N" so the user knows how many times they've
   // been corrected. Reset to 0 when they answer cleanly.
   const [drillAttempts, setDrillAttempts] = useState(0);
+  const [drillRepOutcomes, setDrillRepOutcomes] = useState<
+    Array<"clean-1" | "clean-2" | "clean-3">
+  >([]);
+  const [drillLastReason, setDrillLastReason] = useState<string | null>(null);
+  const userTurnStartedAtRef = useRef<number | null>(null);
+  const speechStartedAtRef = useRef<number | null>(null);
   const [connectionError, setConnectionError] = useState(false);
   const [personaStates, setPersonaStates] = useState<Record<string, PersonaState>>({});
   const [loading, setLoading] = useState(true);
@@ -176,12 +185,12 @@ export function SparringRoom({
   // turn is owned by the low-latency controller (Flux -> generator -> Aura).
   const presentationVoice = useVoiceRecognition();
 
-  // Gemini Live configuration: built once the panel has loaded. The lead
-  // panelist (lowest seat) voices the Live session — one socket, one voice.
-  // While undefined (panel still loading) the engine ladder rests on the
-  // existing cascade; a 503 from the token route ladders down the same way.
+  // Gemini Live configuration: built once the panel has loaded for single-panelist
+  // non-drill sessions. Drill Mode requires the turn-controlled cascade for
+  // deterministic heuristic interrupts & retry state, and multi-panelist rooms
+  // require the cascade so panelists rotate turn-by-turn with distinct voices.
   const liveConfig = useMemo(() => {
-    if (personas.length === 0) return undefined;
+    if (personas.length !== 1 || experience === "drill") return undefined;
     const [lead, ...rest] = [...personas].sort((a, b) => a.seatOrder - b.seatOrder);
     return {
       mode: experience,
@@ -194,8 +203,13 @@ export function SparringRoom({
         ...(claim.evidence ? { evidence: claim.evidence } : {}),
       })),
       otherPanelists: rest.map((p) => ({ name: p.name, archetype: p.archetype })),
+      drillTarget,
+      roomContext,
+      coachingFocus,
+      materialTitle,
+      rawMaterial: rawMaterial || null,
     };
-  }, [personas, experience, scenarioLabel, claims]);
+  }, [personas, experience, scenarioLabel, claims, drillTarget, roomContext, coachingFocus, materialTitle, rawMaterial]);
 
   const turnController = useTurnController({
     sessionId,
@@ -385,8 +399,31 @@ export function SparringRoom({
       setConnectionError(true);
     }
     const personaId = turnController.activePersona?.id;
-    if (personaId) setPersonaStates((previous) => ({ ...previous, [personaId]: turnController.turn.status === "speaking" ? "speaking" : busy ? "thinking" : "listening" }));
+    if (personaId) {
+      setPersonaStates((previous) => {
+        const next: Record<string, PersonaState> = {};
+        for (const k of Object.keys(previous)) {
+          next[k] =
+            k === personaId
+              ? turnController.turn.status === "speaking"
+                ? "speaking"
+                : busy
+                ? "thinking"
+                : "listening"
+              : "listening";
+        }
+        return next;
+      });
+    }
   }, [isPresenting, turnController.turn.status, turnController.error, turnController.activePersona, turnController.assistantMetadata]);
+
+  // Track when the floor returns to the user so recovery-speed drills can measure onset latency.
+  useEffect(() => {
+    if (isUserTurn && !isProcessing && !audioPlaying) {
+      userTurnStartedAtRef.current = Date.now();
+      speechStartedAtRef.current = null;
+    }
+  }, [isUserTurn, isProcessing, audioPlaying]);
 
   // Initial load: fetch session + open
   useEffect(() => {
@@ -404,16 +441,15 @@ export function SparringRoom({
           : [];
         const scenario = SCENARIOS[session.scenario as keyof typeof SCENARIOS];
         const scenarioLabel = scenario?.label || "Custom Session";
-        const roomContext =
-          session.scenario === "custom" && session.roomContext
-            ? session.roomContext
-            : scenario?.roomContext || "";
+        const roomContext = session.roomContext || scenario?.roomContext || "";
 
         setPersonas(session.personas);
         setClaims(parsedClaims);
         setRawMaterial(session.rawMaterial || "");
+        setMaterialTitle(session.materialTitle ?? null);
         setScenarioLabel(scenarioLabel);
         setRoomContext(roomContext);
+        setCoachingFocus(session.coachingFocus ?? null);
 
         const states: Record<string, PersonaState> = {};
         for (const p of session.personas) {
@@ -532,6 +568,7 @@ export function SparringRoom({
   // Handle user pressing "Speak" (or "Start presenting")
   const handleStartSpeaking = useCallback(() => {
     if (!voice.isSupported) return;
+    speechStartedAtRef.current = Date.now();
     // One activation: in Q&A (not presenting) with Live configured, this
     // click hands the room to the Live engine and the mic stays live.
     if (!isPresenting && liveConfig) {
@@ -632,13 +669,57 @@ export function SparringRoom({
 
   // Handle user pressing "Done" (stop speaking)
   const handleStopSpeaking = useCallback(() => {
-    // In Drill Mode: if the user is answering after a correction (drillRetry
-    // is true) and clicks Done without triggering another agitation interrupt,
-    // that means their answer was clean. Send drillClean so the backend
-    // generates the NEXT question with a deterministic acknowledgment.
+    if (experience === "drill" && drillTarget) {
+      const spokenText = (
+        voice.finalTranscript +
+        " " +
+        voice.interimTranscript +
+        " " +
+        turnController.transcriptPreview
+      ).trim();
+      const onsetMs =
+        userTurnStartedAtRef.current && speechStartedAtRef.current
+          ? Math.max(0, speechStartedAtRef.current - userTurnStartedAtRef.current)
+          : undefined;
+      const evaluation = evaluateDrillTurn(spokenText, drillTarget, onsetMs);
+
+      if (!evaluation.clean) {
+        setDrillRetryBoth(true);
+        setDrillAttempts((n) => n + 1);
+        setDrillLastReason(evaluation.reason || null);
+        const leadPersonaId = [...personas].sort(
+          (a, b) => a.seatOrder - b.seatOrder
+        )[0]?.id;
+        submitTurn(true, leadPersonaId, false, { drillInterrupt: true });
+        return;
+      }
+
+      const attemptsUsed = drillAttempts + 1;
+      const outcome: "clean-1" | "clean-2" | "clean-3" =
+        attemptsUsed === 1
+          ? "clean-1"
+          : attemptsUsed === 2
+          ? "clean-2"
+          : "clean-3";
+      setDrillRepOutcomes((prev) => [...prev, outcome]);
+      setDrillLastReason(null);
+      submitTurn(false, undefined, false, { drillClean: true });
+      return;
+    }
+
     const isDrillClean = experience === "drill" && drillRetryRef.current;
     submitTurn(false, undefined, false, isDrillClean ? { drillClean: true } : undefined);
-  }, [submitTurn, experience]);
+  }, [
+    submitTurn,
+    experience,
+    drillTarget,
+    voice.finalTranscript,
+    voice.interimTranscript,
+    turnController.transcriptPreview,
+    drillAttempts,
+    personas,
+    setDrillRetryBoth,
+  ]);
 
   // ─── Defense flow: Done Presenting ────────────────────────────────────
   // Called when the user clicks "Done Presenting" in a Defense session.
@@ -791,6 +872,7 @@ export function SparringRoom({
       if (experience === "drill") {
         setDrillRetryBoth(true);
         setDrillAttempts((n) => n + 1);
+        setDrillLastReason(reason || null);
       }
       const drillFlags =
         experience === "drill" ? { drillInterrupt: true } : undefined;
@@ -1022,6 +1104,32 @@ export function SparringRoom({
                 )}
               </div>
             </div>
+          )}
+
+          {/* Coaching Focus strip — shows the lesson's Golden Rule / Pass Criteria when launched from Coach */}
+          {coachingFocus && (
+            <div className="flex-shrink-0 border-b border-[var(--border-subtle)] bg-[var(--accent-soft)]/10 px-4 py-2 lg:px-6">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)] flex-shrink-0" />
+                <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--accent)] font-semibold flex-shrink-0">
+                  Target Rule
+                </span>
+                <p className="text-xs text-neutral-200 truncate flex-1">
+                  {coachingFocus}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Live Drill Rep HUD strip — shows target rule, clean rep progress pills, and active retry state */}
+          {experience === "drill" && drillTarget && (
+            <DrillHudStrip
+              drillTarget={drillTarget}
+              outcomes={drillRepOutcomes}
+              drillRetry={drillRetry}
+              drillAttempts={drillAttempts}
+              lastReason={drillLastReason}
+            />
           )}
 
           {/* Boardroom live-pressure banner — shows the panel's agitation
@@ -1764,6 +1872,90 @@ export function CaptionRow({ entry }: { entry: CaptionEntry }) {
           }
         >
           {entry.content}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function DrillHudStrip({
+  drillTarget,
+  outcomes,
+  drillRetry,
+  drillAttempts,
+  lastReason,
+}: {
+  drillTarget: DrillTarget;
+  outcomes: ReadonlyArray<"clean-1" | "clean-2" | "clean-3">;
+  drillRetry: boolean;
+  drillAttempts: number;
+  lastReason: string | null;
+}) {
+  const def = getDrillDefinition(drillTarget);
+  const slotCount = Math.max(5, outcomes.length + (drillRetry ? 1 : 0));
+
+  return (
+    <div className="flex-shrink-0 border-b border-[var(--border-subtle)] bg-[var(--surface-1)]/90 px-4 py-2.5 lg:px-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className="rounded-md border border-[var(--accent)]/30 bg-[var(--accent-soft)]/15 px-2 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-[var(--accent)] flex-shrink-0">
+            Drill · {def.label}
+          </span>
+          <p className="text-xs text-[var(--text-secondary)] truncate">
+            {def.description}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3 flex-shrink-0">
+          {/* Rep progress slots */}
+          <div className="flex items-center gap-1.5" aria-label="Drill rep progress">
+            {Array.from({ length: slotCount }).map((_, idx) => {
+              const outcome = outcomes[idx];
+              const isCurrent = idx === outcomes.length;
+              return (
+                <div
+                  key={idx}
+                  className={cn(
+                    "h-2 w-5 rounded-full transition-all",
+                    outcome === "clean-1"
+                      ? "bg-[var(--accent)] shadow-[0_0_8px_var(--accent-soft)]"
+                      : outcome === "clean-2"
+                      ? "bg-amber-400"
+                      : outcome === "clean-3"
+                      ? "bg-rose-400"
+                      : isCurrent && drillRetry
+                      ? "bg-amber-400/50 animate-pulse"
+                      : "bg-white/10"
+                  )}
+                  title={
+                    outcome === "clean-1"
+                      ? `Rep ${idx + 1}: Clean on 1st try`
+                      : outcome === "clean-2"
+                      ? `Rep ${idx + 1}: Clean on 2nd try`
+                      : outcome === "clean-3"
+                      ? `Rep ${idx + 1}: Clean on 3+ tries`
+                      : `Rep ${idx + 1}`
+                  }
+                />
+              );
+            })}
+            <span className="ml-1 font-mono text-[10px] text-[var(--text-secondary)] tabular-nums">
+              {outcomes.length} clean
+            </span>
+          </div>
+
+          {/* Active retry / rep badge */}
+          {drillRetry ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-medium text-amber-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+              Attempt #{drillAttempts + 1}
+              {lastReason ? ` · ${lastReason}` : " · Restate cleanly"}
+            </span>
+          ) : (
+            <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-0.5 font-mono text-[10px] text-[var(--text-tertiary)] tabular-nums">
+              Rep #{outcomes.length + 1}
+            </span>
+          )}
         </div>
       </div>
     </div>

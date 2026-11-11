@@ -13,17 +13,20 @@
 // don't have heuristic triggers (they need semantic analysis) — they
 // respond in the normal turn-based flow.
 
-import type { ArchetypeKey } from "./types";
+import type { ArchetypeKey, DrillTarget } from "./types";
 
 // ─── Hedge patterns ────────────────────────────────────────────────────
 // Reused from telemetry.ts but duplicated here to keep this module standalone.
 // (telemetry.ts is for post-session analysis; this is for real-time detection.)
-const HEDGE_REGEX = /\b(i think|i feel|i guess|i believe|i suppose|maybe|perhaps|possibly|probably|sort of|kind of|like|you know|somewhat|rather|quite|fairly|relatively)\b/gi;
+const HEDGE_REGEX = /\b(i think|i feel|i guess|i believe|i suppose|maybe|perhaps|possibly|probably|sort of|kind of|like|you know|somewhat|rather|quite|fairly|relatively|hopefully|might be)\b/gi;
 
 // ─── Vague quantifier patterns ──────────────────────────────────────────
 // Matches "roughly 50%", "about 200", "around 3 million", "50 or so", "50ish"
 const VAGUE_QUANTIFIER_REGEX = /\b(roughly|about|around|approximately|somewhere around)\s+[\d$]/gi;
 const VAGUE_SUFFIX_REGEX = /\d+\s*(or so|ish)\b/gi;
+
+// ─── Stalling opener patterns (for Recovery Speed drill) ────────────────
+const STALL_OPENER_REGEX = /^[\s,.!?"'“”‘’]*(um|uh|er|ah|hmm|well\b|so basically|that's a great question|that is a great question|good question|let me think|give me a second)/i;
 
 // ─── Trigger result ─────────────────────────────────────────────────────
 
@@ -32,6 +35,11 @@ export interface TriggerResult {
   agitation: Partial<Record<ArchetypeKey, number>>;
   /** Human-readable reason for the trigger (for logging/debugging) */
   reason: string;
+}
+
+export interface DetectTriggersOptions {
+  coachingMode?: "pure-spar" | "coach" | "drill";
+  drillTarget?: DrillTarget;
 }
 
 /**
@@ -43,10 +51,12 @@ export interface TriggerResult {
  *
  * @param text The text to analyze (usually the interim + final transcript)
  * @param wordCount The total word count so far (for the Timekeeper trigger)
+ * @param options Optional mode/drillTarget context for drill-specific thresholds
  */
 export function detectTriggers(
   text: string,
-  wordCount: number
+  wordCount: number,
+  options?: DetectTriggersOptions
 ): TriggerResult {
   const agitation: Partial<Record<ArchetypeKey, number>> = {};
   const reasons: string[] = [];
@@ -59,6 +69,16 @@ export function detectTriggers(
     reasons.push(`${hedgeCount} hedge${hedgeCount === 1 ? "" : "s"}`);
   }
 
+  // ─── Skeptic (Recovery Speed Drill): stalling filler openers ─────────
+  if (
+    options?.coachingMode === "drill" &&
+    options?.drillTarget === "recovery-speed" &&
+    STALL_OPENER_REGEX.test(text)
+  ) {
+    agitation.skeptic = Math.max(agitation.skeptic ?? 0, 40);
+    reasons.push("filler stall opener");
+  }
+
   // ─── Timekeeper: talking too long ────────────────────────────────────
   // Ramps up after 100 words. +1.5 per word over 100.
   // At 167 words → 100 agitation (threshold).
@@ -68,6 +88,15 @@ export function detectTriggers(
     if (overage > 20) {
       reasons.push(`${wordCount} words (overlong)`);
     }
+  } else if (
+    options?.coachingMode === "drill" &&
+    options?.drillTarget === "over-explaining" &&
+    wordCount > 18
+  ) {
+    // In Over-Explaining Drill Mode, the 15-word ceiling is enforced directly
+    // by the Timekeeper once the speaker crosses 18 words.
+    agitation.timekeeper = Math.max(agitation.timekeeper ?? 0, 30);
+    reasons.push(`${wordCount} words (exceeds 15-word drill ceiling)`);
   }
 
   // ─── Nitpicker: vague quantifiers ────────────────────────────────────

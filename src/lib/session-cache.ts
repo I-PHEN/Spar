@@ -23,6 +23,9 @@ interface CachedSession {
   experience: string;
   drillTarget: string | null;
   coachingEnabled: boolean;
+  coachingFocus?: string | null;
+  materialTitle?: string | null;
+  rawMaterial?: string | null;
   lastUsed: number;
 }
 

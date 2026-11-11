@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   CaptionRow,
+  DrillHudStrip,
   EngineStatusChip,
   PresenceRail,
   RoomControlDeck,
@@ -79,18 +80,11 @@ describe("live engine debrief recording", () => {
   });
 
   test("the fallback transition starts the recorder exactly once for the in-flight classic turn", () => {
-    // The regression this guards: a live activation clicks while the engine
-    // reads "connecting" (recordsTurnAudio false at click time), the token
-    // route then answers 503 and the cascade mic starts without a click —
-    // the transition itself must start the recorder or the first Q&A turn's
-    // debrief clip is lost.
     expect(startsRecorderOnFallback({
       liveConfigured: true, liveSessionActive: true, status: "fallback",
       cascadeListening: true, recorderReady: true, alreadyStarted: false,
     })).toBe(true);
 
-    // Idempotent: never twice per activation, never while already recording,
-    // never before the cascade mic is actually listening.
     expect(startsRecorderOnFallback({
       liveConfigured: true, liveSessionActive: true, status: "fallback",
       cascadeListening: true, recorderReady: true, alreadyStarted: true,
@@ -104,8 +98,6 @@ describe("live engine debrief recording", () => {
       cascadeListening: false, recorderReady: true, alreadyStarted: false,
     })).toBe(false);
 
-    // Not the transition's job: classic rooms and presenting record at click
-    // time, and a live-owned room (connecting/live) must stay unrecorded.
     expect(startsRecorderOnFallback({
       liveConfigured: false, liveSessionActive: false, status: "fallback",
       cascadeListening: true, recorderReady: true, alreadyStarted: false,
@@ -118,8 +110,6 @@ describe("live engine debrief recording", () => {
       liveConfigured: true, liveSessionActive: true, status: "connecting",
       cascadeListening: true, recorderReady: true, alreadyStarted: false,
     })).toBe(false);
-    // A room whose live session was never activated (or has ended) is not
-    // mid-handshake — the click flow owns recording.
     expect(startsRecorderOnFallback({
       liveConfigured: true, liveSessionActive: false, status: "fallback",
       cascadeListening: true, recorderReady: true, alreadyStarted: false,
@@ -131,8 +121,6 @@ describe("live interim user caption", () => {
   test("live interim speech reaches the caption UI only while the live engine owns the room", () => {
     expect(liveUserInterimCaption(true, "live", "our churn is")).toBe("our churn is");
     expect(liveUserInterimCaption(true, "connecting", "our churn is")).toBe("our churn is");
-    // Fallback and never-activated rooms must not bleed live previews into
-    // the classic interim-caption path.
     expect(liveUserInterimCaption(true, "fallback", "leftover preview")).toBe("");
     expect(liveUserInterimCaption(false, "live", "leftover preview")).toBe("");
     expect(liveUserInterimCaption(true, "live", "")).toBe("");
@@ -146,7 +134,6 @@ describe("room control deck", () => {
     expect(markup).not.toContain("Stop speaking");
     expect(markup).not.toContain("Done Presenting");
     expect(markup).not.toContain("Click to speak");
-    // The one-activation promise: the mic stays live without a button.
     expect(markup).toContain("Mic live");
   });
 
@@ -164,7 +151,6 @@ describe("room control deck", () => {
       <RoomControlDeck {...classicDeck} isListening />,
     );
     expect(listening).toContain("Stop speaking");
-    // Processing and panel-speaking states keep their existing hints.
     const processing = renderToStaticMarkup(
       <RoomControlDeck {...classicDeck} isUserTurn={false} isProcessing />,
     );
@@ -210,14 +196,11 @@ describe("presence rail", () => {
         agitation={{}}
       />,
     );
-    // Names, no one-liners — the rail stays quiet (user-locked).
     expect(m).toContain("Ada");
     expect(m).toContain("Chiara");
     expect(m).not.toContain("Questions your core assumptions");
     expect(m).not.toContain("Challenges your impact and relevance");
-    // Equal size: the avatar size class appears exactly once per panelist.
     expect(m.match(/h-20 w-20/g)?.length).toBe(2);
-    // Circular avatars, not tiles.
     expect(m).toContain("rounded-full");
   });
 
@@ -241,7 +224,6 @@ describe("presence rail", () => {
     );
     expect(m).toContain("Ada");
     expect(m).toContain("Chiara");
-    // strip is compact: no portrait one-liners
     expect(m).not.toContain("Questions your core assumptions");
   });
 });
@@ -308,5 +290,21 @@ describe("drill framing and barge-in", () => {
       <PresenceRail personas={[...personas]} states={{}} agitation={{}} interruptedPersonaId="p1" />,
     );
     expect(m).toContain("spar-presence-flicker");
+  });
+
+  test("DrillHudStrip renders live clean rep count and active retry reason", () => {
+    const hud = renderToStaticMarkup(
+      <DrillHudStrip
+        drillTarget="hedging"
+        outcomes={["clean-1", "clean-2"]}
+        drillRetry={true}
+        drillAttempts={1}
+        lastReason='Used qualifier "I think"'
+      />
+    );
+    expect(hud).toContain("Drill · Hedging");
+    expect(hud).toContain("2 clean");
+    expect(hud).toContain("Attempt #2");
+    expect(hud).toContain("Used qualifier &quot;I think&quot;");
   });
 });

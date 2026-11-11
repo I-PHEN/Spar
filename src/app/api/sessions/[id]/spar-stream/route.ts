@@ -30,6 +30,7 @@ import {
   buildBoardroomInterruptInstruction,
   getDrillCorrection,
   getDrillAcknowledgment,
+  selectNextPersona,
 } from "@/lib/drills";
 import {
   streamPersonaResponse,
@@ -135,6 +136,9 @@ export async function POST(
   let claims: ExtractedClaim[];
   let scenarioLabel: string;
   let roomContext: string;
+  let coachingFocus: string | null = null;
+  let materialTitle: string | null = null;
+  let rawMaterial: string | null = null;
   let experience: string;
   let drillTarget: string | null;
   let personaIds: string[];
@@ -176,27 +180,13 @@ export async function POST(
       );
     }
 
-    // Determine next persona
-    if (body.forcedPersonaId) {
-      nextPersonaId = body.forcedPersonaId;
-    } else {
-      const lastPersonaMsg = [...messagesSinceLastUser]
-        .reverse()
-        .find((m) => m.role === "persona");
-      let nextOrder = 0;
-      if (lastPersonaMsg) {
-        const lastPersona = [...cached.personaMap.values()].find(
-          (p) => p.id === lastPersonaMsg.personaId
-        );
-        if (lastPersona) {
-          nextOrder = (lastPersona.seatOrder + 1) % personasCount;
-        }
-      }
-      nextPersonaId = [...cached.personaMap.values()].find(
-        (p) => p.seatOrder === nextOrder
-      )?.id || cached.personaIds[0];
-    }
-
+    // Determine next persona (round-robin across full session history, or forcedPersonaId)
+    const selectedCached = selectNextPersona(
+      [...cached.personaMap.values()],
+      messages,
+      body.forcedPersonaId
+    );
+    nextPersonaId = selectedCached?.id || cached.personaIds[0];
     nextPersona = cached.personaMap.get(nextPersonaId);
     if (!nextPersona) {
       return new Response("No persona available", { status: 500 });
@@ -215,6 +205,9 @@ export async function POST(
     claims = cached.claims;
     scenarioLabel = cached.scenarioLabel;
     roomContext = cached.roomContext;
+    coachingFocus = cached.coachingFocus ?? null;
+    materialTitle = cached.materialTitle ?? null;
+    rawMaterial = cached.rawMaterial ?? null;
     experience = cached.experience;
     drillTarget = cached.drillTarget;
     personaIds = cached.personaIds;
@@ -268,26 +261,13 @@ export async function POST(
       );
     }
 
-    // Determine next persona
-    if (body.forcedPersonaId) {
-      nextPersonaId = body.forcedPersonaId;
-      nextPersona = session.personas.find((p) => p.id === nextPersonaId);
-    } else {
-      const lastPersonaMsg = [...messagesSinceLastUser]
-        .reverse()
-        .find((m) => m.role === "persona");
-      let nextOrder = 0;
-      if (lastPersonaMsg) {
-        const lastPersona = session.personas.find(
-          (p) => p.id === lastPersonaMsg.personaId
-        );
-        if (lastPersona) {
-          nextOrder = (lastPersona.seatOrder + 1) % personasCount;
-        }
-      }
-      nextPersona = session.personas.find((p) => p.seatOrder === nextOrder) || session.personas[0];
-      nextPersonaId = nextPersona.id;
-    }
+    // Determine next persona (round-robin across full session history, or forcedPersonaId)
+    nextPersona = selectNextPersona(
+      session.personas,
+      session.messages,
+      body.forcedPersonaId
+    );
+    nextPersonaId = nextPersona?.id || session.personas[0]?.id || "";
 
     if (!nextPersona) {
       return new Response("No persona available", { status: 500 });
@@ -301,6 +281,9 @@ export async function POST(
     const scenario = SCENARIOS[session.scenario as keyof typeof SCENARIOS];
     scenarioLabel = scenario?.label || "Custom Session";
     roomContext = session.roomContext || scenario?.roomContext || "";
+    coachingFocus = session.coachingFocus ?? null;
+    materialTitle = session.materialTitle ?? null;
+    rawMaterial = session.rawMaterial ?? null;
     experience = session.experience;
     drillTarget = session.drillTarget;
 
@@ -350,6 +333,9 @@ export async function POST(
       experience,
       drillTarget,
       coachingEnabled: session.coachingEnabled,
+      coachingFocus,
+      materialTitle,
+      rawMaterial,
     });
     setCachedPrompt(id, nextPersonaId, stablePrefix);
     setCachedPrompt(id, PATTERN_MEMORY_CACHE_KEY, patternMemory);
@@ -511,6 +497,10 @@ export async function POST(
       claims,
       patternMemory,
       otherPersonas,
+      roomContext,
+      coachingFocus,
+      materialTitle,
+      rawMaterial,
     }),
     buildExperienceContext(experience, drillTarget),
     interruptInstruction,

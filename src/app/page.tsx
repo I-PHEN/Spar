@@ -118,24 +118,32 @@ export default function Page() {
   }
 
   function handleSessionEnded() {
-    if (activeSessionId) {
-      fetch(`/api/sessions/${activeSessionId}`)
+    const lessonToRecord = activeCourseLesson;
+    const endedSessionId = activeSessionId;
+    if (endedSessionId) {
+      fetch(`/api/sessions/${endedSessionId}`)
         .then((r) => r.json())
         .then((d) => {
-          setScenarioLabel(sessionLabel(d?.session?.scenario ?? ""));
+          const s = d?.session;
+          setScenarioLabel(
+            s?.materialTitle?.trim() || sessionLabel(s?.scenario ?? "")
+          );
+          const hasUserTurn =
+            Array.isArray(s?.messages) &&
+            s.messages.some((m: { role?: string }) => m.role === "user");
+          if (lessonToRecord && hasUserTurn) {
+            fetch("/api/coach/progress", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                courseId: lessonToRecord.courseId,
+                lessonId: lessonToRecord.lessonId,
+                sessionId: endedSessionId,
+              }),
+            }).catch(() => {});
+          }
         })
         .catch(() => {});
-    }
-    if (activeCourseLesson) {
-      fetch("/api/coach/progress", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          courseId: activeCourseLesson.courseId,
-          lessonId: activeCourseLesson.lessonId,
-          sessionId: activeSessionId,
-        }),
-      }).catch(() => {});
     }
     setView("debrief");
   }

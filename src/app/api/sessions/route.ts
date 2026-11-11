@@ -84,10 +84,10 @@ export async function POST(req: NextRequest) {
   const roomContext =
     body.roomContext?.trim().slice(0, 1000) || exp.roomContext;
 
-  // Extract claims if material was provided.
+  // Extract claims if material or topic was provided (for both with_material and without_material topic mode).
   let extractedClaims: string | null = null;
   const rawMaterial = body.rawMaterial?.trim() || null;
-  if (body.mode === "with_material" && rawMaterial && rawMaterial.length >= 10) {
+  if (rawMaterial && rawMaterial.length >= 10 && !rawMaterial.startsWith("Course:")) {
     try {
       const claims = await extractClaims(rawMaterial);
       if (claims.length > 0) {

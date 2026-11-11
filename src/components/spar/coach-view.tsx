@@ -34,6 +34,7 @@ import {
   type CourseLesson,
   type DiagramPreset,
   type LessonCompletion,
+  type SlidePracticeAttemptContext,
   type SlideVisualMedia,
 } from "@/lib/courses";
 import { CourseCatalog } from "./coach/course-catalog";
@@ -1416,12 +1417,13 @@ export function CoachView({
 
   async function handleLaunchDrill(
     course: Pick<Course, "id" | "title">,
-    lesson: CourseLesson
+    lesson: CourseLesson,
+    slideAttempt?: SlidePracticeAttemptContext
   ) {
     setLaunching(true);
     setLaunchError(null);
     try {
-      const payload = buildLessonSessionPayload(course, lesson);
+      const payload = buildLessonSessionPayload(course, lesson, slideAttempt);
       const res = await fetch("/api/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -99,7 +99,10 @@ export function useAgitationEngine({
       const fullText = (finalTranscript + " " + interimTranscript).trim();
       const wordCount = fullText ? fullText.split(/\s+/).length : 0;
 
-      const triggers = detectTriggers(fullText, wordCount);
+      const triggers = detectTriggers(fullText, wordCount, {
+        coachingMode,
+        drillTarget,
+      });
 
       setAgitation((prev) => {
         const next: Record<string, number> = {};
@@ -121,10 +124,11 @@ export function useAgitationEngine({
             drillTarget
           );
 
+          const minWords = coachingMode === "drill" ? 2 : 5;
           if (
             score >= threshold &&
             !interruptFiredRef.current &&
-            wordCount > 5 // Don't interrupt on tiny utterances
+            wordCount >= minWords // Don't interrupt on tiny utterances in normal spar
           ) {
             // Fire the interrupt
             interruptFiredRef.current = true;

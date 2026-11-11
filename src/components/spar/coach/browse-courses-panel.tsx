@@ -11,7 +11,6 @@ import {
   X,
   ArrowRight,
 } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import {
   getCourseLessons,
@@ -46,7 +45,6 @@ export function BrowseCoursesPanel({
 
   const panelRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const shouldReduceMotion = useReducedMotion();
 
   // Manage body scroll locking and keyboard Escape handler
   useEffect(() => {
@@ -168,73 +166,54 @@ export function BrowseCoursesPanel({
         </ul>
       </div>
 
-      <AnimatePresence>
-        {open && (
+      {open && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="browse-courses-title"
+          className="fixed inset-0 z-50 flex sm:justify-end overflow-hidden"
+        >
+          {/* Dimmed backdrop (desktop only, clicks to close) */}
           <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="browse-courses-title"
-            className="fixed inset-0 z-50 flex justify-end"
-          >
-            {/* Dimmed backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              onClick={onClose}
-              aria-hidden="true"
-              className="fixed inset-0 bg-black/75 backdrop-blur-sm"
-            />
+            onClick={onClose}
+            aria-hidden="true"
+            className="hidden sm:block fixed inset-0 bg-black/75 backdrop-blur-sm cursor-pointer"
+          />
 
-            {/* Drawer / Bottom sheet panel container */}
-            <motion.div
-              ref={panelRef}
-              initial={
-                shouldReduceMotion
-                  ? { opacity: 0 }
-                  : { x: "100%", opacity: 0.95 }
-              }
-              animate={
-                shouldReduceMotion
-                  ? { opacity: 1 }
-                  : { x: "0%", opacity: 1 }
-              }
-              exit={
-                shouldReduceMotion
-                  ? { opacity: 0 }
-                  : { x: "100%", opacity: 0.95 }
-              }
-              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-              className={cn(
-                "relative z-10 flex flex-col w-full bg-[#101016] text-[var(--text-primary)] border-l border-[var(--border-subtle)] shadow-2xl",
-                // Desktop: right drawer; Mobile: full-width
-                "max-w-full sm:max-w-2xl md:max-w-[680px] h-full overflow-hidden"
-              )}
-              style={{
-                backgroundImage:
-                  "linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 100%)",
-              }}
-            >
-              {/* Static Un-scrollable Header (shrink-0 ensures it is always 100% visible) */}
-              <header className="shrink-0 z-20 border-b border-[var(--border-subtle)] bg-[#101016] px-6 pt-6 pb-4 backdrop-blur-md space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2
-                      id="browse-courses-title"
-                      className="text-xl font-bold tracking-tight text-[var(--text-primary)]"
-                    >
-                      Explore courses
-                    </h2>
-                    <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                      Choose a course to add to your training plan.
-                    </p>
-                  </div>
+          {/* Drawer / Full-screen mobile panel container (instant open, zero slow animation) */}
+          <div
+            ref={panelRef}
+            className={cn(
+              "relative z-10 flex flex-col w-full bg-[#101016] text-[var(--text-primary)] shadow-2xl overflow-hidden",
+              // Mobile: covers 100% of the entire screen (full width, full dynamic viewport height, zero border/rounding)
+              "h-full h-[100dvh] max-w-full rounded-none border-0",
+              // Desktop: right drawer
+              "sm:max-w-2xl md:max-w-[680px] sm:border-l sm:border-[var(--border-subtle)]"
+            )}
+            style={{
+              backgroundImage:
+                "linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 100%)",
+            }}
+          >
+            {/* Static Un-scrollable Header (shrink-0 ensures it is always 100% visible) */}
+            <header className="shrink-0 z-20 border-b border-[var(--border-subtle)] bg-[#101016] px-4 pt-4 pb-3.5 sm:px-6 sm:pt-6 sm:pb-4 space-y-3.5 sm:space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2
+                    id="browse-courses-title"
+                    className="text-lg sm:text-xl font-bold tracking-tight text-[var(--text-primary)]"
+                  >
+                    Explore courses
+                  </h2>
+                  <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                    Choose a course to add to your training plan.
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={onClose}
                   aria-label="Close browse courses panel"
-                  className="flex h-8 w-8 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40"
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-white/[0.08] hover:text-white active:scale-95 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -311,7 +290,7 @@ export function BrowseCoursesPanel({
             </header>
 
             {/* Scrollable Body: Courses grouped by category */}
-            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
+            <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 space-y-6 sm:space-y-8">
               {filteredCourses.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center space-y-3">
                   <Compass className="mx-auto h-8 w-8 text-neutral-500" />
@@ -357,11 +336,11 @@ export function BrowseCoursesPanel({
                         return (
                           <div
                             key={c.id}
-                            className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-1)] p-4 sm:p-5 transition-all hover:border-[var(--border-strong)]"
+                            className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-1)] p-3.5 sm:p-5 transition-all hover:border-[var(--border-strong)]"
                           >
-                            <div className="flex items-start gap-4">
+                            <div className="flex items-start gap-3 sm:gap-4">
                               {/* Emblem */}
-                              <CourseEmblem category={c.category} size="lg" className="hidden sm:block" />
+                              <CourseEmblem category={c.category} size="lg" className="hidden sm:block shrink-0" />
 
                               {/* Info */}
                               <div className="min-w-0 flex-1 space-y-1.5">
@@ -458,7 +437,7 @@ export function BrowseCoursesPanel({
             </div>
 
             {/* Footer */}
-            <footer className="sticky bottom-0 z-20 border-t border-[var(--border-subtle)] bg-[#101016]/95 px-6 py-4 backdrop-blur-md flex items-center justify-between">
+            <footer className="sticky bottom-0 z-20 border-t border-[var(--border-subtle)] bg-[#101016]/95 px-4 py-3 sm:px-6 sm:py-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md flex items-center justify-between">
               <span className="text-xs text-[var(--text-tertiary)]">
                 {enrolledCourseIds.length} active in My courses
               </span>
@@ -472,32 +451,24 @@ export function BrowseCoursesPanel({
             </footer>
 
             {/* Floating Toast Notification */}
-            <AnimatePresence>
-              {toastMessage && (
-                <motion.div
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 16 }}
-                  className="absolute bottom-16 left-6 right-6 z-30 flex items-center justify-between rounded-xl border border-emerald-500/30 bg-[#0e1a14] px-4 py-3 shadow-2xl"
+            {toastMessage && (
+              <div className="absolute bottom-16 left-4 right-4 sm:left-6 sm:right-6 z-30 flex items-center justify-between rounded-xl border border-emerald-500/30 bg-[#0e1a14] px-4 py-3 shadow-2xl animate-in fade-in duration-150">
+                <div className="flex items-center gap-2 text-xs font-medium text-emerald-300">
+                  <Check className="h-4 w-4 text-emerald-400 shrink-0" />
+                  <span>{toastMessage}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="text-xs font-semibold text-white underline hover:text-emerald-200 ml-3 shrink-0"
                 >
-                  <div className="flex items-center gap-2 text-xs font-medium text-emerald-300">
-                    <Check className="h-4 w-4 text-emerald-400" />
-                    <span>{toastMessage}</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="text-xs font-semibold text-white underline hover:text-emerald-200 ml-3"
-                  >
-                    View
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
+                  View
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
-    </AnimatePresence>
-  </>
-);
+    </>
+  );
 }

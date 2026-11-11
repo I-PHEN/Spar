@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { ARCHETYPES, buildPersonaSystemPrompt } from "./personas";
+import { ARCHETYPES, buildPersonaSystemPrompt, buildPersonaSessionRules } from "./personas";
 
 const EXPECTED: Record<string, { name: string; tagline: string; initials: string }> = {
   skeptic: { name: "Ada", tagline: "Questions your core assumptions", initials: "A" },
@@ -31,5 +31,26 @@ describe("persona display", () => {
     expect(prompt).toContain("You are Ada, a Spar panelist.");
     expect(prompt).toContain(ARCHETYPES.skeptic.lens);
     expect(prompt).toContain(ARCHETYPES.skeptic.forbidden[0]);
+  });
+
+  test("grounds session rules on non-business topics even when claims array is empty", () => {
+    const rules = buildPersonaSessionRules({
+      scenarioLabel: "Free Spar",
+      materialTitle: "Newton method of optimization",
+      rawMaterial: "Newton method of optimization",
+      claims: [],
+      patternMemory: "",
+      otherPersonas: [],
+    });
+    expect(rules).toContain("Topic: Newton method of optimization");
+    expect(rules).toContain('Stay strictly inside the intellectual domain of "Newton method of optimization"');
+    expect(rules).toContain("never ask business, corporate, market, revenue, or stakeholder questions unless the topic itself is business");
+  });
+
+  test("archetype prompts do not hardcode corporate stakeholder jargon", () => {
+    const soWhatText = JSON.stringify(ARCHETYPES.so_what).toLowerCase();
+    const allyText = JSON.stringify(ARCHETYPES.ally).toLowerCase();
+    expect(soWhatText).not.toContain("stakeholder");
+    expect(allyText).not.toContain("stakeholder");
   });
 });

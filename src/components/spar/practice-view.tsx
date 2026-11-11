@@ -350,12 +350,12 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
             <div className="flex items-center justify-between gap-3">
               <button
                 onClick={onCancel}
-                className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)] transition-colors hover:text-white px-2 py-2"
+                className="hidden md:flex items-center gap-1.5 text-sm text-[var(--text-secondary)] transition-colors hover:text-white px-2 py-2"
               >
                 <ArrowLeft className="h-4 w-4" /> Home
               </button>
-              <div className="flex flex-col items-end gap-1">
-                <div className="flex items-center gap-2.5">
+              <div className="flex flex-col items-stretch sm:items-end gap-1 w-full md:w-auto">
+                <div className="flex items-center justify-end sm:justify-start gap-2.5 w-full">
                   {canStart && !creating && (
                     <span className="hidden sm:inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-mono text-[var(--text-tertiary)]">
                       Ctrl ↵
@@ -365,7 +365,7 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
                     onClick={handleStart}
                     disabled={!canStart}
                     className={cn(
-                      "flex items-center gap-2 px-7 h-12 rounded-full text-sm font-bold transition-all",
+                      "flex items-center justify-center gap-2 px-7 h-12 rounded-full text-sm font-bold transition-all w-full md:w-auto",
                       canStart
                         ? "bg-[var(--accent)] text-white hover:brightness-105 active:translate-y-[3px]"
                         : "border border-white/10 bg-white/5 text-[var(--text-tertiary)] cursor-not-allowed"
@@ -384,7 +384,7 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
                   </button>
                 </div>
                 {!canStart && disabledReason && (
-                  <p className="text-[11px] text-[var(--text-tertiary)]">{disabledReason}</p>
+                  <p className="text-[11px] text-[var(--text-tertiary)] text-center md:text-right">{disabledReason}</p>
                 )}
               </div>
             </div>

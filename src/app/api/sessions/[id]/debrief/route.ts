@@ -14,6 +14,7 @@ export async function GET(
     where: { id },
     include: {
       summary: true,
+      skills: true,
       personas: { orderBy: { seatOrder: "asc" } },
       messages: { orderBy: { createdAt: "asc" } },
     },
@@ -28,7 +29,7 @@ export async function GET(
   }
 
   // Load presentation analysis if it exists (Defense/Boardroom)
-  let presentationEvaluation: string | null = null;
+  const presentationEvaluation: string | null = null;
   let coachRead: string | null = null;
   if (session.presentationAnalysis) {
     try {
@@ -74,11 +75,6 @@ export async function GET(
     const drillTarget = (session.drillTarget as DrillTarget) || "hedging";
     const def = getDrillDefinition(drillTarget);
     const messages = session.messages;
-
-    // Group consecutive interruptions into challenges (same logic as end route)
-    const interruptions = messages.filter(
-      (m) => m.role === "persona" && m.type === "interruption"
-    );
 
     interface ChallengeGroup {
       firstInterruptTime: number;
@@ -159,6 +155,17 @@ export async function GET(
       shareableSummary: session.summary.shareableSummary,
     },
     telemetry: session.telemetry ? safeParse(session.telemetry, null) : null,
+    skillSnapshot: session.skills
+      ? {
+          clarity: session.skills.clarity,
+          recovery: session.skills.recovery,
+          concision: session.skills.concision,
+          presence: session.skills.presence,
+          evidence: session.skills.evidence,
+        }
+      : undefined,
+    coachingFocus: session.coachingFocus ?? null,
+    materialTitle: session.materialTitle ?? null,
     personas: session.personas,
     transcript,
     drillStats,

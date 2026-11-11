@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ArchetypeKey, BehaviorStyle } from "../lib/types";
+import type { ArchetypeKey, BehaviorStyle, DrillTarget } from "../lib/types";
 import type { VoiceEngine } from "../lib/observability/turn-metrics";
 import { buildLiveSystemInstruction } from "../lib/spar/live-instruction";
 import { LIVE_MODEL_BY_MODE, vadConfigFor } from "../lib/spar/mode-contracts";
@@ -94,6 +94,11 @@ export interface LiveVoiceConfig {
   scenarioLabel: string;
   claims: Array<{ id: number; label: string; claim: string; evidence?: string }>;
   otherPanelists: Array<{ name: string; archetype: ArchetypeKey }>;
+  drillTarget?: DrillTarget | null;
+  roomContext?: string;
+  coachingFocus?: string | null;
+  materialTitle?: string | null;
+  rawMaterial?: string | null;
 }
 
 export interface LiveVoiceSessionOptions extends LiveVoiceConfig {
@@ -226,6 +231,11 @@ export class LiveVoiceSession {
         scenarioLabel: this.options.scenarioLabel,
         claims: this.options.claims,
         otherPanelists: this.options.otherPanelists,
+        drillTarget: this.options.drillTarget,
+        roomContext: this.options.roomContext,
+        coachingFocus: this.options.coachingFocus,
+        materialTitle: this.options.materialTitle,
+        rawMaterial: this.options.rawMaterial,
       }),
       voiceName,
       vad: vadConfigFor(this.options.mode).automaticActivityDetection,
@@ -444,6 +454,9 @@ export function createLiveVoiceHook(runtime: LiveVoiceHookRuntime): LiveVoiceHoo
       scenarioLabel: callbacks.current?.scenarioLabel ?? "",
       claims: callbacks.current?.claims ?? [],
       otherPanelists: callbacks.current?.otherPanelists ?? [],
+      drillTarget: callbacks.current?.drillTarget,
+      roomContext: callbacks.current?.roomContext,
+      coachingFocus: callbacks.current?.coachingFocus,
       dependencies: callbacks.current?.dependencies,
       onStatusChange: next => { setStatus(next); callbacks.current?.onStatusChange?.(next); },
       onUserInterim: text => { callbacks.current?.onUserInterim?.(text); },

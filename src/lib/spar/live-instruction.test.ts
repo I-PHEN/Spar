@@ -46,6 +46,22 @@ describe("buildLiveSystemInstruction", () => {
     expect(drill).not.toContain(MODE_CONTRACTS.defense.responseStyleHint);
   });
 
+  test("injects target-specific drill rules, roomContext, and coachingFocus when provided", () => {
+    const drillWithTarget = buildLiveSystemInstruction({
+      ...baseParams,
+      mode: "drill",
+      drillTarget: "over-explaining",
+      roomContext: "Coach Lesson: The 15-Word Ceiling.",
+      coachingFocus: "Rule: One sentence. Subject, active verb, concrete metric. Full stop.",
+    });
+    expect(drillWithTarget).toContain("## DRILL MODE: Over-explaining");
+    expect(drillWithTarget).toContain("Too long. Answer in 15 words or less.");
+    expect(drillWithTarget).toContain("# ROOM CONTEXT");
+    expect(drillWithTarget).toContain("Coach Lesson: The 15-Word Ceiling.");
+    expect(drillWithTarget).toContain("# COACHING FOCUS");
+    expect(drillWithTarget).toContain("Rule: One sentence. Subject, active verb, concrete metric. Full stop.");
+  });
+
   test("includes the session rules: scenario, claims block, other panelists", () => {
     expect(instruction).toContain(`Experience room: ${baseParams.scenarioLabel}`);
     expect(instruction).toContain("Claim 1: Novelty");

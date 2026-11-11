@@ -78,6 +78,142 @@ export function getDrillDefinition(target: DrillTarget): DrillDefinition {
   return DRILL_DEFINITIONS[target] || DRILL_DEFINITIONS.hedging;
 }
 
+const DRILL_HEDGE_REGEX =
+  /\b(i think|i feel|i guess|i believe|i suppose|maybe|perhaps|possibly|probably|sort of|kind of|like|you know|somewhat|rather|quite|fairly|relatively|hopefully|might be)\b/i;
+
+const DRILL_VAGUE_QUANTIFIER_REGEX =
+  /\b(roughly|about|around|approximately|somewhere around)\s+[\d$]/i;
+
+const DRILL_VAGUE_SUFFIX_REGEX = /\d+\s*(or so|ish)\b/i;
+
+const DRILL_EVIDENCE_MARKER_REGEX =
+  /(\d|\b(percent|million|billion|thousand|days|weeks|months|years|quarters|hours|minutes|seconds|ms|bps|study|benchmark|cohort|audit|dataset|report|experiment|log|metric|trial|theorem|proof|bound|convergence|hessian|gradient|matrix|equation|law)\b)/i;
+
+const DRILL_STALL_OPENER_REGEX =
+  /^[\s,.!?"'“”‘’]*(um|uh|er|ah|hmm|well\b|so basically|that's a great question|that is a great question|good question|let me think|give me a second)/i;
+
+export interface DrillTurnEvaluation {
+  clean: boolean;
+  reason?: string;
+}
+
+/**
+ * Deterministic post-turn evaluator for Drill Mode.
+ * Ensures that even short responses (or responses missing required evidence
+ * or starting with a stall) are caught when the user finishes speaking.
+ */
+export function evaluateDrillTurn(
+  text: string,
+  target: DrillTarget,
+  onsetMs?: number
+): DrillTurnEvaluation {
+  const cleaned = text.trim();
+  const words = cleaned ? cleaned.split(/\s+/) : [];
+  const wordCount = words.length;
+
+  if (wordCount === 0) {
+    return { clean: false, reason: "Empty response" };
+  }
+
+  switch (target) {
+    case "hedging": {
+      const match = cleaned.match(DRILL_HEDGE_REGEX);
+      if (match) {
+        return {
+          clean: false,
+          reason: `Used qualifier "${match[0]}"`,
+        };
+      }
+      return { clean: true };
+    }
+    case "over-explaining": {
+      if (wordCount > 18) {
+        return {
+          clean: false,
+          reason: `${wordCount} words exceeds the 15-word drill ceiling`,
+        };
+      }
+      return { clean: true };
+    }
+    case "evidence-gaps": {
+      if (
+        DRILL_VAGUE_QUANTIFIER_REGEX.test(cleaned) ||
+        DRILL_VAGUE_SUFFIX_REGEX.test(cleaned)
+      ) {
+        return {
+          clean: false,
+          reason: "Used a vague quantifier instead of exact evidence",
+        };
+      }
+      if (!DRILL_EVIDENCE_MARKER_REGEX.test(cleaned)) {
+        return {
+          clean: false,
+          reason: "No specific number, metric, or verifiable source cited",
+        };
+      }
+      return { clean: true };
+    }
+    case "recovery-speed": {
+      if (DRILL_STALL_OPENER_REGEX.test(cleaned)) {
+        return {
+          clean: false,
+          reason: "Opened with a stalling filler instead of a direct point",
+        };
+      }
+      if (typeof onsetMs === "number" && onsetMs > 2500) {
+        return {
+          clean: false,
+          reason: `Vocal onset took ${(onsetMs / 1000).toFixed(1)}s (2.0s limit)`,
+        };
+      }
+      return { clean: true };
+    }
+    default:
+      return { clean: true };
+  }
+}
+
+/**
+ * Selects the next panelist to speak in a session.
+ * - If `forcedPersonaId` is provided (e.g., an agitation interrupt from a specific
+ *   panelist), returns that panelist.
+ * - Otherwise rotates round-robin based on the most recent panelist message
+ *   in the full conversation history (ordered by `seatOrder` ascending).
+ */
+export function selectNextPersona<T extends { id: string; seatOrder: number }>(
+  personas: readonly T[],
+  messages: ReadonlyArray<{
+    role: string;
+    personaId?: string | null;
+    type?: string | null;
+  }>,
+  forcedPersonaId?: string | null
+): T | undefined {
+  const ordered = [...personas].sort((a, b) => a.seatOrder - b.seatOrder);
+  if (ordered.length === 0) return undefined;
+
+  if (forcedPersonaId) {
+    const forced = ordered.find((p) => p.id === forcedPersonaId);
+    if (forced) return forced;
+  }
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (
+      (msg.role === "persona" || msg.role === "assistant") &&
+      msg.type !== "coach_whisper" &&
+      msg.personaId
+    ) {
+      const lastIdx = ordered.findIndex((p) => p.id === msg.personaId);
+      if (lastIdx >= 0) {
+        return ordered[(lastIdx + 1) % ordered.length];
+      }
+    }
+  }
+
+  return ordered[0];
+}
+
 /**
  * Build the drill-specific system prompt instruction for a persona.
  * This is appended to the persona's system prompt when the session is a drill.

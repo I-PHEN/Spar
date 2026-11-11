@@ -14,6 +14,7 @@ import { generatePersonaAudio } from "@/lib/voice";
 import { SCENARIOS } from "@/lib/scenarios";
 import { ARCHETYPES } from "@/lib/personas";
 import { buildDrillOpeningInstruction, getDrillDefinition } from "@/lib/drills";
+import { extractLessonOpeningAttack } from "@/lib/courses";
 import type { ArchetypeKey, DrillTarget, ExtractedClaim } from "@/lib/types";
 
 export async function POST(
@@ -59,10 +60,8 @@ export async function POST(
 
   const scenario = SCENARIOS[session.scenario as keyof typeof SCENARIOS];
   const scenarioLabel = scenario?.label || "Custom Session";
-  const roomContext =
-    session.scenario === "custom" && session.roomContext
-      ? session.roomContext
-      : scenario?.roomContext || "";
+  const roomContext = session.roomContext || scenario?.roomContext || "";
+  const coachingFocus = session.coachingFocus ?? null;
 
   // ─── Defense & Boardroom: user presents first. ─────────────────────────
   // The user presents their material. The session stays in "presenting" status.
@@ -86,6 +85,7 @@ export async function POST(
       claims,
       scenarioLabel,
       roomContext,
+      coachingFocus,
     });
   }
 
@@ -143,15 +143,43 @@ export async function POST(
       })),
   });
 
-  const opening = await generateOpening({
-    archetype: openingPersona.archetype as ArchetypeKey,
-    behaviorStyle: openingPersona.behaviorStyle as "gentle" | "moderate" | "aggressive",
-    scenarioLabel,
-    claims,
-    patternMemory,
-    otherPersonas,
-    extraOpeningInstruction: drillOpeningInstruction,
-  });
+  const lessonOpeningAttack = extractLessonOpeningAttack(
+    session.rawMaterial,
+    roomContext
+  );
+
+  const opening = lessonOpeningAttack
+    ? (() => {
+        if (session.experience === "drill") {
+          const drillTarget = (session.drillTarget as DrillTarget) || "hedging";
+          const def = getDrillDefinition(drillTarget);
+          return {
+            content: `We're drilling ${def.label.toLowerCase()}. ${def.description} ${lessonOpeningAttack}`,
+            type: "opening" as const,
+            claimRef: null,
+            mood: "pressing" as const,
+          };
+        }
+        return {
+          content: lessonOpeningAttack,
+          type: "opening" as const,
+          claimRef: null,
+          mood: "pressing" as const,
+        };
+      })()
+    : await generateOpening({
+        archetype: openingPersona.archetype as ArchetypeKey,
+        behaviorStyle: openingPersona.behaviorStyle as "gentle" | "moderate" | "aggressive",
+        scenarioLabel,
+        claims,
+        patternMemory,
+        otherPersonas,
+        extraOpeningInstruction: drillOpeningInstruction,
+        roomContext,
+        coachingFocus,
+        materialTitle: session.materialTitle,
+        rawMaterial: session.rawMaterial,
+      });
 
   // Persist the opening as the first message.
   const message = await db.sessionMessage.create({
@@ -191,6 +219,7 @@ export async function POST(
     claims,
     scenarioLabel,
     roomContext,
+    coachingFocus,
   });
 }
 

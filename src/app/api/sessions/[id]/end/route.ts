@@ -102,7 +102,6 @@ export async function POST(
   // Compute telemetry from the transcript.
   const messages = session.messages;
   const userMessages = messages.filter((m) => m.role === "user");
-  const personaMessages = messages.filter((m) => m.role === "persona");
 
   // Build per-turn telemetry.
   const turns: ReturnType<typeof computeTurnTelemetry>[] = [];
@@ -181,9 +180,6 @@ export async function POST(
   });
 
   // ─── Presentation section (Defense/Boardroom only) ─────────────────────
-  // For Defense/Boardroom, the FIRST user message is the presentation.
-  // Everything after is Q&A. We split the transcript and pass the
-  // presentation + the coach's pre-Q&A analysis to the debrief LLM.
   const isDefenseOrBoardroom =
     session.experience === "defense" || session.experience === "boardroom";
 
@@ -191,12 +187,10 @@ export async function POST(
   let qaTranscriptStr = transcriptStr;
 
   if (isDefenseOrBoardroom) {
-    // Find the first user message (the presentation)
     const firstUserMsg = messages.find((m) => m.role === "user");
     if (firstUserMsg) {
       const presentationTranscript = firstUserMsg.content;
 
-      // Build the Q&A transcript (everything AFTER the presentation)
       const firstUserIdx = messages.indexOf(firstUserMsg);
       const qaMessages = messages.slice(firstUserIdx + 1);
       qaTranscriptStr = qaMessages
@@ -212,7 +206,6 @@ export async function POST(
         .filter(Boolean)
         .join("\n");
 
-      // Load the stored presentation analysis
       let presentationAnalysis: NonNullable<
         GenerateDebriefParams["presentationSection"]
       >["analysis"] = null;
@@ -232,12 +225,6 @@ export async function POST(
   }
 
   // ─── Drill stats (Drill Mode only) ─────────────────────────────────────
-  // A "drill challenge" = one question that triggered at least one correction.
-  // Consecutive interruptions for the same question are GROUPED into one
-  // challenge (the user got corrected multiple times before answering cleanly).
-  //
-  // Recovery time = seconds from the FIRST correction to the clean answer
-  // (the acknowledgment message that follows). Tracked via message timestamps.
   let drillSection: GenerateDebriefParams["drillSection"] | undefined;
   if (session.experience === "drill") {
     const drillTarget = (session.drillTarget as DrillTarget) || "hedging";
@@ -247,13 +234,10 @@ export async function POST(
       (m) => m.role === "persona" && m.type === "interruption"
     );
 
-    // Group consecutive interruptions + user messages into challenges.
-    // A challenge starts at the first interruption and ends at the next
-    // non-interruption persona message (the ack) or the end of the transcript.
     interface ChallengeGroup {
       firstInterruptIdx: number;
-      ackIdx: number | null; // null = unresolved (session ended mid-retry)
-      attempts: number; // user messages in this challenge
+      ackIdx: number | null;
+      attempts: number;
       firstInterruptTime: number;
       ackTime: number | null;
     }
@@ -268,8 +252,6 @@ export async function POST(
         let ackIdx: number | null = null;
         let ackTime: number | null = null;
 
-        // Walk forward: count user messages, skip subsequent interruptions
-        // (same challenge), stop at the ack (non-interruption persona message).
         let j = i + 1;
         while (j < messages.length) {
           if (messages[j].role === "user") {
@@ -278,7 +260,6 @@ export async function POST(
             if (messages[j].type === "interruption") {
               // Subsequent correction — same challenge, keep going
             } else {
-              // Acknowledgment (ack + next question) — challenge resolved
               ackIdx = j;
               ackTime = messages[j].createdAt.getTime();
               break;
@@ -295,8 +276,6 @@ export async function POST(
           ackTime,
         });
 
-        // Jump to the ack (or end) so we don't re-count this challenge's
-        // interruptions as separate challenges.
         i = ackIdx !== null ? ackIdx + 1 : messages.length;
       } else {
         i++;
@@ -314,7 +293,7 @@ export async function POST(
     const recoveryTimes: number[] = [];
 
     for (const c of challenges) {
-      if (c.ackIdx === null) continue; // unresolved — skip scoring
+      if (c.ackIdx === null) continue;
       if (c.attempts === 1) attempt1Clean++;
       else if (c.attempts === 2) attempt2Clean++;
       else if (c.attempts >= 3) attempt3Plus++;
@@ -354,7 +333,7 @@ export async function POST(
     );
   }
 
-  // Generate the debrief.
+  // Generate the debrief (now including roomContext, coachingFocus, materialTitle, and rawMaterial).
   const debrief = await generateDebrief({
     scenarioLabel,
     claims,
@@ -365,6 +344,10 @@ export async function POST(
     })),
     telemetry,
     patternMemory,
+    roomContext: session.roomContext || scenario?.roomContext || null,
+    coachingFocus: session.coachingFocus ?? null,
+    materialTitle: session.materialTitle ?? null,
+    rawMaterial: session.rawMaterial ?? null,
     presentationSection,
     drillSection,
   });
@@ -422,7 +405,6 @@ export async function POST(
   }
 
   // Compute a simple SkillSnapshot from telemetry.
-  // Heuristic scoring: 0-100 per dimension, mapped from telemetry.
   const clarityScore = clampScore(100 - telemetry.hedgesPerResponse * 20);
   const recoveryScore = clampScore(
     telemetry.userTurns > 0
@@ -431,8 +413,7 @@ export async function POST(
   );
   const concisionScore = clampScore(
     telemetry.avgWordsPerResponse > 0
-      ? // Target: 15-25 words. Penalize long-windedness heavily, short slightly.
-        100 - Math.abs(telemetry.avgWordsPerResponse - 20) * 2.5
+      ? 100 - Math.abs(telemetry.avgWordsPerResponse - 20) * 2.5
       : 50
   );
   const presenceScore = clampScore(

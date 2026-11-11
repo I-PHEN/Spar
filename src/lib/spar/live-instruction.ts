@@ -8,7 +8,8 @@
  * interaction contract verbatim.
  */
 
-import type { ArchetypeKey, BehaviorStyle } from "../types";
+import type { ArchetypeKey, BehaviorStyle, DrillTarget } from "../types";
+import { buildDrillPrompt } from "../drills";
 import { buildPersonaIdentityBlocks, buildPersonaSessionRules } from "../personas";
 import { MODE_CONTRACTS } from "./mode-contracts";
 
@@ -19,6 +20,11 @@ export interface LiveInstructionParams {
   scenarioLabel: string;
   claims: Array<{ id: number; label: string; claim: string; evidence?: string }>;
   otherPanelists: Array<{ name: string; archetype: ArchetypeKey }>;
+  drillTarget?: DrillTarget | null;
+  roomContext?: string;
+  coachingFocus?: string | null;
+  materialTitle?: string | null;
+  rawMaterial?: string | null;
 }
 
 const SPOKEN_RULES = `# SPOKEN RESPONSE RULES
@@ -28,7 +34,8 @@ const SPOKEN_RULES = `# SPOKEN RESPONSE RULES
 - Keep each turn to 1-3 sentences; the Timekeeper speaks in one sentence.
 - Never mention being an AI, a model, or a system.
 - Never read numbers or structure as JSON — say numbers the way a person says them.
-- Keep spoken turns under 20 seconds unless presenting.`;
+- Keep spoken turns under 20 seconds unless presenting.
+- Match the subject domain of the user's topic or material; never use corporate or business framing unless the topic is business.`;
 
 /** One plain-text system instruction for a panelist's Live session. */
 export function buildLiveSystemInstruction(params: LiveInstructionParams): string {
@@ -41,15 +48,27 @@ Pacing: ${contract.pacingHint}
 Opening: ${contract.openingBehavior}
 Closing: ${contract.closingBehavior}`;
 
+  const drillTargetBlock =
+    params.mode === "drill" && params.drillTarget
+      ? buildDrillPrompt(params.drillTarget)
+      : "";
+
   return [
     buildPersonaIdentityBlocks(params),
     SPOKEN_RULES,
     modeContract,
+    drillTargetBlock,
     buildPersonaSessionRules({
       scenarioLabel: params.scenarioLabel,
       claims: params.claims,
       patternMemory: "",
       otherPersonas: params.otherPanelists,
+      roomContext: params.roomContext,
+      coachingFocus: params.coachingFocus,
+      materialTitle: params.materialTitle,
+      rawMaterial: params.rawMaterial,
     }),
-  ].join("\n\n");
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }

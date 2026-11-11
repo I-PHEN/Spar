@@ -195,6 +195,42 @@ describe("DebriefContent (Executive Coaching Dossier)", () => {
     expect(markup).toContain("Structured and composed opening thesis.");
     expect(markup).toContain("Sharp domain depth, but vulnerable on margins.");
   });
+
+  test("renders Lesson Target Evaluated and Incomplete Rep badge when userTurns is 0", () => {
+    const markup = renderToStaticMarkup(
+      <DebriefContent
+        scenarioLabel="Free Spar"
+        courseContext={{
+          courseId: "executive-presence",
+          lessonId: "headline-first",
+          courseTitle: "Executive Presence",
+          lessonTitle: "Headline First",
+          nextLessonTitle: "Zero-Hedge Delivery",
+          passCriteria: "Answer in 2 sentences with zero filler words.",
+        }}
+        data={{
+          debrief: mockDebrief,
+          telemetry: { ...mockTelemetry, userTurns: 0 },
+          coachingFocus: "Course Lesson: Headline First. Golden Rule: Lead with the conclusion.",
+        }}
+        clips={new Map()}
+        playingIndex={null}
+        showTranscript={false}
+        copied={false}
+        onPlay={() => {}}
+        onPause={() => {}}
+        onCopy={() => {}}
+        onToggleTranscript={() => {}}
+        onBackHome={() => {}}
+        onSparAgain={() => {}}
+      />
+    );
+
+    expect(markup).toContain("Lesson Target Evaluated");
+    expect(markup).toContain("Answer in 2 sentences with zero filler words.");
+    expect(markup).toContain("Incomplete Rep — Retry Needed");
+    expect(markup).toContain("Retry Rep: Headline First");
+  });
 });
 
 describe("YourAnswersSection", () => {
