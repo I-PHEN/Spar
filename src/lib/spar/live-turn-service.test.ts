@@ -1,4 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
+import { buildPersonaSessionRules, buildPersonaStablePrefix } from "../personas";
+import { MAX_CONTEXT_TOKENS, estimateInputTokens } from "../persona/context-builder";
 import type { LiveTurnEvent } from "./live-turn-service";
 
 mock.module("server-only", () => ({}));
@@ -123,5 +125,92 @@ describe("live turn service", () => {
     });
     await collect(service({ sessionId: "s", turnId: "t", transcript: "hello", confidence: 1 }, new AbortController().signal));
     expect(metrics.find(metric => metric.type === "generation-started")).toMatchObject({ provider: "openrouter", model: "fallback-model" });
+  });
+
+  test("decodes unicode escape sequences split across chunks without triggering invalid-response", async () => {
+    const persistedAssistants: string[] = [];
+    const service = createLiveTurnService({
+      now: () => 5,
+      loadContext: async () => ({
+        persona: { id: "p", name: "Victor", archetype: "skeptic", behaviorStyle: "moderate", seatOrder: 0 },
+        experience: "open_spar", selectedRegion: "us", stablePrefix: "s", sessionRules: "r", rollingSummary: "", history: [], deterministicState: {},
+      }),
+      persistUser: async () => {},
+      persistAssistant: async (_req, text) => { persistedAssistants.push(text); return "m-uni"; },
+      persistMetric: async () => {},
+      generator: {
+        async *stream() {
+          yield { type: "provider-selected", provider: "groq", model: "m" } as const;
+          yield { type: "text-delta", provider: "groq", model: "m", text: '{"content":"Unit economics\\u20' } as const;
+          yield { type: "text-delta", provider: "groq", model: "m", text: '14what is CAC?","type":"normal","claimRef":null,"mood":"pressing"}' } as const;
+          yield { type: "complete", provider: "groq", model: "m", status: "success", usage: null } as const;
+        },
+      },
+    });
+
+    const events = await collect(service({ sessionId: "s", turnId: "t-uni", transcript: "okay so", confidence: 0.9 }, new AbortController().signal));
+    expect(events.some(e => e.type === "error")).toBe(false);
+    expect(persistedAssistants).toEqual(["Unit economics—what is CAC?"]);
+    expect(events.at(-1)).toMatchObject({ type: "complete", text: "Unit economics—what is CAC?" });
+  });
+
+  test("compacts oversized persona instructions and material to stay inside MAX_CONTEXT_TOKENS without throwing", async () => {
+    let sentMessages: ReadonlyArray<{ role: string; content: string; section?: string }> = [];
+    const heavyClaims = Array.from({ length: 5 }, (_, idx) => ({
+      id: idx + 1,
+      label: `Claim ${idx + 1}`,
+      claim: `Detailed enterprise SaaS unit economics assertion ${idx + 1} `.repeat(6).trim(),
+      evidence: `Pilot cohort metrics and hospital procurement cycle benchmark ${idx + 1} `.repeat(4).trim(),
+    }));
+    const heavyRules = buildPersonaSessionRules({
+      scenarioLabel: "Q&A",
+      claims: heavyClaims,
+      patternMemory: `Historical pattern note `.repeat(25).trim(),
+      otherPersonas: [{ name: "Ada", archetype: "skeptic" }],
+      roomContext: `[Domain: commercial]\n[Stance: defending]\nPriority Attack Hotspots: ${"hospital procurement risk ".repeat(20)}\nCustom Room Instructions: Press hard on CAC payback and gross margin assumptions.`,
+      coachingFocus: "Hold firm on numbers without hedging.",
+      materialTitle: "Startup GTM",
+      rawMaterial: "Enterprise healthcare go-to-market deck text with hospital LTV and CAC assumptions. ".repeat(35),
+      domain: "commercial",
+    });
+
+    const service = createLiveTurnService({
+      now: () => 5,
+      loadContext: async () => ({
+        persona: { id: "p", name: "Victor", archetype: "nitpicker", behaviorStyle: "moderate", seatOrder: 0 },
+        experience: "open_spar",
+        selectedRegion: "us",
+        stablePrefix: buildPersonaStablePrefix({ archetype: "nitpicker", behaviorStyle: "moderate" }),
+        sessionRules: heavyRules,
+        rollingSummary: "Earlier exchange about enterprise hospital pipeline.",
+        history: [
+          { role: "assistant", content: "What is the exact CAC for a large hospital account?" },
+          { role: "user", content: "Around eighteen thousand dollars across a six month sales cycle." },
+        ],
+        deterministicState: { experience: "open_spar", isInterrupt: false },
+      }),
+      persistUser: async () => {},
+      persistAssistant: async () => "m-compact",
+      persistMetric: async () => {},
+      generator: {
+        async *stream(request) {
+          sentMessages = request.messages;
+          yield { type: "provider-selected", provider: "groq", model: "m" } as const;
+          yield { type: "text-delta", provider: "groq", model: "m", text: '{"content":"How many reps closed those deals?","type":"normal","claimRef":1,"mood":"pressing"}' } as const;
+          yield { type: "complete", provider: "groq", model: "m", status: "success", usage: null } as const;
+        },
+      },
+    });
+
+    const events = await collect(
+      service(
+        { sessionId: "s-heavy", turnId: "t-heavy", transcript: "Our hospital CAC is $18k with a 4x LTV ratio over 36 months.", confidence: 0.92 },
+        new AbortController().signal,
+      ),
+    );
+    expect(events.some((e) => e.type === "error")).toBe(false);
+    expect(estimateInputTokens(sentMessages.map((m) => ({ content: m.content })))).toBeLessThanOrEqual(MAX_CONTEXT_TOKENS);
+    expect(sentMessages[1]?.content).toContain("Our hospital CAC is $18k");
+    expect(sentMessages[1]?.content).toContain("Claim 1");
   });
 });

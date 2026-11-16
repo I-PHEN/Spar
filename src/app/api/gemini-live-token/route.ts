@@ -30,7 +30,11 @@ export async function GET(request: Request): Promise<Response> {
     );
 
     return jsonResponse(
-      { token: minted.token, expiresIn: minted.expiresIn },
+      {
+        token: minted.token,
+        expiresIn: minted.expiresIn,
+        ...(config.geminiLiveModel ? { model: config.geminiLiveModel } : {}),
+      },
       200,
     );
   } catch {

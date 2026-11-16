@@ -1,0 +1,189 @@
+// Spar — PostgreSQL / Supabase Prisma schema
+// Usage: npx prisma db push --schema=prisma/schema.postgres.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  name        String
+  onboardedAt DateTime?
+  preferences String?   // JSON: UserPreferences
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  sessions         Session[]
+  upcomingMoments  UpcomingMoment[]
+  patternMemories  PatternMemory[]
+  skillSnapshots   SkillSnapshot[]
+}
+
+model UpcomingMoment {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  detail    String?
+  date      DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Session {
+  id                   String   @id @default(cuid())
+  userId               String
+  experience           String   @default("open_spar")
+  drillTarget          String?
+  coachingEnabled      Boolean  @default(true)
+  coachingFocus        String?
+  scenario             String
+  mode                 String
+  rawMaterial          String?
+  materialTitle        String?
+  roomContext          String?
+  extractedClaims      String?
+  presentationAnalysis String?
+  status               String   @default("configured")
+  startedAt            DateTime?
+  endedAt              DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  telemetry            String?
+
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  personas    SessionPersona[]
+  messages    SessionMessage[]
+  summary     SessionSummary?
+  skills      SkillSnapshot?
+  turnMetrics TurnMetric[]
+  feedback    SessionFeedback?
+}
+
+model SessionPersona {
+  id            String   @id @default(cuid())
+  sessionId     String
+  archetype     String
+  name          String
+  behaviorStyle String   @default("moderate")
+  seatOrder     Int
+  createdAt     DateTime @default(now())
+
+  session  Session          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  messages SessionMessage[]
+}
+
+model SessionMessage {
+  id        String   @id @default(cuid())
+  sessionId String
+  personaId String?
+  role      String
+  content   String
+  type      String   @default("normal")
+  claimRef  Int?
+  createdAt DateTime @default(now())
+
+  session Session         @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  persona SessionPersona? @relation(fields: [personaId], references: [id], onDelete: SetNull)
+}
+
+model SessionSummary {
+  id                  String   @id @default(cuid())
+  sessionId           String   @unique
+  momentDescription   String
+  whatWentWell        String
+  thePattern          String
+  oneThingToPractice  String
+  telemetryInsights   String
+  shareableSummary    String
+  createdAt           DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model SessionFeedback {
+  id        String   @id @default(cuid())
+  sessionId String   @unique
+  userId    String
+  rating    Int
+  tags      String?
+  comment   String?
+  createdAt DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model PatternMemory {
+  id          String   @id @default(cuid())
+  userId      String
+  tag         String
+  description String
+  occurrences Int      @default(1)
+  lastSeen    DateTime
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tag])
+}
+
+model SkillSnapshot {
+  id        String   @id @default(cuid())
+  userId    String
+  sessionId String   @unique
+  clarity   Float
+  recovery  Float
+  concision Float
+  presence  Float
+  evidence  Float
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model TurnMetric {
+  id                              String   @id @default(cuid())
+  turnId                          String   @unique
+  sessionId                       String
+  traceId                         String?
+  experience                      String?
+  persona                         String?
+  transcriptConfidence            Float?
+  selectedRegion                  String?
+  transcriptFinalizedOffsetMs     Float?
+  serverGenerationStartedOffsetMs Float?
+  firstTokenOffsetMs              Float?
+  firstPhraseOffsetMs             Float?
+  firstTtsByteOffsetMs            Float?
+  firstPlaybackOffsetMs           Float?
+  cancellationOffsetMs            Float?
+  generationProvider              String?
+  generationModel                 String?
+  ttsProvider                     String?
+  ttsModel                        String?
+  inputTokens                     Int?
+  outputTokens                    Int?
+  cachedTokens                    Int?
+  estimatedCostUsd                Float?
+  fallbackReason                  String?
+  cancelled                       Boolean  @default(false)
+  orderingFailureCount            Int      @default(0)
+  voiceEngine                     String?
+  firstLiveAudioMs                Int?
+  interruptions                   Int?
+  createdAt                       DateTime @default(now())
+  updatedAt                       DateTime @updatedAt
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([updatedAt])
+}

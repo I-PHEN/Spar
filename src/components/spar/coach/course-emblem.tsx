@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 
 export interface CourseEmblemProps {
   category: string;
-  size?: "md" | "lg" | "xl";
+  size?: "sm" | "md" | "lg" | "xl";
   className?: string;
 }
 
@@ -42,25 +42,34 @@ export function CourseEmblem({
   className,
 }: CourseEmblemProps) {
   const sizeClasses = {
+    sm: "h-11 w-11",
     md: "h-16 w-16",
     lg: "h-[72px] w-[72px]",
     xl: "h-20 w-20",
   }[size];
 
   const iconSizes = {
+    sm: "h-5 w-5",
     md: "h-7 w-7",
     lg: "h-8 w-8",
     xl: "h-9 w-9",
   }[size];
 
+  const cornerClass = size === "sm" ? "rounded-xl" : "rounded-[18px]";
+  const backOffsetClass =
+    size === "sm"
+      ? "translate-x-1 translate-y-1 rotate-[5deg]"
+      : "translate-x-1.5 translate-y-1.5 rotate-[6deg]";
+
   return (
     <div className={cn("relative flex-shrink-0 select-none", sizeClasses, className)}>
-      {/* Background stacked tile (offset 4px & rotated 6deg for physical depth) */}
+      {/* Background stacked tile (offset & rotated for physical depth) */}
       <div
         aria-hidden="true"
         className={cn(
-          "absolute inset-0 rounded-[18px] border border-[var(--border-subtle)] bg-[var(--surface-1)] opacity-40 transition-transform duration-300",
-          "translate-x-1.5 translate-y-1.5 rotate-[6deg]"
+          "absolute inset-0 border border-[var(--border-subtle)] bg-[var(--surface-1)] opacity-40 transition-transform duration-300",
+          cornerClass,
+          backOffsetClass
         )}
         style={{
           boxShadow: "0 6px 16px -6px rgba(0,0,0,0.7)",
@@ -70,18 +79,19 @@ export function CourseEmblem({
       {/* Front primary emblem tile */}
       <div
         className={cn(
-          "relative flex h-full w-full items-center justify-center rounded-[18px] border border-[var(--border-subtle)] bg-[var(--surface-2)] transition-transform duration-200 group-hover:scale-[1.02]",
+          "relative flex h-full w-full items-center justify-center border border-[var(--border-subtle)] bg-[var(--surface-2)] transition-transform duration-200 group-hover:scale-[1.02]",
+          cornerClass,
           "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_8px_20px_-8px_rgba(0,0,0,0.6)]"
         )}
         style={{
           backgroundImage:
-            "linear-gradient(135deg, var(--surface-2) 0%, rgba(47, 101, 246, 0.12) 100%)",
+            "linear-gradient(135deg, var(--surface-2) 0%, rgba(47, 101, 246, 0.14) 100%)",
         }}
       >
         {/* Subtle radial inner sheen */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 rounded-[18px] opacity-40"
+          className={cn("pointer-events-none absolute inset-0 opacity-40", cornerClass)}
           style={{
             background:
               "radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.12), transparent 60%)",
@@ -89,7 +99,7 @@ export function CourseEmblem({
         />
 
         {/* Duotone Accent Icon */}
-        <div className="relative z-10 text-[var(--accent)] drop-shadow-[0_2px_8px_rgba(47,101,246,0.3)]">
+        <div className="relative z-10 text-[var(--accent)]">
           {getCourseEmblemIcon(category, iconSizes)}
         </div>
       </div>

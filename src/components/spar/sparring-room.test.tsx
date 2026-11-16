@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
+  AiStageCaption,
   CaptionRow,
   DrillHudStrip,
   EngineStatusChip,
@@ -11,6 +13,8 @@ import {
   liveOwnsControls,
   liveUserInterimCaption,
   recordsTurnAudio,
+  shouldAutoStartMic,
+  autoSendSilenceMs,
   startsRecorderOnFallback,
   type RoomControlDeckProps,
 } from "./sparring-room";
@@ -258,10 +262,12 @@ describe("caption rows", () => {
 });
 
 describe("room accessibility", () => {
-  test("error toasts announce themselves", () => {
+  test("error toasts announce themselves at the top without overlapping bottom stage captions", () => {
     const m = renderToStaticMarkup(<RoomToast>Microphone access denied.</RoomToast>);
     expect(m).toContain('role="alert"');
     expect(m).toContain("Microphone access denied.");
+    expect(m).toContain("top-16");
+    expect(m).not.toContain("bottom-20");
   });
 
   test("deck state text is visible on mobile (no hidden sm:inline)", () => {
@@ -306,5 +312,101 @@ describe("drill framing and barge-in", () => {
     expect(hud).toContain("2 clean");
     expect(hud).toContain("Attempt #2");
     expect(hud).toContain("Used qualifier &quot;I think&quot;");
+  });
+
+  test("DrillHudStrip renders live word ceiling counter and consecutive clean streak", () => {
+    const hud = renderToStaticMarkup(
+      <DrillHudStrip
+        drillTarget="over-explaining"
+        outcomes={["clean-1", "clean-1"]}
+        drillRetry={false}
+        drillAttempts={0}
+        lastReason={null}
+        liveTranscript="We invert the Hessian matrix in quadratic time"
+      />
+    );
+    expect(hud).toContain("8/15 words");
+    expect(hud).toContain("2 streak");
+  });
+
+  test("hands-free auto-mic helper arms only on clean user turn in classic mode", () => {
+    const base = {
+      handsFree: true,
+      isSupported: true,
+      isPresenting: false,
+      isUserTurn: true,
+      isProcessing: false,
+      audioPlaying: false,
+      isListening: false,
+      opening: false,
+      loading: false,
+      showEndDialog: false,
+      connectionError: false,
+      coachAnalysisOpen: false,
+      liveStatus: "off" as const,
+    };
+    expect(shouldAutoStartMic(base)).toBe(true);
+    expect(shouldAutoStartMic({ ...base, handsFree: false })).toBe(false);
+    expect(shouldAutoStartMic({ ...base, audioPlaying: true })).toBe(false);
+    expect(shouldAutoStartMic({ ...base, isListening: true })).toBe(false);
+    expect(shouldAutoStartMic({ ...base, liveStatus: "live" })).toBe(false);
+
+    expect(autoSendSilenceMs("drill")).toBe(1600);
+    expect(autoSendSilenceMs("open_spar")).toBe(2100);
+  });
+
+  test("RoomControlDeck shows hands-free auto-mic toggle pill when wired", () => {
+    const markup = renderToStaticMarkup(
+      <RoomControlDeck
+        {...classicDeck}
+        handsFree={true}
+        onToggleHandsFree={() => {}}
+      />
+    );
+    expect(markup).toContain("Auto-Mic On · Space to send");
+  });
+
+  test("face-to-face stage: PresenceRail supports centered stage layout and AiStageCaption renders bottom AI caption without chat chrome", () => {
+    const stageMarkup = renderToStaticMarkup(
+      <PresenceRail
+        personas={[
+          { id: "p1", archetype: "skeptic", name: "Victor", behaviorStyle: "moderate", seatOrder: 0 },
+        ]}
+        states={{ p1: "speaking" }}
+        agitation={{}}
+        layout="stage"
+      />,
+    );
+    expect(stageMarkup).toContain("Victor");
+    expect(stageMarkup).toContain("h-28 w-28");
+
+    const captionMarkup = renderToStaticMarkup(
+      <AiStageCaption
+        entry={{
+          id: "p1-cap",
+          role: "persona",
+          personaName: "Victor",
+          archetype: "skeptic",
+          content: "What is the LTV to CAC ratio?",
+          type: "opening",
+          createdAt: 0,
+        }}
+      />,
+    );
+    expect(captionMarkup).toContain("Victor");
+    expect(captionMarkup).toContain("What is the LTV to CAC ratio?");
+    expect(captionMarkup).not.toContain("Opening");
+    expect(captionMarkup).not.toContain("border-[#232327]");
+    expect(captionMarkup).not.toContain("border-left");
+
+    const source = readFileSync(
+      new URL("./sparring-room.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(source).not.toContain("I need a moment");
+    expect(source).not.toContain("handleNeedMoment");
+    expect(source).toContain("formatRoomDisplaySubtitle");
+    expect(source).toContain('layout="stage"');
+    expect(source).toContain("<AiStageCaption");
   });
 });

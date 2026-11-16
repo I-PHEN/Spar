@@ -8,6 +8,7 @@
 import ZAI from "z-ai-web-dev-sdk";
 import type { ArchetypeKey, BehaviorStyle } from "./types";
 import { PERSONA_VOICES } from "./providers/deepgram-tts";
+import { resolveDeepgramVoiceModel } from "./voice-accents";
 export { PERSONA_VOICES } from "./providers/deepgram-tts";
 
 let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null;
@@ -68,12 +69,20 @@ export const BEHAVIOR_SPEEDS: Record<BehaviorStyle, number> = {
 export async function generatePersonaAudio(
   text: string,
   archetype: ArchetypeKey,
-  behaviorStyle: BehaviorStyle
+  behaviorStyle: BehaviorStyle,
+  options?: { seatOrder?: number; roomContext?: string | null },
 ): Promise<string | null> {
   const trimmed = text.trim();
   if (!trimmed) return null;
 
-  const voice = PERSONA_VOICES[archetype] || "aura-2-zeus-en";
+  const resolved = options?.roomContext
+    ? resolveDeepgramVoiceModel({
+        archetype,
+        seatOrder: options.seatOrder,
+        roomContext: options.roomContext,
+      })
+    : null;
+  const v1Voice = resolved?.v1Model || PERSONA_VOICES[archetype] || "aura-2-zeus-en";
 
   try {
     const apiKey = process.env.DEEPGRAM_API_KEY;
@@ -83,17 +92,27 @@ export async function generatePersonaAudio(
       return await generateZaiTTS(trimmed, archetype, behaviorStyle);
     }
 
-    const response = await fetch(
-      `https://api.deepgram.com/v1/speak?model=${voice}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Token ${apiKey}`,
+    const synthesizeDeepgram = (endpoint: "v1" | "v2", model: string) =>
+      fetch(
+        `https://api.deepgram.com/${endpoint}/speak?model=${encodeURIComponent(model)}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Token ${apiKey}`,
+          },
+          body: JSON.stringify({ text: trimmed.slice(0, 1000) }),
         },
-        body: JSON.stringify({ text: trimmed.slice(0, 1000) }),
-      }
-    );
+      );
+
+    let response =
+      resolved?.previewEndpoint === "v2"
+        ? await synthesizeDeepgram("v2", resolved.previewModel)
+        : await synthesizeDeepgram("v1", v1Voice);
+
+    if (!response.ok && resolved?.previewEndpoint === "v2") {
+      response = await synthesizeDeepgram("v1", v1Voice);
+    }
 
     if (!response.ok) {
       console.error(

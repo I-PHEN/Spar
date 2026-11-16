@@ -606,6 +606,22 @@ describe("turn controller voice metric wiring", () => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  test("primary silence/Done fallback submits buffered transcript once when Flux has not finalized yet", async () => {
+    const h = harness(normalEvents);
+    await h.controller.acceptStt({ type: "StartOfTurn", turnIndex: 1, transcript: "" });
+    await h.controller.acceptStt({ type: "interim", turnIndex: 1, transcript: "Three months." });
+    expect(h.controller.hasSubmittedCurrentTurn()).toBe(false);
+
+    await h.controller.finalizePrimaryTranscript("Three months.", 0.9, { drillClean: true });
+    expect(h.requests).toHaveLength(1);
+    expect(h.requests[0]).toMatchObject({ transcript: "Three months.", drillClean: true });
+    expect(h.controller.hasSubmittedCurrentTurn()).toBe(true);
+
+    // Subsequent duplicate submit or late finalize does not double-send the same turn
+    await h.controller.finalizePrimaryTranscript("Three months.", 0.9);
+    expect(h.requests).toHaveLength(1);
+  });
 });
 
 describe("turn controller composed live engine", () => {

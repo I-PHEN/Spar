@@ -82,4 +82,13 @@ describe("PanelistPresence (row variant)", () => {
     // accent still present in the compact treatment
     expect(m).toContain("oklch(0.65 0.08 180");
   });
+
+  test("stage variant: centered larger circular face-to-face presence", () => {
+    const m = renderToStaticMarkup(
+      <PanelistPresence archetype="skeptic" name="Victor" status="speaking" variant="stage" />,
+    );
+    expect(m).toContain("Victor");
+    expect(m).toContain("Speaking");
+    expect(m).toContain("h-28 w-28");
+  });
 });

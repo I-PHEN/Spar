@@ -137,6 +137,10 @@ describe("DebriefContent (Executive Coaching Dossier)", () => {
 
     // Summary & CTAs
     expect(markup).toContain("Save or Share");
+    expect(markup).toContain("Tester Pulse — Rate This Round");
+    expect(markup).toContain("Rate 5 out of 5 stars");
+    expect(markup).toContain("Sharp Pushback");
+    expect(markup).toContain("Join WhatsApp Group");
     expect(markup).toContain("Back to Home");
     expect(markup).toContain("Spar again");
   });

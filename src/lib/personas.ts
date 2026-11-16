@@ -12,6 +12,12 @@
 //   - Forbidden behaviors are enforced in the system prompt
 
 import type { ArchetypeKey, BehaviorStyle } from "./types";
+import {
+  buildDomainRoleBlock,
+  stripCustomRoomFromContext,
+  type DomainKey,
+} from "./domains";
+import { stripVoiceProfileTags } from "./voice-accents";
 
 export interface ArchetypeDefinition {
   key: ArchetypeKey;
@@ -206,6 +212,9 @@ export interface PersonaSessionRulesParams {
   coachingFocus?: string | null;
   materialTitle?: string | null;
   rawMaterial?: string | null;
+  domain?: DomainKey | null;
+  /** Optional cap on embedded raw material excerpt (defaults to 1600 chars). */
+  maxRawExcerptChars?: number;
 }
 
 const RESPONSE_FORMAT_PROMPT = `# RESPONSE FORMAT: STRICT JSON
@@ -266,6 +275,7 @@ export function buildPersonaSessionRules(
   const title = params.materialTitle?.trim() || "";
   const raw = params.rawMaterial?.trim() || "";
   const hasTopicOrMaterial = title.length > 0 || raw.length > 0;
+  const excerptCap = params.maxRawExcerptChars ?? 1600;
 
   const claimsBlock =
     params.claims.length > 0
@@ -279,6 +289,9 @@ export function buildPersonaSessionRules(
                 c.evidence ? `\n    Evidence provided: ${c.evidence}` : ""
               }`
           ),
+          raw && raw !== title && raw.length > 80 && excerptCap > 0
+            ? `  Source excerpt:\n    ${raw.slice(0, excerptCap)}\n  Citation rule: Anchor your challenges to specific lines, metrics, or statements from the source material above.`
+            : "",
           hasTopicOrMaterial
             ? "  Domain rule: Stay strictly inside this topic's subject domain. Never ask business, corporate, revenue, or stakeholder questions unless this topic is explicitly about business."
             : "",
@@ -288,21 +301,34 @@ export function buildPersonaSessionRules(
       : hasTopicOrMaterial
       ? [
           title ? `  Topic: ${title}` : "",
-          raw && raw !== title ? `  Source material: ${raw.slice(0, 450)}` : "",
+          raw && raw !== title && excerptCap > 0 ? `  Source material: ${raw.slice(0, excerptCap)}` : "",
           `  Domain rule: Stay strictly inside the intellectual domain of "${title || raw.slice(0, 80)}". Ask domain-specific questions only; never ask business, corporate, market, revenue, or stakeholder questions unless the topic itself is business.`,
         ]
           .filter(Boolean)
           .join("\n")
       : "  (User is defending from memory — no uploaded material. Probe their core claims directly.)";
 
+  const domainRoleBlock =
+    hasTopicOrMaterial || params.roomContext || params.domain
+      ? `\n${buildDomainRoleBlock({
+          domain: params.domain,
+          roomContext: params.roomContext,
+          materialTitle: params.materialTitle,
+          rawMaterial: params.rawMaterial,
+        })}`
+      : "";
+
   const othersBlock =
     params.otherPersonas.length > 0
       ? otherPersonasList(params.otherPersonas)
       : "  (You are the only panelist.)";
 
+  const remainingRoomContext = stripVoiceProfileTags(
+    stripCustomRoomFromContext(params.roomContext),
+  ).trim();
   const roomContextBlock =
-    params.roomContext && params.roomContext.trim().length > 0
-      ? `\n# ROOM CONTEXT\n${params.roomContext.trim()}`
+    remainingRoomContext.length > 0
+      ? `\n# ROOM CONTEXT\n${remainingRoomContext}`
       : "";
 
   const coachingFocusBlock =
@@ -321,7 +347,7 @@ export function buildPersonaSessionRules(
 ${claimsBlock}
 
 # OTHER PANELISTS
-${othersBlock}${roomContextBlock}${coachingFocusBlock}
+${othersBlock}${roomContextBlock}${coachingFocusBlock}${domainRoleBlock}
 ${patternBlock}`;
 }
 

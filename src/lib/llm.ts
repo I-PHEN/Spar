@@ -16,6 +16,14 @@ import type {
   PersonaResponse,
 } from "./types";
 import { ARCHETYPES, buildPersonaSystemPrompt } from "./personas";
+import {
+  DOMAIN_PRESETS,
+  buildCustomRoomBlock,
+  inferDomainFromText,
+  resolveActiveDomain,
+  type AttackHotspot,
+  type DomainKey,
+} from "./domains";
 import { PERSONA_MODEL } from "./providers/types";
 import type { ArchetypeKey } from "./types";
 
@@ -158,7 +166,7 @@ interface RawClaim {
   evidence?: string;
 }
 
-function buildFallbackClaims(material: string): ExtractedClaim[] {
+export function buildFallbackClaims(material: string): ExtractedClaim[] {
   const trimmed = material.trim();
   if (trimmed.length < 10) return [];
   const sentences = trimmed
@@ -233,6 +241,186 @@ Extract between 1 and 5 claims. Order by importance (most central first).`;
   return buildFallbackClaims(trimmed);
 }
 
+export interface DocumentMaterialAnalysis {
+  detectedDomain: DomainKey;
+  claims: ExtractedClaim[];
+  attackHotspots: AttackHotspot[];
+}
+
+export function buildFallbackHotspots(
+  material: string,
+  domain: DomainKey,
+  claims: ExtractedClaim[]
+): AttackHotspot[] {
+  const hotspots: AttackHotspot[] = [];
+  const sentences = material
+    .replace(/\r\n/g, "\n")
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length >= 20);
+
+  // 1. Check for numeric/percentage assertions that need baseline or mechanism proof
+  const metricLine = sentences.find((s) => /\b\d+(\.\d+)?(%|x|\s*(million|billion|thousand|years|months|weeks))\b/i.test(s));
+  if (metricLine) {
+    hotspots.push({
+      id: "hotspot-1",
+      target: "Quantitative Claim Verification",
+      reason: `Cites specific figures ("${metricLine.slice(0, 90)}${metricLine.length > 90 ? "..." : ""}") without full baseline or counterfactual proof.`,
+      suggestedChallenge: `Walk me through the exact baseline and methodology behind: "${metricLine.slice(0, 80)}".`,
+    });
+  }
+
+  // 2. Domain-specific vulnerability
+  if (domain === "interview") {
+    hotspots.push({
+      id: `hotspot-${hotspots.length + 1}`,
+      target: "Personal Ownership vs. Team Scope",
+      reason: "Interviewers will isolate what you personally architected or decided versus what the broader team executed.",
+      suggestedChallenge: "Strip away the team's work—what was the single hardest technical or operational decision you made solo here?",
+    });
+  } else if (domain === "academic") {
+    hotspots.push({
+      id: `hotspot-${hotspots.length + 1}`,
+      target: "Pedagogical & Conceptual Rigor",
+      reason: "Examiners will probe prerequisite assumptions, edge-case validity, and how learners or peers verify this.",
+      suggestedChallenge: "What foundational prerequisite or assumption in this framework fails first under edge-case conditions?",
+    });
+  } else if (domain === "commercial") {
+    hotspots.push({
+      id: `hotspot-${hotspots.length + 1}`,
+      target: "Defensibility & Unit Economics",
+      reason: "Evaluators will press on adoption friction, payback assumptions, and what stops incumbents from replicating this.",
+      suggestedChallenge: "If acquisition costs double or an incumbent bundles this feature, what happens to your core thesis?",
+    });
+  } else {
+    hotspots.push({
+      id: `hotspot-${hotspots.length + 1}`,
+      target: "Unstated Foundational Premise",
+      reason: "Critics will challenge the strongest counter-argument that could falsify your central thesis.",
+      suggestedChallenge: "What is the strongest empirical or logical evidence that would prove your core thesis wrong?",
+    });
+  }
+
+  // 3. Anchor on primary extracted claim
+  const topClaim = claims[0]?.claim || sentences[0] || material.slice(0, 100);
+  if (topClaim && hotspots.length < 3) {
+    hotspots.push({
+      id: `hotspot-${hotspots.length + 1}`,
+      target: claims[0]?.label || "Core Thesis Stress-Test",
+      reason: `Central assertion ("${topClaim.slice(0, 90)}${topClaim.length > 90 ? "..." : ""}") will be tested for causal proof.`,
+      suggestedChallenge: `What concrete evidence proves "${topClaim.slice(0, 80)}" is not just an unverified assumption?`,
+    });
+  }
+
+  return hotspots.slice(0, 3);
+}
+
+/**
+ * Analyze uploaded/pasted document material to classify domain, extract 3-5 core
+ * claims, and surface 2-3 specific "Attack Hotspots" the panel will target.
+ */
+export async function analyzeDocumentMaterial(
+  material: string,
+  fileNameOrTitle?: string | null
+): Promise<DocumentMaterialAnalysis> {
+  const trimmed = material.trim();
+  const heuristicDomain = inferDomainFromText(trimmed, fileNameOrTitle);
+  if (trimmed.length < 10) {
+    return {
+      detectedDomain: heuristicDomain,
+      claims: [],
+      attackHotspots: [],
+    };
+  }
+
+  const systemPrompt = `You are a pre-flight vulnerability scanner for Spar, an AI sparring platform across Academic/Educational, Job Interview, Commercial Pitch, and Intellectual Sparring domains.
+
+Given a user's uploaded document (e.g. a resume, syllabus, research paper, lesson plan, pitch memo, or technical spec), perform three tasks:
+1. Classify the intellectual domain into EXACTLY one of: "academic", "interview", "commercial", or "sparring".
+   - Use "academic" for teaching, education, lessons, science, math, engineering theory, or thesis defenses.
+   - Use "interview" for resumes, CVs, job applications, career bios, or role interviews.
+   - Use "commercial" ONLY when the document is explicitly about business, startups, revenue, or corporate strategy.
+   - Use "sparring" for general debates, philosophy, policy, or essays.
+2. Extract 3-5 key claims or assertions the author must defend.
+3. Identify 3 specific "Attack Hotspots" (weaknesses, bold metrics, unstated assumptions, or resume/methodology gaps) that a sharp panelist in that exact domain will interrogate.
+
+Respond with STRICT JSON ONLY:
+{
+  "detectedDomain": "academic" | "interview" | "commercial" | "sparring",
+  "claims": [
+    { "label": "<2-4 word label>", "claim": "<full claim>", "evidence": "<cited evidence or null>" }
+  ],
+  "attackHotspots": [
+    {
+      "target": "<short 2-5 word hotspot title>",
+      "reason": "<1 sentence explaining why this spot in the document is vulnerable>",
+      "suggestedChallenge": "<the exact pointed question a panelist will ask>"
+    }
+  ]
+}`;
+
+  try {
+    const raw = await completeChat(
+      systemPrompt,
+      `Document title/filename: ${fileNameOrTitle || "Untitled"}\nHeuristic domain hint: ${heuristicDomain}\n\nDocument content:\n---\n${trimmed.slice(0, 8000)}\n---\n\nReturn JSON analysis.`,
+      800
+    );
+    const parsed = extractJson<{
+      detectedDomain?: string;
+      claims?: RawClaim[];
+      attackHotspots?: Array<{
+        target?: string;
+        reason?: string;
+        suggestedChallenge?: string;
+      }>;
+    }>(raw);
+
+    const validDomains: DomainKey[] = ["academic", "interview", "commercial", "sparring"];
+    const detectedDomain: DomainKey =
+      parsed?.detectedDomain && validDomains.includes(parsed.detectedDomain as DomainKey)
+        ? (parsed.detectedDomain as DomainKey)
+        : heuristicDomain;
+
+    const claims: ExtractedClaim[] =
+      parsed?.claims && Array.isArray(parsed.claims) && parsed.claims.length > 0
+        ? parsed.claims.slice(0, 5).map((c, i) => ({
+            id: i + 1,
+            label: c.label?.slice(0, 60) || `Claim ${i + 1}`,
+            claim: c.claim?.slice(0, 500) || "",
+            evidence:
+              c.evidence && c.evidence !== "null" ? c.evidence.slice(0, 300) : undefined,
+          }))
+        : buildFallbackClaims(trimmed);
+
+    const attackHotspots: AttackHotspot[] =
+      parsed?.attackHotspots &&
+      Array.isArray(parsed.attackHotspots) &&
+      parsed.attackHotspots.length > 0
+        ? parsed.attackHotspots.slice(0, 4).map((h, i) => ({
+            id: `hotspot-${i + 1}`,
+            target: h.target?.slice(0, 80) || `Vulnerability ${i + 1}`,
+            reason: h.reason?.slice(0, 240) || "Requires deeper verification under questioning.",
+            suggestedChallenge:
+              h.suggestedChallenge?.slice(0, 240) ||
+              `Walk me through the evidence behind ${h.target || "this claim"}.`,
+          }))
+        : buildFallbackHotspots(trimmed, detectedDomain, claims);
+
+    return {
+      detectedDomain,
+      claims,
+      attackHotspots,
+    };
+  } catch {
+    const claims = buildFallbackClaims(trimmed);
+    return {
+      detectedDomain: heuristicDomain,
+      claims,
+      attackHotspots: buildFallbackHotspots(trimmed, heuristicDomain, claims),
+    };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // 2. GENERATE PERSONA RESPONSE
 // ---------------------------------------------------------------------------
@@ -286,11 +474,14 @@ export async function generatePersonaResponse(
     rawMaterial: params.rawMaterial,
   });
 
+  const customRoomBlock = buildCustomRoomBlock(params.roomContext);
+  const customRoomSection = customRoomBlock ? `\n\n${customRoomBlock}` : "";
+
   const userPrompt = `# CONVERSATION SO FAR
 ${params.transcript || "(Session just started.)"}
 
 # WHAT THE USER JUST SAID
-${params.userMessage}
+${params.userMessage}${customRoomSection}
 ${
     params.isInterrupt
       ? `
@@ -359,6 +550,7 @@ export async function generateOpening(params: {
   coachingFocus?: string | null;
   materialTitle?: string | null;
   rawMaterial?: string | null;
+  domain?: DomainKey | null;
 }): Promise<RawPersonaResponse> {
   const topicSubject =
     params.materialTitle?.trim() ||
@@ -378,18 +570,34 @@ export async function generateOpening(params: {
       coachingFocus: params.coachingFocus,
       materialTitle: params.materialTitle,
       rawMaterial: params.rawMaterial,
+      domain: params.domain,
     });
 
     const drillBlock = params.extraOpeningInstruction
       ? `\n\n${params.extraOpeningInstruction}`
       : "";
 
+    const activeDomain = resolveActiveDomain({
+      domain: params.domain,
+      roomContext: params.roomContext,
+      materialTitle: params.materialTitle,
+      rawMaterial: params.rawMaterial,
+    });
+    const domainPreset = DOMAIN_PRESETS[activeDomain];
+
     const topicDirective = topicSubject
-      ? `\n\nThe user's topic / thesis is: "${topicSubject}". Your opening challenge MUST directly question or probe "${topicSubject}" within its own intellectual domain (e.g., mathematics, science, philosophy, literature, engineering, policy, or business). NEVER ask corporate, revenue, market, or business questions unless "${topicSubject}" is explicitly about business.`
-      : "";
+      ? `\n\nThe user's topic / thesis is: "${topicSubject}".\n${domainPreset.positiveDirective}\nYour opening challenge MUST directly question or probe "${topicSubject}" within its own intellectual domain (${domainPreset.label}).${
+          params.roomContext?.includes("Priority Attack Hotspots:")
+            ? `\nTarget the first priority attack hotspot listed in ROOM CONTEXT and cite specific details from the user's material.`
+            : ""
+        }`
+      : `\n\n${domainPreset.positiveDirective}`;
+
+    const customRoomBlock = buildCustomRoomBlock(params.roomContext);
+    const customRoomSection = customRoomBlock ? `\n\n${customRoomBlock}` : "";
 
     const userPrompt = `# SESSION STARTING
-The user has just entered the sparring room. They have NOT yet spoken. As the first panelist to speak, deliver your OPENING CHALLENGE — a single, pointed question or provocation that sets the tone and probes the user's central claim or topic.${topicDirective}
+The user has just entered the sparring room. They have NOT yet spoken. As the first panelist to speak, deliver your OPENING CHALLENGE — a single, pointed question or provocation that sets the tone and probes the user's central claim or topic.${topicDirective}${customRoomSection}
 
 Do NOT introduce yourself. Do NOT say "welcome." Go straight at their argument.
 

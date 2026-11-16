@@ -182,6 +182,8 @@ export async function POST(
     userMessageForLlm = lastUserMsg?.content || "(User has not yet spoken.)";
   }
 
+  const sessionRoomContext = session.roomContext || scenario?.roomContext || "";
+
   const response = await generatePersonaResponse({
     archetype: nextPersona.archetype as ArchetypeKey,
     behaviorStyle: nextPersona.behaviorStyle as "gentle" | "moderate" | "aggressive",
@@ -193,7 +195,7 @@ export async function POST(
     transcript: transcriptStr,
     userMessage: userMessageForLlm,
     isInterrupt: body.isInterrupt || false,
-    roomContext: session.roomContext || scenario?.roomContext || "",
+    roomContext: sessionRoomContext,
     coachingFocus: session.coachingFocus ?? null,
     materialTitle: session.materialTitle ?? null,
     rawMaterial: session.rawMaterial ?? null,
@@ -219,7 +221,8 @@ export async function POST(
   const audio = await generatePersonaAudio(
     response.content,
     nextPersona.archetype as ArchetypeKey,
-    nextPersona.behaviorStyle as "gentle" | "moderate" | "aggressive"
+    nextPersona.behaviorStyle as "gentle" | "moderate" | "aggressive",
+    { seatOrder: nextPersona.seatOrder, roomContext: sessionRoomContext },
   );
 
   const newResponsesThisTurn = responsesThisTurn + 1;

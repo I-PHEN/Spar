@@ -1632,7 +1632,7 @@ export function CourseStudio({
                                   className={cn(
                                     "inline-flex h-4 min-w-[20px] items-center justify-center rounded px-1 text-[9px]",
                                     isSelected
-                                      ? "bg-[var(--accent)] text-white"
+                                      ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
                                       : "bg-white/[0.06] text-[var(--text-secondary)]"
                                   )}
                                 >

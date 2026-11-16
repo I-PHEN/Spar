@@ -11,6 +11,7 @@
 import type { ArchetypeKey, BehaviorStyle, DrillTarget } from "../types";
 import { buildDrillPrompt } from "../drills";
 import { buildPersonaIdentityBlocks, buildPersonaSessionRules } from "../personas";
+import { buildLiveAccentDirective } from "../voice-accents";
 import { MODE_CONTRACTS } from "./mode-contracts";
 
 export interface LiveInstructionParams {
@@ -53,11 +54,14 @@ Closing: ${contract.closingBehavior}`;
       ? buildDrillPrompt(params.drillTarget)
       : "";
 
+  const accentBlock = buildLiveAccentDirective(params.roomContext);
+
   return [
     buildPersonaIdentityBlocks(params),
     SPOKEN_RULES,
     modeContract,
     drillTargetBlock,
+    accentBlock,
     buildPersonaSessionRules({
       scenarioLabel: params.scenarioLabel,
       claims: params.claims,

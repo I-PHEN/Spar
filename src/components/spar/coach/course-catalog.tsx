@@ -3,9 +3,34 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Compass, Plus } from "lucide-react";
 import { type Course } from "@/lib/courses";
+import {
+  readStoredUserPreferences,
+  type DefaultDomainKey,
+} from "@/lib/user-preferences";
 import { useEnrolledCourses } from "@/lib/use-enrolled-courses";
 import { MyCourseCard } from "./my-course-card";
 import { BrowseCoursesPanel } from "./browse-courses-panel";
+
+function coursePriorityScore(course: Course, domain: DefaultDomainKey): number {
+  if (domain === "commercial") {
+    if (course.id === "boardroom-curveballs" || course.category === "Pressure practice") return 0;
+    if (course.id === "defending-under-fire") return 1;
+    return 2;
+  }
+  if (domain === "interview") {
+    if (course.id === "zero-hedge-concision" || course.category === "Communication") return 0;
+    if (course.id === "defending-under-fire") return 1;
+    return 2;
+  }
+  return 0;
+}
+
+function sortCoursesByDomain(courses: Course[], domain: DefaultDomainKey): Course[] {
+  if (domain === "sparring" || domain === "academic") return courses;
+  return [...courses].sort(
+    (a, b) => coursePriorityScore(a, domain) - coursePriorityScore(b, domain),
+  );
+}
 
 export interface CourseCatalogProps {
   courses: Course[];
@@ -22,9 +47,14 @@ export function CourseCatalog({
   onSelectCourse,
   onStartOrContinueLesson,
 }: CourseCatalogProps) {
+  const orderedCourses = useMemo(() => {
+    const prefs = readStoredUserPreferences();
+    return sortCoursesByDomain(courses, prefs.defaultDomain);
+  }, [courses]);
+
   // Enrolled courses state (persisted to localStorage with automatic progress migration)
   const { enrolledIds, enrollCourse, unenrollCourse } = useEnrolledCourses({
-    courses,
+    courses: orderedCourses,
     completedLessonIds,
     recentCourseIds,
   });
@@ -32,9 +62,14 @@ export function CourseCatalog({
   // Filter & sort enrolled courses
   const enrolledCourses = useMemo(() => {
     return enrolledIds
-      .map((id) => courses.find((c) => c.id === id))
+      .map((id) => orderedCourses.find((c) => c.id === id))
       .filter((c): c is Course => Boolean(c));
-  }, [enrolledIds, courses]);
+  }, [enrolledIds, orderedCourses]);
+
+  const activeEnrolledIds = useMemo(
+    () => enrolledCourses.map((c) => c.id),
+    [enrolledCourses]
+  );
 
   // Browse drawer open state with URL sync (?browse=1)
   const [isBrowseOpen, setIsBrowseOpen] = useState(() => {
@@ -90,156 +125,84 @@ export function CourseCatalog({
   }, []);
 
   return (
-    <div className="relative min-h-screen bg-[var(--bg-base)] text-[var(--text-primary)]">
-      {/* Background Atmosphere: Top-center ambient lighting (Coach level - dimmer than Practice) + subtle texture */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-0 z-0 overflow-hidden"
-      >
-        <div
-          className="absolute -top-[140px] left-1/2 h-[640px] w-[960px] -translate-x-1/2 rounded-full opacity-35 blur-[120px]"
-          style={{
-            background:
-              "radial-gradient(circle, var(--accent-soft) 0%, rgba(47,101,246,0.025) 45%, transparent 70%)",
-          }}
-        />
-        <div
-          className="absolute inset-0 opacity-[0.03] mix-blend-overlay"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-            backgroundRepeat: "repeat",
-          }}
-        />
-      </div>
-
-      <div className="relative z-10 mx-auto max-w-5xl px-4 py-8 pb-32 sm:px-6 sm:py-10 md:pb-16 space-y-10">
-        {/* 1. Header */}
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between border-b border-white/[0.06] pb-6">
-          <div className="space-y-1.5">
-            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--text-tertiary)]">
-              Executive Academy · Learn
-            </p>
-            <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)] sm:text-4xl">
-              Build your presence.
-            </h1>
-            <p className="max-w-2xl text-sm text-[var(--text-secondary)] sm:text-base">
-              Practise the skills that help you think clearly and speak with
-              confidence.
-            </p>
-          </div>
+    <div className="bg-[var(--bg-base)] text-[var(--text-primary)]">
+      <div className="mx-auto max-w-5xl space-y-6">
+        {/* 1. Minimal Header */}
+        <header className="flex items-center justify-between gap-4">
+          <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-3xl">
+            Coach
+          </h1>
 
           {/* Primary Header Browse Button */}
-          <div className="shrink-0">
-            <button
-              type="button"
-              onClick={handleOpenBrowse}
-              aria-label="Browse full course catalog"
-              className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/[0.04] px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition-all hover:border-white/40 hover:bg-white/[0.08] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
-            >
-              <Compass className="h-4 w-4 text-[var(--accent)]" />
-              <span>Browse courses</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleOpenBrowse}
+            aria-label="Browse full course catalog"
+            className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-xl border border-[#232327] bg-[#18181D] px-3.5 text-xs font-semibold text-white transition-colors hover:border-[#34343B] hover:bg-[#202026] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/50"
+          >
+            <Compass className="h-4 w-4 text-[var(--accent-text)]" />
+            <span>Browse courses</span>
+          </button>
         </header>
 
-        {/* 2. My courses (The Primary Content) */}
-        <section aria-label="Continue learning" className="space-y-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                Continue learning
-              </h2>
-              <p className="text-base sm:text-lg font-bold text-[var(--text-primary)]">
-                My courses
-              </p>
-            </div>
-            {enrolledCourses.length > 0 && (
-              <span className="text-xs text-[var(--text-secondary)]">
-                {enrolledCourses.length}{" "}
-                {enrolledCourses.length === 1 ? "course" : "courses"} in training plan
-              </span>
-            )}
-          </div>
-
+        {/* 2. My courses */}
+        <section aria-label="My courses" className="space-y-4">
           {/* Empty State */}
           {enrolledCourses.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-[20px] border border-[var(--border-subtle)] bg-[var(--surface-1)] px-6 py-12 text-center shadow-lg">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-[var(--accent)] mb-4">
-                <Compass className="h-7 w-7" />
+            <div className="flex flex-col items-center justify-center rounded-xl border border-[#232327] bg-[#121215] px-5 py-9 text-center">
+              <div className="mb-3.5 flex h-11 w-11 items-center justify-center rounded-xl border border-[#232327] bg-[#18181D] text-[var(--accent-text)]">
+                <Compass className="h-5 w-5" />
               </div>
-              <h3 className="text-lg font-bold text-white">
-                Pick your first course to begin training.
-              </h3>
-              <p className="mt-1.5 max-w-md text-xs sm:text-sm text-[var(--text-secondary)]">
-                Browse interactive courses on high-stakes communication, defending under pressure, and executive presence.
-              </p>
+              <h2 className="text-base font-semibold text-white sm:text-lg">
+                No courses added yet
+              </h2>
               <button
                 type="button"
                 onClick={handleOpenBrowse}
-                className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-full px-7 text-xs font-bold text-white transition-all spar-tactile-btn shadow-md active:scale-95"
+                className="mt-4 inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-xs font-semibold text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent-hover)] active:scale-[0.98]"
               >
                 <Compass className="h-4 w-4" />
                 <span>Browse courses</span>
               </button>
 
-              {/* Quick suggested course pills */}
-              {courses.length > 0 && (
-                <div className="mt-8 pt-6 border-t border-white/[0.06] w-full max-w-md">
-                  <p className="text-[11px] font-mono uppercase tracking-wider text-[var(--text-tertiary)] mb-3">
-                    Recommended starters
-                  </p>
-                  <div className="flex flex-wrap justify-center gap-2">
-                    {courses.slice(0, 3).map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => enrollCourse(c.id)}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-xs text-neutral-300 transition-colors hover:border-white/30 hover:bg-white/[0.07] hover:text-white"
-                      >
-                        <Plus className="h-3 w-3 text-[var(--accent)]" />
-                        <span>{c.title}</span>
-                      </button>
-                    ))}
-                  </div>
+              {orderedCourses.length > 0 && (
+                <div className="mt-6 flex w-full max-w-md flex-wrap justify-center gap-2 border-t border-[#232327] pt-5">
+                  {orderedCourses.slice(0, 3).map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => enrollCourse(c.id)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#232327] bg-[#18181D] px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:border-[#34343B] hover:text-white"
+                    >
+                      <Plus className="h-3 w-3 text-[var(--accent-text)]" />
+                      <span>{c.title}</span>
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
           ) : (
-            <div className="space-y-4">
-              {/* Vertically stacked full-width course cards */}
-              {enrolledCourses.map((course, idx) => (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {enrolledCourses.map((course) => (
                 <MyCourseCard
                   key={course.id}
                   course={course}
                   completedLessonIds={completedLessonIds}
-                  isHeroCourse={idx === 0}
                   onSelectCourse={onSelectCourse}
                   onStartOrContinueLesson={onStartOrContinueLesson}
                   onRemoveCourse={unenrollCourse}
                 />
               ))}
-
-              {/* End-of-list card */}
-              <button
-                type="button"
-                onClick={handleOpenBrowse}
-                className="group flex w-full items-center justify-center gap-3 rounded-[20px] border-2 border-dashed border-white/15 bg-white/[0.015] py-5 px-6 text-sm font-semibold text-[var(--text-secondary)] transition-all duration-200 hover:border-white/30 hover:bg-white/[0.04] hover:text-white"
-              >
-                <div className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-neutral-400 transition-colors group-hover:border-white/30 group-hover:text-white">
-                  <Plus className="h-4 w-4" />
-                </div>
-                <span>Add another course</span>
-              </button>
             </div>
           )}
         </section>
 
-        {/* 3. In-Page Browse Courses Slide-Over Drawer / Bottom Sheet */}
+        {/* 3. Browse Courses Slide-Over Drawer / Bottom Sheet */}
         <BrowseCoursesPanel
           open={isBrowseOpen}
           onClose={handleCloseBrowse}
-          courses={courses}
-          enrolledCourseIds={enrolledIds}
+          courses={orderedCourses}
+          enrolledCourseIds={activeEnrolledIds}
           onEnrollCourse={enrollCourse}
           onSelectCourse={(courseId) => {
             handleCloseBrowse();

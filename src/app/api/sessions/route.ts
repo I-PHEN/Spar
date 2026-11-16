@@ -3,12 +3,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getDefaultUserId } from "@/lib/user";
-import { extractClaims } from "@/lib/llm";
+import { syncToSupabaseTable } from "@/lib/supabase";
+import { buildFallbackClaims, extractClaims } from "@/lib/llm";
 import { ARCHETYPES } from "@/lib/personas";
+import {
+  formatSessionRoomContext,
+  inferDomainFromText,
+  type AttackAngleKey,
+  type AttackHotspot,
+  type DomainKey,
+  type DrillStrictnessKey,
+  type StanceKey,
+} from "@/lib/domains";
 import { EXPERIENCES, type ExperienceKey, type DrillTarget } from "@/lib/experiences";
+import {
+  formatVoiceProfileTags,
+  isAccentKey,
+  isVoiceToneKey,
+  type AccentKey,
+  type VoiceToneKey,
+} from "@/lib/voice-accents";
 import type {
   ArchetypeKey,
   BehaviorStyle,
+  ExtractedClaim,
   PersonaConfig,
   SessionMode,
 } from "@/lib/types";
@@ -22,6 +40,14 @@ interface CreateSessionBody {
   rawMaterial?: string;
   materialTitle?: string;
   roomContext?: string;
+  domain?: DomainKey | null;
+  stance?: StanceKey | null;
+  attackAngles?: AttackAngleKey[];
+  drillStrictness?: DrillStrictnessKey | null;
+  voiceAccent?: AccentKey | null;
+  voiceTone?: VoiceToneKey | null;
+  hotspots?: AttackHotspot[];
+  claims?: ExtractedClaim[];
   personas: PersonaConfig[];
 }
 
@@ -38,6 +64,14 @@ export async function GET() {
     },
   });
   return NextResponse.json({ sessions });
+}
+
+export async function DELETE() {
+  const userId = await getDefaultUserId();
+  const result = await db.session.deleteMany({
+    where: { userId },
+  });
+  return NextResponse.json({ deletedCount: result.count });
 }
 
 export async function POST(req: NextRequest) {
@@ -80,22 +114,56 @@ export async function POST(req: NextRequest) {
 
   // Get the experience definition (for the default room context)
   const exp = EXPERIENCES[body.experience];
-  // Use custom room context if provided, otherwise the experience default
-  const roomContext =
-    body.roomContext?.trim().slice(0, 1000) || exp.roomContext;
-
-  // Extract claims if material or topic was provided (for both with_material and without_material topic mode).
-  let extractedClaims: string | null = null;
   const rawMaterial = body.rawMaterial?.trim() || null;
-  if (rawMaterial && rawMaterial.length >= 10 && !rawMaterial.startsWith("Course:")) {
-    try {
-      const claims = await extractClaims(rawMaterial);
-      if (claims.length > 0) {
-        extractedClaims = JSON.stringify(claims);
-      }
-    } catch (err) {
-      console.error("[sessions/create] claim extraction failed:", err);
+  const activeDomain: DomainKey =
+    body.domain ||
+    inferDomainFromText(rawMaterial, body.materialTitle);
+
+  const voiceAccent = isAccentKey(body.voiceAccent) ? body.voiceAccent : null;
+  const voiceTone = isVoiceToneKey(body.voiceTone) ? body.voiceTone : null;
+  const seatAccents: Record<number, AccentKey> = {};
+  body.personas.forEach((p, idx) => {
+    if (isAccentKey(p.accent) && p.accent !== "mixed") {
+      seatAccents[idx] = p.accent;
     }
+  });
+  const coachVoiceTags = formatVoiceProfileTags({
+    accent: voiceAccent,
+    voiceTone,
+    seatAccents,
+  });
+
+  // Format room context with domain preset anchor, custom room notes, and priority hotspots
+  const roomContext = rawMaterial?.startsWith("Course:")
+    ? [body.roomContext?.trim().slice(0, 1000) || exp.roomContext, coachVoiceTags]
+        .filter(Boolean)
+        .join("\n")
+    : formatSessionRoomContext({
+        domain: activeDomain,
+        stance: body.stance,
+        attackAngles: Array.isArray(body.attackAngles) ? body.attackAngles : undefined,
+        drillStrictness: body.experience === "drill" ? body.drillStrictness : null,
+        voiceAccent,
+        voiceTone,
+        seatAccents,
+        customRoom: body.roomContext,
+        defaultRoomContext: exp.roomContext,
+        hotspots: Array.isArray(body.hotspots) ? body.hotspots : undefined,
+      });
+
+  // Seed immediate heuristic claims synchronously so room entry never stalls
+  // on an LLM call; refine via background extractClaims when material is substantial.
+  let extractedClaims: string | null = null;
+  let shouldEnrichClaimsInBackground = false;
+  if (Array.isArray(body.claims) && body.claims.length > 0) {
+    extractedClaims = JSON.stringify(body.claims.slice(0, 5));
+  } else if (rawMaterial && rawMaterial.length >= 10 && !rawMaterial.startsWith("Course:")) {
+    const immediateClaims = buildFallbackClaims(rawMaterial);
+    if (immediateClaims.length > 0) {
+      extractedClaims = JSON.stringify(immediateClaims);
+    }
+    shouldEnrichClaimsInBackground =
+      process.env.NODE_ENV !== "test" && rawMaterial.length >= 80;
   }
 
   // For Defense experience, the session starts in "presenting" status
@@ -131,6 +199,34 @@ export async function POST(req: NextRequest) {
     include: {
       personas: { orderBy: { seatOrder: "asc" } },
     },
+  });
+
+  if (shouldEnrichClaimsInBackground && rawMaterial) {
+    void extractClaims(rawMaterial)
+      .then((claims) => {
+        if (claims.length === 0) return;
+        return db.session.update({
+          where: { id: session.id },
+          data: { extractedClaims: JSON.stringify(claims) },
+        });
+      })
+      .catch((err) => {
+        console.error("[sessions/create] background claim extraction failed:", err);
+      });
+  }
+
+  void syncToSupabaseTable("Session", {
+    id: session.id,
+    userId: session.userId,
+    experience: session.experience,
+    drillTarget: session.drillTarget,
+    scenario: session.scenario,
+    mode: session.mode,
+    rawMaterial: session.rawMaterial,
+    materialTitle: session.materialTitle,
+    roomContext: session.roomContext,
+    status: session.status,
+    updatedAt: new Date().toISOString(),
   });
 
   return NextResponse.json({ session });

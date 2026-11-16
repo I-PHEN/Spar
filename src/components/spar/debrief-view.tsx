@@ -22,6 +22,9 @@ import {
   ChevronRight,
   Activity,
   CheckCircle2,
+  Star,
+  MessageSquare,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { DebriefPayload, TelemetrySnapshot } from "@/lib/types";
@@ -220,6 +223,7 @@ export function DebriefView({
 
   return (
     <DebriefContent
+      sessionId={sessionId}
       scenarioLabel={scenarioLabel}
       courseContext={courseContext}
       data={data}
@@ -241,6 +245,7 @@ export function DebriefView({
  * Pure presentation component for the Executive Coaching Dossier.
  */
 export function DebriefContent({
+  sessionId,
   scenarioLabel,
   courseContext,
   data,
@@ -255,6 +260,7 @@ export function DebriefContent({
   onBackHome,
   onSparAgain,
 }: {
+  sessionId?: string;
   scenarioLabel?: string;
   courseContext?: DebriefViewProps["courseContext"];
   data: DebriefResponse;
@@ -297,27 +303,6 @@ export function DebriefContent({
 
   return (
     <div className="relative min-h-screen bg-[var(--bg-base)] text-[var(--text-primary)]">
-      {/* Top-center Electric Cobalt atmospheric lighting dome */}
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0 z-0 overflow-hidden"
-      >
-        <div
-          className="absolute -top-[160px] left-1/2 h-[600px] w-[900px] -translate-x-1/2 rounded-full opacity-30 blur-[110px]"
-          style={{
-            background:
-              "radial-gradient(circle, var(--accent-soft) 0%, rgba(47,101,246,0.03) 45%, transparent 70%)",
-          }}
-        />
-        <div
-          className="absolute inset-0 opacity-[0.035] mix-blend-overlay"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-            backgroundRepeat: "repeat",
-          }}
-        />
-      </div>
-
       <div className="relative z-10 mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
         {/* Executive Memo Header */}
         <motion.div
@@ -333,7 +318,7 @@ export function DebriefContent({
                   className={cn(
                     "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em]",
                     completedRep
-                      ? "border-[var(--accent)]/35 bg-[var(--accent-soft)]/15 text-[#93B4FF]"
+                      ? "border-[var(--accent-border)] bg-[var(--accent-soft)] text-[var(--accent-text)]"
                       : "border-amber-500/30 bg-amber-500/10 text-amber-300"
                   )}
                 >
@@ -353,7 +338,7 @@ export function DebriefContent({
               </>
             ) : (
               <>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--accent)]/30 bg-[var(--accent-soft)]/12 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#93B4FF]">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--accent-border)] bg-[var(--accent-soft)] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--accent-text)]">
                   <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)] shadow-[0_0_6px_var(--accent)]" />
                   Executive Dossier
                 </span>
@@ -384,7 +369,7 @@ export function DebriefContent({
             <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-[var(--accent)]/30 bg-[var(--surface-1)] px-4 py-3.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]">
               <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#93B4FF]">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--accent-text)]">
                   Lesson Target Evaluated
                 </p>
                 <p className="mt-0.5 text-xs leading-relaxed text-[var(--text-primary)]">
@@ -656,7 +641,7 @@ export function DebriefContent({
           {/* Skill snapshot — illuminated baseline bars (Full practice debrief only) */}
           {!courseContext && data.skillSnapshot && (
             <motion.div variants={itemVariants}>
-              <div className="rounded-[20px] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_8px_24px_-12px_rgba(0,0,0,0.6)]">
+              <div className="rounded-xl border border-[#232327] bg-[#121215] p-5">
                 <p className="mb-4 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
                   Skill baseline (this session)
                 </p>
@@ -669,9 +654,9 @@ export function DebriefContent({
                     { name: "Evidence", v: data.skillSnapshot.evidence },
                   ].map((s) => (
                     <div key={s.name} className="flex flex-col items-center">
-                      <div className="relative h-18 w-2.5 overflow-hidden rounded-full border border-white/10 bg-[var(--surface-2)]">
+                      <div className="relative h-18 w-2.5 overflow-hidden rounded-full border border-[#232327] bg-[#18181D]">
                         <div
-                          className="absolute bottom-0 w-full rounded-full bg-[var(--accent)] shadow-[0_0_10px_var(--accent-soft)] transition-all duration-500"
+                          className="absolute bottom-0 w-full rounded-full bg-[var(--accent)] transition-all duration-500"
                           style={{ height: `${s.v}%` }}
                         />
                       </div>
@@ -706,7 +691,7 @@ export function DebriefContent({
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 transition={{ duration: 0.2 }}
-                className="mt-3 max-h-96 overflow-y-auto rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-1)] p-4"
+                className="mt-3 max-h-96 overflow-y-auto rounded-xl border border-[#232327] bg-[#121215] p-4"
               >
                 <div className="space-y-3">
                   {data.transcript.map((m, i) => {
@@ -752,6 +737,12 @@ export function DebriefContent({
             )}
           </div>
         )}
+
+        {/* Tester Pulse 1–5 Rating Card & Early Testers WhatsApp Community Funnel */}
+        <div className="mt-6 space-y-4">
+          <TesterPulseCard sessionId={sessionId} scenarioLabel={scenarioLabel} />
+          <WhatsAppCommunityBanner />
+        </div>
 
         {/* Footer Navigation CTAs */}
         <div className="mt-8 flex flex-col gap-3 border-t border-[var(--border-subtle)] pt-6 sm:flex-row sm:justify-between">
@@ -801,7 +792,7 @@ export function DebriefSection({
   children: React.ReactNode;
 }) {
   const accentClasses = {
-    primary: "text-[var(--accent)] bg-[var(--accent-soft)]/20 border border-[var(--accent)]/30",
+    primary: "text-[var(--accent-text)] bg-[var(--accent-soft)] border border-[var(--accent-border)]",
     emerald: "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20",
     amber: "text-amber-400 bg-amber-500/10 border border-amber-500/20",
     slate: "text-[var(--text-secondary)] bg-[var(--surface-2)] border border-[var(--border-subtle)]",
@@ -809,10 +800,10 @@ export function DebriefSection({
   return (
     <section
       className={cn(
-        "rounded-[20px] border p-5 sm:p-6 transition-all shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_8px_24px_-12px_rgba(0,0,0,0.6)]",
+        "rounded-xl border p-5 sm:p-6 transition-colors",
         highlighted
-          ? "border-[var(--accent)]/35 bg-[var(--surface-1)]"
-          : "border-[var(--border-subtle)] bg-[var(--surface-1)] hover:border-[var(--border-strong)]"
+          ? "border-[var(--accent-border)] bg-[#121215]"
+          : "border-[#232327] bg-[#121215] hover:border-[#34343B]"
       )}
     >
       <div className="mb-3.5 flex items-center gap-2.5">
@@ -848,7 +839,7 @@ export function TelemetryInsight({
           {label}
         </span>
         {metric && (
-          <span className="font-mono text-[10px] text-[#93B4FF] tabular-nums">
+          <span className="font-mono text-[10px] text-[var(--accent-text)] tabular-nums">
             {metric}
           </span>
         )}
@@ -908,7 +899,7 @@ export function YourAnswersSection({
   const hasClips = clips.size > 0;
 
   return (
-    <section className="rounded-[20px] border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 sm:p-6 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06),0_8px_24px_-12px_rgba(0,0,0,0.6)]">
+    <section className="rounded-xl border border-[#232327] bg-[#121215] p-5 sm:p-6">
       <div className="mb-3.5 flex items-center gap-2.5">
         <span className="flex h-6 w-6 items-center justify-center rounded-md border border-[var(--accent)]/30 bg-[var(--accent-soft)]/20 text-[var(--accent)]">
           <Headphones className="h-3.5 w-3.5" />
@@ -956,8 +947,8 @@ export function YourAnswersSection({
                     className={cn(
                       "flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full transition-all",
                       isPlaying
-                        ? "bg-[var(--accent)] text-white shadow-[0_0_12px_var(--accent-soft)]"
-                        : "bg-white/10 text-white hover:bg-[var(--accent)] hover:text-white"
+                        ? "bg-[var(--accent)] text-[var(--accent-foreground)] shadow-[0_0_12px_var(--accent-soft)]"
+                        : "bg-white/10 text-white hover:bg-[var(--accent)] hover:text-[var(--accent-foreground)]"
                     )}
                     aria-label={isPlaying ? "Pause" : "Play"}
                   >
@@ -988,7 +979,7 @@ export function YourAnswersSection({
                         <span className="w-0.5 h-full bg-[var(--accent)] animate-pulse" />
                         <span className="w-0.5 h-1/2 bg-[var(--accent)] animate-pulse" style={{ animationDelay: "150ms" }} />
                         <span className="w-0.5 h-3/4 bg-[var(--accent)] animate-pulse" style={{ animationDelay: "300ms" }} />
-                        <span className="text-[#93B4FF] ml-1 text-[9px] uppercase tracking-wider">
+                        <span className="text-[var(--accent-text)] ml-1 text-[9px] uppercase tracking-wider">
                           Playing
                         </span>
                       </span>
@@ -1039,5 +1030,280 @@ export function DrillStat({ label, value }: { label: string; value: string }) {
         {value}
       </p>
     </div>
+  );
+}
+
+const TESTER_PULSE_TAGS = [
+  "Sharp Pushback",
+  "Grounded in My Material",
+  "Auto-Mic Felt Natural",
+  "Loved the Drill Buzzer",
+  "Too Easy",
+  "Off-Topic Question",
+];
+
+export function TesterPulseCard({
+  sessionId,
+  scenarioLabel,
+}: {
+  sessionId?: string;
+  scenarioLabel?: string;
+}) {
+  const [rating, setRating] = useState<number>(0);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [comment, setComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    let mounted = true;
+    fetch(`/api/sessions/${encodeURIComponent(sessionId)}/feedback`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (!mounted || !json?.feedback) return;
+        setRating(Number(json.feedback.rating) || 0);
+        setSelectedTags(Array.isArray(json.feedback.tags) ? json.feedback.tags : []);
+        setComment(typeof json.feedback.comment === "string" ? json.feedback.comment : "");
+        setSubmitted(true);
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, [sessionId]);
+
+  function toggleTag(tag: string) {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (rating < 1 || rating > 5 || submitting) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const targetId = sessionId || "general";
+      const res = await fetch(`/api/sessions/${encodeURIComponent(targetId)}/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rating,
+          tags: selectedTags,
+          comment: comment.trim() || undefined,
+          scenarioLabel,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setSubmitError(json.error || "Could not save feedback");
+        return;
+      }
+      setSubmitted(true);
+    } catch {
+      setSubmitError("Network error while saving feedback");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-[#232327] bg-[#121215] p-5 sm:p-6">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-6 w-6 items-center justify-center rounded-md border border-amber-500/30 bg-amber-500/10 text-amber-400">
+            <Star className="h-3.5 w-3.5" />
+          </span>
+          <div>
+            <h2 className="text-sm font-semibold tracking-tight text-[var(--text-primary)]">
+              Tester Pulse — Rate This Round
+            </h2>
+          </div>
+        </div>
+        <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--text-tertiary)]">
+          Early Beta Feedback
+        </span>
+      </div>
+
+      {submitted ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="h-4 w-4 text-emerald-400 flex-shrink-0" />
+            <div>
+              <p className="text-xs font-semibold text-white">
+                Thanks for rating this round ({rating}/5).
+              </p>
+              <p className="text-[11px] text-[var(--text-secondary)]">
+                Your feedback helps us tune panel pushback and voice timing before full launch.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSubmitted(false)}
+            className="text-[11px] font-medium text-emerald-300 hover:underline"
+          >
+            Update rating
+          </button>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            {[1, 2, 3, 4, 5].map((star) => {
+              const active = star <= rating;
+              return (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => setRating(star)}
+                  aria-label={`Rate ${star} out of 5 stars`}
+                  aria-pressed={active}
+                  className={cn(
+                    "flex h-9 w-9 items-center justify-center rounded-xl border transition-all",
+                    active
+                      ? "border-amber-400/50 bg-amber-500/15 text-amber-400"
+                      : "border-[var(--border-subtle)] bg-[var(--surface-2)] text-[var(--text-tertiary)] hover:border-white/20 hover:text-amber-300"
+                  )}
+                >
+                  <Star className={cn("h-4 w-4", active && "fill-amber-400")} />
+                </button>
+              );
+            })}
+            <span className="ml-1 text-xs text-[var(--text-secondary)]">
+              {rating === 0
+                ? "Select 1–5 stars"
+                : rating === 5
+                ? "Sharpest round yet"
+                : rating === 4
+                ? "Strong spar"
+                : rating === 3
+                ? "Solid, room to tighten"
+                : "Needs tuning"}
+            </span>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">
+            {TESTER_PULSE_TAGS.map((tag) => {
+              const selected = selectedTags.includes(tag);
+              return (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => toggleTag(tag)}
+                  aria-pressed={selected}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-[11px] font-medium transition-all",
+                    selected
+                      ? "border-[var(--accent)] bg-[var(--accent)]/20 text-white"
+                      : "border-[var(--border-subtle)] bg-[var(--surface-2)] text-[var(--text-secondary)] hover:border-white/20 hover:text-white"
+                  )}
+                >
+                  {tag}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex flex-col gap-2.5 sm:flex-row">
+            <input
+              type="text"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="What felt sharpest? Anything feel off or worth improving for debaters?"
+              className="flex-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3.5 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--accent)] focus:outline-none"
+            />
+            <Button
+              type="submit"
+              size="sm"
+              disabled={rating === 0 || submitting}
+              className="rounded-xl bg-[var(--accent)] px-5 text-xs font-semibold text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] disabled:opacity-40"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Saving...
+                </>
+              ) : (
+                "Submit Feedback"
+              )}
+            </Button>
+          </div>
+
+          {submitError && (
+            <p className="text-xs text-red-400">{submitError}</p>
+          )}
+        </form>
+      )}
+    </section>
+  );
+}
+
+export function WhatsAppCommunityBanner({
+  compact = false,
+}: {
+  compact?: boolean;
+} = {}) {
+  const communityUrl =
+    process.env.NEXT_PUBLIC_WHATSAPP_COMMUNITY_URL?.trim() ||
+    "https://chat.whatsapp.com/";
+
+  if (compact) {
+    return (
+      <section className="flex flex-col gap-3 rounded-xl border border-[#232327] bg-[#121215] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className="h-2 w-2 flex-shrink-0 rounded-full bg-emerald-400" />
+          <p className="text-xs text-[var(--text-secondary)] truncate">
+            <span className="font-medium text-[var(--text-primary)]">
+              Early Testers Community
+            </span>
+            <span className="mx-1.5 text-[var(--text-tertiary)]">·</span>
+            <span>Share feedback &amp; request formats with the founders.</span>
+          </p>
+        </div>
+        <a
+          href={communityUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300 transition-colors hover:bg-emerald-500/20 hover:text-white"
+        >
+          Join WhatsApp Group
+          <ExternalLink className="h-3 w-3" />
+        </a>
+      </section>
+    );
+  }
+
+  return (
+    <section className="rounded-xl border border-emerald-500/25 bg-[#121215] p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
+            <MessageSquare className="h-4 w-4" />
+          </span>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-400">
+              Early Testers Community
+            </p>
+            <h3 className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
+              Join the Spar Debaters &amp; Speakers WhatsApp Group
+            </h3>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">
+              Drop feedback directly to the founders, request debate formats, and get early feature drops.
+            </p>
+          </div>
+        </div>
+        <a
+          href={communityUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex flex-shrink-0 items-center justify-center gap-1.5 rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-4 py-2 text-xs font-semibold text-emerald-200 transition-colors hover:bg-emerald-500/20 hover:text-white"
+        >
+          Join WhatsApp Group
+          <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+      </div>
+    </section>
   );
 }

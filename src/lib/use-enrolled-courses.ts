@@ -57,25 +57,22 @@ export function useEnrolledCourses({
     return Array.from(new Set(fallback));
   });
 
+  const effectiveEnrolledIds = useMemo(() => {
+    if (inProgressCourseIds.length === 0) return enrolledIds;
+    const missing = inProgressCourseIds.filter((id) => !enrolledIds.includes(id));
+    if (missing.length === 0) return enrolledIds;
+    return [...missing, ...enrolledIds];
+  }, [enrolledIds, inProgressCourseIds]);
+
   // Sync state to localStorage
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(enrolledIds));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(effectiveEnrolledIds));
     } catch {
       // Ignore quota errors
     }
-  }, [enrolledIds]);
-
-  // Migration effect: ensure any course with progress is added automatically
-  useEffect(() => {
-    if (inProgressCourseIds.length === 0) return;
-    setEnrolledIds((prev) => {
-      const missing = inProgressCourseIds.filter((id) => !prev.includes(id));
-      if (missing.length === 0) return prev;
-      return [...missing, ...prev];
-    });
-  }, [inProgressCourseIds]);
+  }, [effectiveEnrolledIds]);
 
   const enrollCourse = useCallback((courseId: string) => {
     setEnrolledIds((prev) => {
@@ -89,12 +86,12 @@ export function useEnrolledCourses({
   }, []);
 
   const isEnrolled = useCallback(
-    (courseId: string) => enrolledIds.includes(courseId),
-    [enrolledIds]
+    (courseId: string) => effectiveEnrolledIds.includes(courseId),
+    [effectiveEnrolledIds]
   );
 
   return {
-    enrolledIds,
+    enrolledIds: effectiveEnrolledIds,
     enrollCourse,
     unenrollCourse,
     isEnrolled,

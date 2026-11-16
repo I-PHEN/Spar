@@ -84,9 +84,9 @@ export function RoadmapNode({
             "h-14 w-14 sm:h-16 sm:w-16 md:h-18 md:w-18",
             // Outer Concentric Ring & Bevel Depth
             isCurrent
-              ? "p-2 rounded-full border-2 border-[var(--accent)] bg-[var(--surface-2)] shadow-[0_0_24px_rgba(47,101,246,0.45),0_8px_16px_rgba(0,0,0,0.6)] ring-4 ring-[var(--accent)]/30"
+              ? "p-2 rounded-full border-2 border-[var(--accent)] bg-[var(--surface-2)] shadow-[0_0_24px_var(--accent-soft),0_8px_16px_rgba(0,0,0,0.6)] ring-4 ring-[var(--accent)]/30"
               : isSelected
-              ? "p-1.5 rounded-full border border-[var(--accent)] bg-[var(--surface-1)] shadow-[0_0_16px_rgba(47,101,246,0.25)]"
+              ? "p-1.5 rounded-full border border-[var(--accent)] bg-[var(--surface-1)] shadow-[0_0_16px_var(--accent-soft)]"
               : "p-1 rounded-full bg-white/[0.04] shadow-[0_4px_10px_rgba(0,0,0,0.5)]"
           )}
         >
@@ -95,7 +95,7 @@ export function RoadmapNode({
             className={cn(
               "flex h-full w-full items-center justify-center rounded-full border transition-all duration-200",
               isCurrent
-                ? "border-[var(--accent)] bg-gradient-to-b from-[var(--accent)] to-[#1E40AF] text-white shadow-[inset_0_2px_4px_rgba(255,255,255,0.4),0_4px_10px_rgba(0,0,0,0.5)]"
+                ? "border-[var(--accent)] bg-gradient-to-b from-[var(--accent)] to-[var(--accent-dark)] text-[var(--accent-foreground)] shadow-[inset_0_2px_4px_rgba(255,255,255,0.4),0_4px_10px_rgba(0,0,0,0.5)]"
                 : isCompleted
                 ? "border-emerald-500/40 bg-[#141d18] text-emerald-400 hover:border-emerald-500/70 shadow-[inset_0_1px_2px_rgba(255,255,255,0.1),0_2px_4px_rgba(0,0,0,0.4)]"
                 : "border-white/10 bg-[#121218] text-neutral-400 hover:border-white/25 hover:text-white shadow-[inset_0_1px_2px_rgba(255,255,255,0.05),0_2px_4px_rgba(0,0,0,0.4)]"
@@ -106,7 +106,7 @@ export function RoadmapNode({
               className={cn(
                 "flex h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-105",
                 isCurrent
-                  ? "border border-white/30 bg-white text-[var(--accent)] shadow-md"
+                  ? "border border-[var(--accent-foreground)]/20 bg-[var(--accent-foreground)] text-[var(--accent)] shadow-md"
                   : isCompleted
                   ? "border border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
                   : "border border-white/10 bg-white/[0.02] text-neutral-400"

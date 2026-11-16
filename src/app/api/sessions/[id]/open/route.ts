@@ -14,6 +14,7 @@ import { generatePersonaAudio } from "@/lib/voice";
 import { SCENARIOS } from "@/lib/scenarios";
 import { ARCHETYPES } from "@/lib/personas";
 import { buildDrillOpeningInstruction, getDrillDefinition } from "@/lib/drills";
+import { resolveActiveDomain } from "@/lib/domains";
 import { extractLessonOpeningAttack } from "@/lib/courses";
 import type { ArchetypeKey, DrillTarget, ExtractedClaim } from "@/lib/types";
 
@@ -35,7 +36,7 @@ export async function POST(
             where: { status: "debriefed" },
             orderBy: { endedAt: "desc" },
             take: 3,
-            include: { summary: true, personas: true },
+            include: { summary: true },
           },
         },
       },
@@ -62,6 +63,11 @@ export async function POST(
   const scenarioLabel = scenario?.label || "Custom Session";
   const roomContext = session.roomContext || scenario?.roomContext || "";
   const coachingFocus = session.coachingFocus ?? null;
+  const activeDomain = resolveActiveDomain({
+    roomContext,
+    materialTitle: session.materialTitle,
+    rawMaterial: session.rawMaterial,
+  });
 
   // ─── Defense & Boardroom: user presents first. ─────────────────────────
   // The user presents their material. The session stays in "presenting" status.
@@ -90,19 +96,19 @@ export async function POST(
   }
 
   // ─── Other experiences: panel speaks first (existing flow) ────────────
-  // Mark session as active.
-  await db.session.update({
+  // Mark session as active in parallel with generating the opening challenge.
+  const firstPersona = session.personas[0];
+  if (!firstPersona) {
+    return NextResponse.json({ error: "No personas configured" }, { status: 400 });
+  }
+
+  const activatePromise = db.session.update({
     where: { id },
     data: {
       status: "active",
       startedAt: new Date(),
     },
   });
-
-  const firstPersona = session.personas[0];
-  if (!firstPersona) {
-    return NextResponse.json({ error: "No personas configured" }, { status: 400 });
-  }
 
   // ─── Drill Mode: the lead persona matches the drill target. ──────────────
   // The persona whose archetype matches the drill's leadArchetype opens
@@ -148,57 +154,63 @@ export async function POST(
     roomContext
   );
 
-  const opening = lessonOpeningAttack
-    ? (() => {
-        if (session.experience === "drill") {
-          const drillTarget = (session.drillTarget as DrillTarget) || "hedging";
-          const def = getDrillDefinition(drillTarget);
-          return {
-            content: `We're drilling ${def.label.toLowerCase()}. ${def.description} ${lessonOpeningAttack}`,
-            type: "opening" as const,
-            claimRef: null,
-            mood: "pressing" as const,
-          };
-        }
-        return {
-          content: lessonOpeningAttack,
-          type: "opening" as const,
-          claimRef: null,
-          mood: "pressing" as const,
-        };
-      })()
-    : await generateOpening({
-        archetype: openingPersona.archetype as ArchetypeKey,
-        behaviorStyle: openingPersona.behaviorStyle as "gentle" | "moderate" | "aggressive",
-        scenarioLabel,
-        claims,
-        patternMemory,
-        otherPersonas,
-        extraOpeningInstruction: drillOpeningInstruction,
-        roomContext,
-        coachingFocus,
-        materialTitle: session.materialTitle,
-        rawMaterial: session.rawMaterial,
-      });
+  const [, opening] = await Promise.all([
+    activatePromise,
+    lessonOpeningAttack
+      ? Promise.resolve(
+          session.experience === "drill"
+            ? (() => {
+                const drillTarget = (session.drillTarget as DrillTarget) || "hedging";
+                const def = getDrillDefinition(drillTarget);
+                return {
+                  content: `We're drilling ${def.label.toLowerCase()}. ${def.description} ${lessonOpeningAttack}`,
+                  type: "opening" as const,
+                  claimRef: null,
+                  mood: "pressing" as const,
+                };
+              })()
+            : {
+                content: lessonOpeningAttack,
+                type: "opening" as const,
+                claimRef: null,
+                mood: "pressing" as const,
+              }
+        )
+      : generateOpening({
+          archetype: openingPersona.archetype as ArchetypeKey,
+          behaviorStyle: openingPersona.behaviorStyle as "gentle" | "moderate" | "aggressive",
+          scenarioLabel,
+          claims,
+          patternMemory,
+          otherPersonas,
+          extraOpeningInstruction: drillOpeningInstruction,
+          roomContext,
+          coachingFocus,
+          materialTitle: session.materialTitle,
+          rawMaterial: session.rawMaterial,
+          domain: activeDomain,
+        }),
+  ]);
 
-  // Persist the opening as the first message.
-  const message = await db.sessionMessage.create({
-    data: {
-      sessionId: session.id,
-      personaId: openingPersona.id,
-      role: "persona",
-      content: opening.content,
-      type: "opening",
-      claimRef: opening.claimRef ?? null,
-    },
-  });
-
-  // Generate TTS audio for the opening challenge.
-  const audio = await generatePersonaAudio(
-    opening.content,
-    openingPersona.archetype as ArchetypeKey,
-    openingPersona.behaviorStyle as "gentle" | "moderate" | "aggressive"
-  );
+  // Persist the opening message and synthesize TTS audio in parallel.
+  const [message, audio] = await Promise.all([
+    db.sessionMessage.create({
+      data: {
+        sessionId: session.id,
+        personaId: openingPersona.id,
+        role: "persona",
+        content: opening.content,
+        type: "opening",
+        claimRef: opening.claimRef ?? null,
+      },
+    }),
+    generatePersonaAudio(
+      opening.content,
+      openingPersona.archetype as ArchetypeKey,
+      openingPersona.behaviorStyle as "gentle" | "moderate" | "aggressive",
+      { seatOrder: openingPersona.seatOrder, roomContext },
+    ),
+  ]);
 
   return NextResponse.json({
     alreadyStarted: false,

@@ -1,5 +1,7 @@
 // Spar — shared types
 
+import type { AccentKey } from "./voice-accents";
+
 export type ArchetypeKey =
   | "skeptic"
   | "nitpicker"
@@ -68,6 +70,7 @@ export interface PersonaConfig {
   name: string;
   behaviorStyle: BehaviorStyle;
   seatOrder: number;
+  accent?: AccentKey;
 }
 
 export interface PersonaResponse {

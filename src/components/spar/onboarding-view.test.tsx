@@ -8,12 +8,16 @@ describe("OnboardingView", () => {
     <OnboardingView onComplete={() => {}} onBack={() => {}} />,
   );
 
-  test("renders step 1 (What are you preparing for?) without crashing", () => {
+  test("renders step 1 (What are you preparing for?) and plain-English track cards without crashing", () => {
     expect(markup).toContain("What are you preparing for?");
     expect(markup).toContain("Skip");
+    expect(markup).toContain("Debate &amp; Arguments");
+    expect(markup).toContain("Pitches &amp; Presentations");
+    expect(markup).toContain("Academic &amp; Research");
+    expect(markup).toContain("Interviews &amp; Career");
   });
 
-  test("source pins: exactly 2 steps, no focus area step, real upcoming-moment wiring", () => {
+  test("source pins: exactly 2 steps, plain-English onboarding, real upcoming-moment wiring", () => {
     const source = readFileSync(
       new URL("./onboarding-view.tsx", import.meta.url),
       "utf8",

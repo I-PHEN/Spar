@@ -28,6 +28,10 @@ const VAGUE_SUFFIX_REGEX = /\d+\s*(or so|ish)\b/gi;
 // ─── Stalling opener patterns (for Recovery Speed drill) ────────────────
 const STALL_OPENER_REGEX = /^[\s,.!?"'“”‘’]*(um|uh|er|ah|hmm|well\b|so basically|that's a great question|that is a great question|good question|let me think|give me a second)/i;
 
+// ─── Evidence markers (for Evidence Gaps drill) ─────────────────────────
+const EVIDENCE_MARKER_REGEX =
+  /(\d|\b(percent|million|billion|thousand|days|weeks|months|years|quarters|hours|minutes|seconds|ms|bps|study|benchmark|cohort|audit|dataset|report|experiment|log|metric|trial|theorem|proof|bound|convergence|hessian|gradient|matrix|equation|law)\b)/i;
+
 // ─── Trigger result ─────────────────────────────────────────────────────
 
 export interface TriggerResult {
@@ -108,6 +112,39 @@ export function detectTriggers(
   if (vagueCount > 0) {
     agitation.nitpicker = vagueCount * 30;
     reasons.push(`${vagueCount} vague quantifier${vagueCount === 1 ? "" : "s"}`);
+  }
+
+  // ─── Evidence Gaps Drill: unsourced claims past 22 words ─────────────
+  const missingEvidenceInDrill =
+    options?.coachingMode === "drill" &&
+    options?.drillTarget === "evidence-gaps" &&
+    wordCount > 22 &&
+    !EVIDENCE_MARKER_REGEX.test(text);
+  if (missingEvidenceInDrill) {
+    agitation.nitpicker = Math.max(agitation.nitpicker ?? 0, 35);
+    reasons.push("22+ words with no cited data or source");
+  }
+
+  // Ensure active Drill target triggers fire regardless of which panelist archetype is seated
+  if (options?.coachingMode === "drill" && options?.drillTarget) {
+    const drillFired =
+      (options.drillTarget === "hedging" && (agitation.skeptic ?? 0) >= 30) ||
+      (options.drillTarget === "over-explaining" && (agitation.timekeeper ?? 0) >= 30) ||
+      (options.drillTarget === "recovery-speed" && (agitation.skeptic ?? 0) >= 30) ||
+      (options.drillTarget === "evidence-gaps" && (agitation.nitpicker ?? 0) >= 30);
+
+    if (drillFired) {
+      const allArchetypes: ArchetypeKey[] = [
+        "skeptic",
+        "nitpicker",
+        "so_what",
+        "timekeeper",
+        "ally",
+      ];
+      for (const arch of allArchetypes) {
+        agitation[arch] = Math.max(agitation[arch] ?? 0, 100);
+      }
+    }
   }
 
   return {

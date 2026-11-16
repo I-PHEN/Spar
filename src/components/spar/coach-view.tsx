@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ARCHETYPES } from "@/lib/personas";
 import { sessionLabel } from "@/lib/session-label";
+import { readStoredUserPreferences } from "@/lib/user-preferences";
 import type { ExperienceKey, DrillTarget } from "@/lib/experiences";
 import {
   DEFAULT_COURSES,
@@ -1423,7 +1424,13 @@ export function CoachView({
     setLaunching(true);
     setLaunchError(null);
     try {
-      const payload = buildLessonSessionPayload(course, lesson, slideAttempt);
+      const prefs = readStoredUserPreferences();
+      const basePayload = buildLessonSessionPayload(course, lesson, slideAttempt);
+      const payload = {
+        ...basePayload,
+        voiceAccent: prefs.defaultAccent,
+        voiceTone: prefs.voiceTone,
+      };
       const res = await fetch("/api/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

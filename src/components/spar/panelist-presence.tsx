@@ -11,11 +11,10 @@ interface PanelistPresenceProps {
   /** The room's state language — listening / gathering / speaking. */
   status: PresenceState;
   /**
-   * portrait = rail entry (avatar, name, one line, status); row = compact
-   * strip entry (avatar, name, status — no one line). Avatars are EQUAL SIZE
-   * circles in both variants (user-locked: no panelist towers over another).
+   * portrait = rail entry (avatar, name, status); row = compact strip entry;
+   * stage = centered face-to-face stage presence facing the user.
    */
-  variant?: "portrait" | "row";
+  variant?: "portrait" | "row" | "stage";
   /** One-beat barge-in acknowledgment (live mode's "you cut in" tell). */
   interrupted?: boolean;
   /** Agitation tell — the avatar pulses just before an interruption. */
@@ -49,21 +48,25 @@ export function PanelistPresence({
   const def = ARCHETYPES[archetype];
   const accent = def.accentHue;
   const word = STATUS_WORD[status];
-  const isPortrait = variant === "portrait";
+  const isStage = variant === "stage";
+  const isPortrait = variant === "portrait" || isStage;
 
-  // Avatar block: dark slate tinted with the persona's accent. The accent is
-  // the only color in the room — everything else stays neutral. Speaking is
-  // carried by the expand/contract pulse alone (user-locked: no glow).
+  // Avatar block: dark slate tinted with the persona's accent. Speaking adds a
+  // calm acoustic ring + breathing scale so it feels alive face-to-face.
   const avatarStyle = {
-    background: `color-mix(in oklab, ${accent} 14%, oklch(0.16 0 0))`,
-    color: `color-mix(in oklab, ${accent} 55%, oklch(0.92 0 0))`,
-    boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${accent} 22%, transparent)`,
+    background: `color-mix(in oklab, ${accent} ${status === "speaking" ? "20%" : "14%"}, oklch(0.16 0 0))`,
+    color: `color-mix(in oklab, ${accent} 62%, oklch(0.94 0 0))`,
+    boxShadow:
+      status === "speaking"
+        ? `inset 0 0 0 1.5px color-mix(in oklab, ${accent} 48%, transparent), 0 0 0 8px color-mix(in oklab, ${accent} 8%, transparent)`
+        : `inset 0 0 0 1px color-mix(in oklab, ${accent} 24%, transparent)`,
   };
 
   const avatarClass = cn(
-    "spar-presence-avatar relative inline-flex select-none items-center justify-center rounded-full font-semibold tracking-wide",
-    // Sized so three presences (the max) always fit the rail without scrolling.
-    "h-20 w-20 text-lg sm:h-24 sm:w-24 sm:text-xl",
+    "spar-presence-avatar relative inline-flex select-none items-center justify-center rounded-full font-semibold tracking-wide transition-[box-shadow,background] duration-300",
+    isStage
+      ? "h-28 w-28 text-2xl sm:h-32 sm:w-32 sm:text-3xl"
+      : "h-20 w-20 text-lg sm:h-24 sm:w-24 sm:text-xl",
     status === "listening" && "spar-presence-breathe",
     status === "speaking" && "spar-presence-speaking",
     aboutToInterrupt && "spar-pulse",
@@ -85,7 +88,7 @@ export function PanelistPresence({
         <p
           className={cn(
             "font-medium leading-tight text-white",
-            isPortrait ? "text-base" : "truncate text-sm",
+            isStage ? "text-lg sm:text-xl" : isPortrait ? "text-base" : "truncate text-sm",
           )}
         >
           {name}
@@ -95,7 +98,7 @@ export function PanelistPresence({
         <div
           className={cn(
             "flex items-center gap-1.5 text-neutral-500",
-            isPortrait ? "mt-3 justify-center" : "mt-0.5",
+            isStage ? "mt-2 justify-center" : isPortrait ? "mt-3 justify-center" : "mt-0.5",
           )}
         >
           {status === "gathering" ? (

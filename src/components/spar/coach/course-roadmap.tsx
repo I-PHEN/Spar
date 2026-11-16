@@ -78,29 +78,8 @@ export function CourseRoadmap({
   }
 
   return (
-    <div className="relative min-h-screen bg-[var(--bg-base)] text-[var(--text-primary)]">
-      {/* Background Atmosphere: Top-center ambient lighting (Roadmap level - softest dome) + subtle texture */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-0 z-0 overflow-hidden"
-      >
-        <div
-          className="absolute -top-[140px] left-1/2 h-[640px] w-[960px] -translate-x-1/2 rounded-full opacity-25 blur-[120px]"
-          style={{
-            background:
-              "radial-gradient(circle, var(--accent-soft) 0%, rgba(47,101,246,0.02) 40%, transparent 65%)",
-          }}
-        />
-        <div
-          className="absolute inset-0 opacity-[0.025] mix-blend-overlay"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-            backgroundRepeat: "repeat",
-          }}
-        />
-      </div>
-
-      <div className="relative z-10 mx-auto max-w-6xl px-4 py-6 pb-16 sm:px-6 sm:py-8 lg:pb-20 space-y-6">
+    <div className="min-h-screen bg-[var(--bg-base)] text-[var(--text-primary)]">
+      <div className="mx-auto max-w-6xl space-y-6 px-4 py-6 pb-16 sm:px-6 sm:py-8 lg:pb-20">
       {/* Top Breadcrumb Navigation */}
       <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs">
         <button
@@ -119,7 +98,7 @@ export function CourseRoadmap({
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-12 items-start">
         {/* LEFT COLUMN: Pinned Course Card */}
         <aside className="lg:col-span-5 lg:sticky lg:top-24 space-y-4">
-          <div className="rounded-3xl border border-white/10 bg-[#121212] p-6 sm:p-7 shadow-2xl space-y-5">
+          <div className="space-y-5 rounded-xl border border-[#232327] bg-[#121215] p-6 sm:p-7">
             {/* Distinctive Illustration / Motif Icon */}
             <CourseEmblem category={course.category} size="lg" />
 
@@ -218,7 +197,7 @@ export function CourseRoadmap({
 
           {/* Bottom Selected Lesson Action Launcher */}
           {selectedLesson && (
-            <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#121212] p-5 sm:p-6 text-center space-y-3.5 shadow-2xl">
+            <div className="w-full max-w-md space-y-3.5 rounded-xl border border-[#232327] bg-[#121215] p-5 text-center sm:p-6">
               <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400 block">
                 {isSelectedDone ? "COMPLETED" : "UP NEXT"}
               </span>
@@ -233,7 +212,7 @@ export function CourseRoadmap({
                     variant="outline"
                     disabled={launchingChamber}
                     onClick={() => onLaunchChamber(course, selectedLesson)}
-                    className="w-full sm:w-auto border-white/20 bg-white/[0.04] text-xs font-semibold text-neutral-200 hover:bg-white/[0.08] hover:text-white h-11 px-5 rounded-xl"
+                    className="h-11 w-full rounded-xl border-[#232327] bg-[#18181D] px-5 text-xs font-semibold text-neutral-200 hover:border-[#34343B] hover:text-white sm:w-auto"
                   >
                     <Swords className="mr-1.5 h-3.5 w-3.5" />
                     {launchingChamber ? "Opening room..." : "Apply in room"}
@@ -243,7 +222,7 @@ export function CourseRoadmap({
                 <button
                   type="button"
                   onClick={() => onStartLesson(selectedLesson.id)}
-                  className="w-full sm:w-auto flex-1 inline-flex items-center justify-center gap-2 rounded-full h-12 px-8 text-sm font-bold text-white transition-all spar-tactile-btn shadow-md active:scale-95"
+                  className="inline-flex h-11 w-full flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-6 text-sm font-semibold text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent-hover)] active:scale-[0.98] sm:w-auto"
                 >
                   {isSelectedDone ? (
                     <>

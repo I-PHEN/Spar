@@ -30,6 +30,11 @@
   --color-border: var(--border);
   --color-destructive: var(--destructive);
   --color-accent-foreground: var(--accent-foreground);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-dark: var(--accent-dark);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-border: var(--accent-border);
+  --color-accent-text: var(--accent-text);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
@@ -52,18 +57,21 @@
 
   /* Deep base — slightly darker for more contrast against elevated cards.
      Think of a dimly-lit room with a single overhead light. */
-  /* Spar Design Direction Tokens (Arena at Night) */
-  --bg-base: #0A0A0E;
-  --surface-1: #121218;
-  --surface-2: #1A1A22;
-  --border-subtle: rgba(255, 255, 255, 0.07);
-  --border-strong: rgba(255, 255, 255, 0.14);
+  /* Spar Design Direction Tokens (Calm Matte Obsidian) */
+  --bg-base: #0B0B0D;
+  --surface-1: #121215;
+  --surface-2: #18181D;
+  --border-subtle: #232327;
+  --border-strong: #34343B;
   --text-primary: #F5F5F7;
   --text-secondary: #A1A1AA;
   --text-tertiary: #71717A;
-  --accent: #2F65F6;
-  --accent-dark: #1E40AF;
-  --accent-soft: rgba(47, 101, 246, 0.14);
+  --accent: #F4F4F5;
+  --accent-hover: #FFFFFF;
+  --accent-dark: #D4D4D8;
+  --accent-soft: rgba(244, 244, 245, 0.12);
+  --accent-border: rgba(244, 244, 245, 0.28);
+  --accent-text: #F4F4F5;
   --success: #34D399;
   --danger: #F87171;
 
@@ -89,7 +97,7 @@
   --muted-foreground: oklch(0.60 0 0);  /* brighter for readability */
 
   /* Accent Foreground */
-  --accent-foreground: #FFFFFF;
+  --accent-foreground: #111113;
 
   --destructive: oklch(0.62 0.18 25);
   --destructive-foreground: oklch(0.98 0 0);
@@ -201,7 +209,7 @@
 
 @utility spar-tactile-btn {
   background-color: var(--accent);
-  color: #FFFFFF;
+  color: var(--accent-foreground);
   box-shadow: 0 4px 0 var(--accent-dark);
   transition: transform 100ms ease, box-shadow 100ms ease, filter 100ms ease;
   &:hover {
@@ -295,3 +303,92 @@
 }
 
 /* (spar-ready-glow removed — buttons should just be white, no breathing animation) */
+
+/* Pre-paint guard: hide Hero SSR shell immediately while returning from OAuth */
+html[data-spar-oauth="1"] .spar-hero-root {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Keep browser-autofilled credentials aligned with dark matte surfaces */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px #121218 inset !important;
+  -webkit-text-fill-color: #F5F5F7 !important;
+  caret-color: #F5F5F7 !important;
+  transition: background-color 9999s ease-out 0s;
+}
+
+@utility bg-dot-thick-neutral {
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.14) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+/* Display accent presets selected in Settings -> Appearance */
+:root[data-accent="default"] {
+  --accent: #F4F4F5;
+  --accent-hover: #FFFFFF;
+  --accent-dark: #D4D4D8;
+  --accent-soft: rgba(244, 244, 245, 0.12);
+  --accent-border: rgba(244, 244, 245, 0.28);
+  --accent-text: #F4F4F5;
+  --accent-foreground: #111113;
+}
+
+:root[data-accent="blue"] {
+  --accent: #2F65F6;
+  --accent-hover: #2555D9;
+  --accent-dark: #1E40AF;
+  --accent-soft: rgba(47, 101, 246, 0.14);
+  --accent-border: rgba(47, 101, 246, 0.42);
+  --accent-text: #9AB5FF;
+  --accent-foreground: #FFFFFF;
+}
+
+:root[data-accent="green"] {
+  --accent: #22C55E;
+  --accent-hover: #16A34A;
+  --accent-dark: #15803D;
+  --accent-soft: rgba(34, 197, 94, 0.14);
+  --accent-border: rgba(34, 197, 94, 0.42);
+  --accent-text: #86EFAC;
+  --accent-foreground: #091910;
+}
+
+:root[data-accent="yellow"] {
+  --accent: #EAB308;
+  --accent-hover: #CA8A04;
+  --accent-dark: #A16207;
+  --accent-soft: rgba(234, 179, 8, 0.15);
+  --accent-border: rgba(234, 179, 8, 0.42);
+  --accent-text: #FDE047;
+  --accent-foreground: #111113;
+}
+
+:root[data-accent="pink"] {
+  --accent: #EC4899;
+  --accent-hover: #DB2777;
+  --accent-dark: #BE185D;
+  --accent-soft: rgba(236, 72, 153, 0.14);
+  --accent-border: rgba(236, 72, 153, 0.42);
+  --accent-text: #F9A8D4;
+  --accent-foreground: #FFFFFF;
+}
+
+:root[data-accent="orange"] {
+  --accent: #F97316;
+  --accent-hover: #EA580C;
+  --accent-dark: #C2410C;
+  --accent-soft: rgba(249, 115, 22, 0.14);
+  --accent-border: rgba(249, 115, 22, 0.42);
+  --accent-text: #FDBA74;
+  --accent-foreground: #111113;
+}
+
+@utility bg-dot-thick-cobalt {
+  background-image: radial-gradient(circle, rgba(47, 101, 246, 0.85) 1.25px, transparent 1.25px);
+  background-size: 16px 16px;
+}

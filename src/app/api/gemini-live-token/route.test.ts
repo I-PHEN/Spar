@@ -21,6 +21,7 @@ const originalEnv = {
   DEEPGRAM_API_KEY: process.env.DEEPGRAM_API_KEY,
   DEEPGRAM_REGION: process.env.DEEPGRAM_REGION,
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+  GEMINI_LIVE_MODEL: process.env.GEMINI_LIVE_MODEL,
 };
 
 function installFetchMock(
@@ -57,6 +58,7 @@ describe("GET /api/gemini-live-token", () => {
     process.env.DEEPGRAM_API_KEY = "test-deepgram-key";
     process.env.DEEPGRAM_REGION = "us";
     process.env.GEMINI_API_KEY = GEMINI_API_KEY;
+    delete process.env.GEMINI_LIVE_MODEL;
   });
 
   afterEach(() => {
@@ -236,5 +238,26 @@ describe("GET /api/gemini-live-token", () => {
     expect(String(fetchMock.mock.calls[0][0])).toBe(MINT_URL_V1BETA);
     expect(String(fetchMock.mock.calls[1][0])).toBe(MINT_URL_V1ALPHA);
     expect(getResolvedAuthTokensApiVersion()).toBe("v1alpha");
+  });
+
+  test("includes optional model override in response only when GEMINI_LIVE_MODEL is configured", async () => {
+    const expireTime = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+    process.env.GEMINI_LIVE_MODEL = "gemini-3.1-flash-live-preview";
+    installFetchMock(() => Promise.resolve(mintedTokenResponse(expireTime)));
+
+    const response = await GET(
+      new Request("http://localhost:3000/api/gemini-live-token", {
+        headers: { Origin: "http://localhost:3000" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      token: string;
+      expiresIn: number;
+      model?: string;
+    };
+    expect(body.token).toBe("auth_tokens/abc");
+    expect(body.model).toBe("gemini-3.1-flash-live-preview");
   });
 });

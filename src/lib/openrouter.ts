@@ -113,17 +113,32 @@ export function extractPartialContent(accumulatedText: string): string | null {
   let content = "";
   while (pos < accumulatedText.length) {
     if (accumulatedText[pos] === "\\") {
-      // Escaped character
-      pos++;
-      if (pos < accumulatedText.length) {
-        const escaped = accumulatedText[pos];
-        if (escaped === "n") content += "\n";
-        else if (escaped === "t") content += "\t";
-        else if (escaped === '"') content += '"';
-        else if (escaped === "\\") content += "\\";
-        else content += escaped;
+      // Wait for complete escape sequence if truncated mid-stream at chunk boundary
+      if (pos + 1 >= accumulatedText.length) {
+        return content;
       }
-      pos++;
+      const escaped = accumulatedText[pos + 1];
+      if (escaped === "u") {
+        const hex = accumulatedText.slice(pos + 2, pos + 6);
+        if (hex.length < 4) {
+          return content;
+        }
+        if (/^[0-9a-fA-F]{4}$/.test(hex)) {
+          content += String.fromCharCode(Number.parseInt(hex, 16));
+          pos += 6;
+          continue;
+        }
+      }
+      if (escaped === "n") content += "\n";
+      else if (escaped === "r") content += "\r";
+      else if (escaped === "t") content += "\t";
+      else if (escaped === "b") content += "\b";
+      else if (escaped === "f") content += "\f";
+      else if (escaped === '"') content += '"';
+      else if (escaped === "\\") content += "\\";
+      else if (escaped === "/") content += "/";
+      else content += escaped;
+      pos += 2;
     } else if (accumulatedText[pos] === '"') {
       // Found closing quote — content is complete
       return content;

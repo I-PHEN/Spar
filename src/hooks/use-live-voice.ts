@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ArchetypeKey, BehaviorStyle, DrillTarget } from "../lib/types";
 import type { VoiceEngine } from "../lib/observability/turn-metrics";
 import { buildLiveSystemInstruction } from "../lib/spar/live-instruction";
+import { resolveGeminiLiveVoice } from "../lib/voice-accents";
 import { LIVE_MODEL_BY_MODE, vadConfigFor } from "../lib/spar/mode-contracts";
 import { GeminiLiveClient, type GeminiLiveDependencies, type GeminiLiveEvent, type GeminiLiveOptions } from "../lib/providers/gemini-live";
 import { MicrophoneStream, type MicrophoneStreamDependencies, type MicrophoneStreamOptions } from "../lib/voice/microphone-stream";
@@ -191,7 +192,8 @@ export class LiveVoiceSession {
 
   private async connect(epoch: number): Promise<void> {
     try {
-      await this.establish(epoch, await this.fetchToken(), this.personaVoice());
+      const grant = await this.fetchToken();
+      await this.establish(epoch, grant, this.personaVoice());
     } catch (error) {
       if (this.stale(epoch)) return;
       // Setup rejection with a non-Kore persona voice: ONE config-level retry
@@ -199,7 +201,8 @@ export class LiveVoiceSession {
       if (this.isSetupRejection(error) && !this.voiceRetried && this.personaVoice() !== FALLBACK_VOICE) {
         this.voiceRetried = true;
         try {
-          await this.establish(epoch, await this.fetchToken(), FALLBACK_VOICE);
+          const retryGrant = await this.fetchToken();
+          await this.establish(epoch, retryGrant, FALLBACK_VOICE);
           return;
         } catch {
           // The Kore retry was rejected too; fall to the ladder below.
@@ -212,18 +215,34 @@ export class LiveVoiceSession {
   }
 
   private personaVoice(): string {
-    return LIVE_VOICES[this.options.persona.archetype] ?? FALLBACK_VOICE;
+    return (
+      resolveGeminiLiveVoice({
+        archetype: this.options.persona.archetype,
+        roomContext: this.options.roomContext,
+        fallbackMap: LIVE_VOICES,
+      }) ?? FALLBACK_VOICE
+    );
   }
 
   private isSetupRejection(error: unknown): boolean {
     return error instanceof Error && error.message === "setup-rejected";
   }
 
-  private async establish(epoch: number, token: string, voiceName: string): Promise<void> {
+  private resolveLiveModel(override?: string): string {
+    const trimmed = override?.trim();
+    if (!trimmed) return LIVE_MODEL_BY_MODE[this.options.mode];
+    return trimmed.startsWith("models/") ? trimmed : `models/${trimmed}`;
+  }
+
+  private async establish(
+    epoch: number,
+    grant: { token: string; model?: string },
+    voiceName: string,
+  ): Promise<void> {
     const createClient = this.dependencies.createClient ?? (clientOptions => new GeminiLiveClient(clientOptions));
     const client = createClient({
-      token,
-      model: LIVE_MODEL_BY_MODE[this.options.mode],
+      token: grant.token,
+      model: this.resolveLiveModel(grant.model),
       systemInstruction: buildLiveSystemInstruction({
         archetype: this.options.persona.archetype,
         behaviorStyle: this.options.persona.behaviorStyle,
@@ -253,7 +272,7 @@ export class LiveVoiceSession {
     await this.startMicrophone(epoch);
   }
 
-  private async fetchToken(): Promise<string> {
+  private async fetchToken(): Promise<{ token: string; model?: string }> {
     const doFetch = this.dependencies.fetch ?? ((input: string, init: RequestInit) => fetch(input, init));
     const response = await doFetch("/api/gemini-live-token", {
       method: "GET",
@@ -261,12 +280,13 @@ export class LiveVoiceSession {
       cache: "no-store",
     });
     if (!response.ok) throw new Error("gemini-live-unavailable");
-    const grant = await response.json() as { token?: unknown; expiresIn?: unknown };
+    const grant = await response.json() as { token?: unknown; expiresIn?: unknown; model?: unknown };
     if (typeof grant.token !== "string" || !grant.token.trim()
       || typeof grant.expiresIn !== "number" || !Number.isFinite(grant.expiresIn) || grant.expiresIn <= 0) {
       throw new Error("gemini-live-unavailable");
     }
-    return grant.token;
+    const model = typeof grant.model === "string" && grant.model.trim() ? grant.model.trim() : undefined;
+    return { token: grant.token, ...(model ? { model } : {}) };
   }
 
   private async startMicrophone(epoch: number): Promise<void> {

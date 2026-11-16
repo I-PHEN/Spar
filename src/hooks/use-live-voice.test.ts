@@ -90,12 +90,19 @@ function liveHookHost() {
   };
 }
 
-function tokenResponse(status: number): Response {
-  const body = status === 200 ? { token: "auth_tokens/fixture-live-token", expiresIn: 1800 } : { error: "gemini-unconfigured" };
+function tokenResponse(status: number, model?: string): Response {
+  const body =
+    status === 200
+      ? {
+          token: "auth_tokens/fixture-live-token",
+          expiresIn: 1800,
+          ...(model ? { model } : {}),
+        }
+      : { error: "gemini-unconfigured" };
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
 
-function harness(tokenStatus = 200, archetype: ArchetypeKey = "skeptic") {
+function harness(tokenStatus = 200, archetype: ArchetypeKey = "skeptic", tokenModel?: string) {
   const host = liveHookHost();
   const useLiveVoiceForTest = createLiveVoiceHook(host.runtime);
   const sockets: Socket[] = [];
@@ -114,7 +121,7 @@ function harness(tokenStatus = 200, archetype: ArchetypeKey = "skeptic") {
   let clock = 0;
   let turnCounter = 0;
   const dependencies: LiveVoiceDependencies = {
-    fetch: async () => tokenResponse(tokenStatus),
+    fetch: async () => tokenResponse(tokenStatus, tokenModel),
     webSocket: () => { const socket = new Socket(); sockets.push(socket); return socket; },
     createMicrophoneStream: (options: MicrophoneStreamOptions) => {
       micOnChunk = options.onChunk;
@@ -397,5 +404,13 @@ describe("live voice session", () => {
     await expect(result.start()).resolves.toBeUndefined();
     expect(() => result.stop()).not.toThrow();
     host.unmount();
+  });
+
+  test("honors optional token model override and prefixes models/ when omitted", async () => {
+    const h = harness(200, "skeptic", "gemini-3.8-flash-live");
+    await h.goLive();
+    const setup = h.setupSends()[0].setup;
+    expect(setup.model).toBe("models/gemini-3.8-flash-live");
+    h.host.unmount();
   });
 });

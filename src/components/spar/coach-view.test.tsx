@@ -6,7 +6,7 @@ import { LessonPlayer } from "./coach/lesson-player";
 import { DebriefContent } from "./debrief-view";
 
 describe("CoachView (3-Screen Learner Experience)", () => {
-  test("Screen A (Catalog): renders 'Build your presence.' discovery header, 'Continue learning' section, and outcome-first course cards without creator controls", () => {
+  test("Screen A (Catalog): renders minimal 'Coach' header, clean course cards, and browse drawer trigger without creator controls", () => {
     const markup = renderToStaticMarkup(
       <CoachView
         onSessionCreated={() => {}}
@@ -22,18 +22,17 @@ describe("CoachView (3-Screen Learner Experience)", () => {
       />
     );
 
-    // Discovery header
-    expect(markup).toContain("Build your presence.");
-    expect(markup).toContain(
-      "Practise the skills that help you think clearly and speak with confidence."
-    );
+    // Minimal Coach header (no wireframe divider border)
+    expect(markup).toContain("Coach");
+    expect(markup).toContain("Browse courses");
+    expect(markup).not.toMatch(/<header[^>]*border-b/);
 
-    // Continue learning section for started courses
-    expect(markup).toContain("Continue learning");
+    // Started course progress
+    expect(markup).toContain("1/3");
     expect(markup).toContain("1 of 3 completed");
     expect(markup).toContain("33%");
 
-    // Explore courses grid with outcome subtitles
+    // Explore courses registry with outcome subtitles
     expect(markup).toContain("Explore courses");
     expect(markup).toContain("Defending Under Fire");
     expect(markup).toContain("Zero-Hedge Concision");
@@ -41,6 +40,11 @@ describe("CoachView (3-Screen Learner Experience)", () => {
     expect(markup).toContain(
       "Handle unexpected questions without losing composure."
     );
+
+    // Minimal copy strips out filler eyebrows and left accent bar
+    expect(markup).not.toContain("COACHING · LEARN");
+    expect(markup).not.toContain("Build your presence.");
+    expect(markup).not.toContain("border-l-[#2F65F6]");
 
     // Learner view must NEVER expose creator authoring controls
     expect(markup).not.toContain("Publish Course");

@@ -8,7 +8,6 @@ import {
   Loader2,
   Clock,
   AlertCircle,
-  Hand,
   FileText,
   Pause,
   ArrowRight,
@@ -31,21 +30,25 @@ import {
   liveOwnsControls,
   recordsTurnAudio,
   startsRecorderOnFallback,
-  liveUserInterimCaption,
-  distanceFromBottom,
-  shouldStickToBottom,
-  canPauseForMoment,
   type EngineStatusLabel,
   type PresenceState,
 } from "./room-state";
 import { ARCHETYPES } from "@/lib/personas";
-import { evaluateDrillTurn, getDrillDefinition } from "@/lib/drills";
+import { detectLiveDrillViolation, evaluateDrillTurn, getDrillDefinition } from "@/lib/drills";
 import { useVoiceRecognition, playBase64Audio } from "@/hooks/use-voice";
-import { useTurnController, type UseTurnControllerResult } from "@/hooks/use-turn-controller";
+import { useTurnController } from "@/hooks/use-turn-controller";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
-import { useAgitationEngine, type CoachingMode, type DrillTarget } from "@/hooks/use-agitation";
+import { useAgitationEngine, type DrillTarget } from "@/hooks/use-agitation";
 import { playActivationClick, useWaveformAmplitude } from "@/hooks/use-sound";
 import { SCENARIOS } from "@/lib/scenarios";
+import { PERSONA_VOICES } from "@/lib/providers/deepgram-tts";
+import type { LivePersona } from "@/lib/spar/live-turn-service";
+import { readStoredUserPreferences } from "@/lib/user-preferences";
+import { formatRoomDisplaySubtitle } from "@/lib/domains";
+import {
+  extractVoiceProfileFromContext,
+  resolveDeepgramVoiceModel,
+} from "@/lib/voice-accents";
 import type { ExperienceKey } from "@/lib/experiences";
 import type {
   ArchetypeKey,
@@ -62,6 +65,9 @@ import { cn } from "@/lib/utils";
  */
 function playInterruptCue() {
   try {
+    if (typeof window !== "undefined") {
+      if (!readStoredUserPreferences().buzzerSoundEnabled) return;
+    }
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioCtx) return;
     const ctx = new AudioCtx();
@@ -211,9 +217,40 @@ export function SparringRoom({
     };
   }, [personas, experience, scenarioLabel, claims, drillTarget, roomContext, coachingFocus, materialTitle, rawMaterial]);
 
+  const voiceProfile = useMemo(
+    () => extractVoiceProfileFromContext(roomContext),
+    [roomContext],
+  );
+  const defaultCascadeVoice = useMemo(() => {
+    const lead = [...personas].sort((a, b) => a.seatOrder - b.seatOrder)[0];
+    if (!lead || !voiceProfile.hasExplicitProfile) return "aura-2-zeus-en";
+    return resolveDeepgramVoiceModel({
+      archetype: lead.archetype,
+      seatOrder: lead.seatOrder,
+      roomContext,
+    }).v1Model;
+  }, [personas, roomContext, voiceProfile.hasExplicitProfile]);
+  const resolveCascadeVoice = useCallback(
+    (persona: LivePersona) => {
+      if (!voiceProfile.hasExplicitProfile) {
+        return (
+          PERSONA_VOICES[persona.archetype as keyof typeof PERSONA_VOICES] ??
+          "aura-2-zeus-en"
+        );
+      }
+      return resolveDeepgramVoiceModel({
+        archetype: persona.archetype as ArchetypeKey,
+        seatOrder: persona.seatOrder,
+        roomContext,
+      }).v1Model;
+    },
+    [roomContext, voiceProfile.hasExplicitProfile],
+  );
+
   const turnController = useTurnController({
     sessionId,
-    voiceModel: "aura-2-zeus-en",
+    voiceModel: defaultCascadeVoice,
+    resolveVoiceModel: resolveCascadeVoice,
     live: liveConfig,
     onLiveInterrupted: () => {
       // Barge-in: flicker the lead panelist's presence (the live voice).
@@ -239,6 +276,13 @@ export function SparringRoom({
   // stop() (it only transitions on the next session), so the room derives its
   // engine UI from this flag AND the status — never the status alone.
   const [liveSessionActive, setLiveSessionActive] = useState(false);
+  // Hands-free Auto-Mic: automatically arms the mic when it's the user's turn
+  // and auto-sends after a natural pause (~1.6s Drill / ~2.1s Q&A).
+  const [handsFree, setHandsFree] = useState(true);
+
+  useEffect(() => {
+    setHandsFree(readStoredUserPreferences().autoMicEnabled);
+  }, []);
 
   const sparInFlight = useRef(false);
   // Latch: the fallback transition starts the recorder at most once per
@@ -252,70 +296,12 @@ export function SparringRoom({
   // Set to true when beginQA fails — so the retry button knows to retry
   // beginQA (not submitPresentation). Cleared on successful retry.
   const qaFailedRef = useRef(false);
-  const captionsEndRef = useRef<HTMLDivElement>(null);
-  // Sticky-to-bottom: the feed auto-scrolls only while the user is at (or
-  // near) the bottom. Scrolling up to read releases the stick.
-  const feedRef = useRef<HTMLDivElement>(null);
-  const stickRef = useRef(true);
 
   // Timer
   useEffect(() => {
     const t = setInterval(() => setElapsedSec(Math.floor((Date.now() - sessionStart) / 1000)), 1000);
     return () => clearInterval(t);
   }, [sessionStart]);
-
-  // Auto-scroll captions — only while stuck to the bottom. The user
-  // scrolling up to read releases the stick; being back at the bottom
-  // restores it (handled by the feed's onScroll below).
-  useEffect(() => {
-    if (stickRef.current) {
-      captionsEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-    }
-  }, [captions]);
-
-  const handleFeedScroll = useCallback(() => {
-    const el = feedRef.current;
-    if (el) stickRef.current = shouldStickToBottom(distanceFromBottom(el));
-  }, []);
-
-  // Show live interim transcript as a caption. Whichever engine owns the
-  // room drives it: the classic recognizer's interim transcript while it
-  // listens, or the live engine's transcript preview (interim-input-
-  // transcript) while the Gemini Live session owns the room. The finalized
-  // transcript retires the caption — the caption mirror below rebuilds
-  // without `isLive` entries whenever the messages change.
-  const liveInterim = liveUserInterimCaption(
-    liveSessionActive,
-    turnController.liveEngineStatus,
-    turnController.transcriptPreview,
-  );
-  useEffect(() => {
-    const interim = voice.isListening ? voice.interimTranscript : liveInterim;
-    if (interim) {
-      setCaptions((prev) => {
-        const existing = prev.find((c) => c.isLive);
-        if (existing) {
-          return prev.map((c) =>
-            c.id === existing.id ? { ...c, content: interim } : c
-          );
-        }
-        return [
-          ...prev,
-          {
-            id: "live-user",
-            role: "user" as const,
-            content: interim,
-            type: "normal" as MessageType,
-            isLive: true,
-            createdAt: Date.now(),
-          },
-        ];
-      });
-    } else if (!voice.isListening) {
-      // Remove the live caption when not listening
-      setCaptions((prev) => prev.filter((c) => !c.isLive));
-    }
-  }, [voice.interimTranscript, voice.isListening, liveInterim]);
 
   // Live→cascade fallback mid-handshake: the click path skipped the recorder
   // (recordsTurnAudio read "connecting" at click time), so the transition
@@ -346,21 +332,28 @@ export function SparringRoom({
     sessionId,
   ]);
 
-  // Mirror controller-owned exact captions into the room without creating a
-  // second generation, speech, or interruption state machine.
+  // Mirror panelist captions cleanly without ChatGPT token-streaming clutter:
+  // in classic Cascade mode wait until speech starts or completes before
+  // showing the caption; in Live voice mode reflect spoken output captions.
+  const showActiveAssistantCaption =
+    Boolean(turnController.assistantCaption) &&
+    ((liveSessionActive && turnController.liveEngineStatus === "live") ||
+      turnController.turn.status === "speaking");
+
   useEffect(() => {
     setCaptions((previous) => {
       let next = previous.filter((caption) =>
         !caption.isLive && !caption.id.startsWith("user:") && !caption.id.startsWith("assistant:"),
       );
       for (const message of turnController.messages) {
+        if (message.role !== "assistant") continue;
         const persona = message.persona;
         const entry: CaptionEntry = {
           id: message.id,
-          role: message.role === "assistant" ? "persona" : "user",
-          personaId: message.role === "assistant" ? persona?.id : undefined,
-          personaName: message.role === "assistant" ? persona?.name : undefined,
-          archetype: message.role === "assistant" ? persona?.archetype as ArchetypeKey | undefined : undefined,
+          role: "persona",
+          personaId: persona?.id,
+          personaName: persona?.name,
+          archetype: persona?.archetype as ArchetypeKey | undefined,
           content: message.content,
           type: message.metadata?.type ?? "normal",
           claimRef: message.metadata?.claimRef,
@@ -370,7 +363,7 @@ export function SparringRoom({
         const index = next.findIndex((caption) => caption.id === message.id);
         next = index < 0 ? [...next, entry] : next.map((caption, current) => current === index ? { ...caption, ...entry } : caption);
       }
-      if (turnController.assistantCaption) {
+      if (showActiveAssistantCaption && turnController.assistantCaption) {
         const id = `assistant:${turnController.turn.turnId}`;
         const persona = turnController.activePersona;
         const liveAssistant: CaptionEntry = {
@@ -387,7 +380,7 @@ export function SparringRoom({
       }
       return next;
     });
-  }, [turnController.messages, turnController.assistantCaption, turnController.assistantMetadata, turnController.turn.turnId, turnController.activePersona]);
+  }, [turnController.messages, turnController.assistantCaption, turnController.assistantMetadata, turnController.turn.turnId, turnController.activePersona, showActiveAssistantCaption]);
 
   useEffect(() => {
     if (isPresenting) return;
@@ -425,12 +418,23 @@ export function SparringRoom({
     }
   }, [isUserTurn, isProcessing, audioPlaying]);
 
-  // Initial load: fetch session + open
+  // Initial load: fetch session + open + warm up spar-stream in parallel
   useEffect(() => {
     let mounted = true;
     (async () => {
+      // Launch session metadata load, /open, and route compilation warmup concurrently
+      const sessionPromise = fetch(`/api/sessions/${sessionId}`);
+      const openPromise = fetch(`/api/sessions/${sessionId}/open`, {
+        method: "POST",
+      });
+      fetch(`/api/sessions/${sessionId}/spar-stream`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ _warmup: true }),
+      }).catch(() => {});
+
       try {
-        const sRes = await fetch(`/api/sessions/${sessionId}`);
+        const sRes = await sessionPromise;
         if (!sRes.ok) throw new Error("Session not found");
         const sData = await sRes.json();
         if (!mounted) return;
@@ -457,15 +461,10 @@ export function SparringRoom({
         }
         setPersonaStates(states);
 
-        // Paint the room NOW — session data is enough for the presence rail,
-        // top bar, and feed. The opening line (an LLM call) lands in the feed
-        // when it's ready, with a quiet "taking their seats" beat in between.
+        // Paint the room NOW while /open finishes in parallel.
         if (mounted) setLoading(false);
 
-        // Open the session — panel speaks first
-        const oRes = await fetch(`/api/sessions/${sessionId}/open`, {
-          method: "POST",
-        });
+        const oRes = await openPromise;
         if (!oRes.ok) throw new Error("Failed to open session");
         const oData = await oRes.json();
         if (!mounted) return;
@@ -489,20 +488,16 @@ export function SparringRoom({
           setIsUserTurn(true);
         } else if (oData.defenseMode) {
           // ─── Defense/Boardroom flow: user presents first ────────────────
-          // Show the room with all personas in "listening" state.
-          // After a 2-second settle beat, show "The floor is yours."
-          // This gives the user a moment to see the room before being asked to speak.
           setIsPresenting(true);
-          setIsUserTurn(false); // not the user's turn yet — settling
+          setIsUserTurn(false);
           setSettling(true);
 
-          // Settle beat: 2 seconds of the room being visible before the prompt appears
           setTimeout(() => {
             if (mounted) {
               setSettling(false);
-              setIsUserTurn(true); // now it's the user's turn to present
+              setIsUserTurn(true);
             }
-          }, 2000);
+          }, 500);
         } else if (oData.message) {
           const m = oData.message;
           // Mark the speaking persona
@@ -548,16 +543,6 @@ export function SparringRoom({
       } finally {
         // Safety: ensure loading is false even if the audio path failed
         if (mounted) setLoading(false);
-
-        // Pre-warm: fire a lightweight request to compile the spar-stream route
-        // so the first real spar call doesn't pay the Turbopack compilation cost (~0.8s)
-        if (mounted) {
-          fetch(`/api/sessions/${sessionId}/spar-stream`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ _warmup: true }),
-          }).catch(() => {}).then(() => {});
-        }
       }
     })();
     return () => {
@@ -568,6 +553,8 @@ export function SparringRoom({
   // Handle user pressing "Speak" (or "Start presenting")
   const handleStartSpeaking = useCallback(() => {
     if (!voice.isSupported) return;
+    setError(null);
+    setConnectionError(false);
     speechStartedAtRef.current = Date.now();
     // One activation: in Q&A (not presenting) with Live configured, this
     // click hands the room to the Live engine and the mic stays live.
@@ -617,6 +604,8 @@ export function SparringRoom({
 
       if (sparInFlight.current) return;
       sparInFlight.current = true;
+      setError(null);
+      setConnectionError(false);
       setIsUserTurn(false);
       setIsProcessing(true);
 
@@ -919,6 +908,159 @@ export function SparringRoom({
     onInterrupt: handleInterrupt,
   });
 
+  // ─── Hands-Free Auto-Mic Loop (Free-Tier Friendly) ────────────────────
+  // 1. Auto-arm microphone when panelist finishes and it becomes the user's turn.
+  useEffect(() => {
+    if (
+      !shouldAutoStartMic({
+        handsFree,
+        isSupported: voice.isSupported,
+        isPresenting,
+        isUserTurn,
+        isProcessing,
+        audioPlaying,
+        isListening: voice.isListening,
+        opening,
+        loading,
+        showEndDialog,
+        connectionError,
+        coachAnalysisOpen: coachAnalysis !== null,
+        liveStatus: liveDeckStatus,
+      })
+    ) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      handleStartSpeaking();
+    }, 280);
+    return () => window.clearTimeout(timer);
+  }, [
+    handsFree,
+    voice.isSupported,
+    isPresenting,
+    isUserTurn,
+    isProcessing,
+    audioPlaying,
+    voice.isListening,
+    opening,
+    loading,
+    showEndDialog,
+    connectionError,
+    coachAnalysis,
+    liveDeckStatus,
+    handleStartSpeaking,
+  ]);
+
+  // 2. Smart silence auto-send after user finishes a complete utterance (~1.6s Drill / ~2.1s Q&A).
+  useEffect(() => {
+    if (
+      !handsFree ||
+      isPresenting ||
+      !isUserTurn ||
+      isProcessing ||
+      !voice.isListening ||
+      liveDeckStatus !== "off" ||
+      showEndDialog
+    ) {
+      return;
+    }
+
+    const spokenText = `${voice.finalTranscript} ${voice.interimTranscript} ${turnController.transcriptPreview}`.trim();
+    const wordCount = spokenText.split(/\s+/).filter(Boolean).length;
+    if (wordCount < 1) return;
+
+    const silenceDelayMs =
+      wordCount === 1
+        ? autoSendSilenceMs(experience) + 400
+        : autoSendSilenceMs(experience);
+
+    const timer = window.setTimeout(() => {
+      handleStopSpeaking();
+    }, silenceDelayMs);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    handsFree,
+    isPresenting,
+    isUserTurn,
+    isProcessing,
+    voice.isListening,
+    voice.finalTranscript,
+    voice.interimTranscript,
+    turnController.transcriptPreview,
+    liveDeckStatus,
+    experience,
+    showEndDialog,
+    handleStopSpeaking,
+  ]);
+
+  // 3. Spacebar shortcut to send early (or start/stop manually at any time).
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.code !== "Space" || e.repeat) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (showEndDialog || isPresenting || liveDeckStatus !== "off") return;
+      if (!isUserTurn || isProcessing) return;
+
+      e.preventDefault();
+      if (voice.isListening) {
+        handleStopSpeaking();
+      } else {
+        handleStartSpeaking();
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [
+    showEndDialog,
+    isPresenting,
+    liveDeckStatus,
+    isUserTurn,
+    isProcessing,
+    voice.isListening,
+    handleStopSpeaking,
+    handleStartSpeaking,
+  ]);
+
+  const handleToggleHandsFree = useCallback(() => {
+    setHandsFree((prev) => {
+      const next = !prev;
+      if (!next && voice.isListening) {
+        const spoken = `${voice.finalTranscript} ${voice.interimTranscript}`.trim();
+        if (!spoken) {
+          voice.stop();
+        }
+      } else if (
+        next &&
+        !voice.isListening &&
+        isUserTurn &&
+        !isProcessing &&
+        !audioPlaying &&
+        !isPresenting
+      ) {
+        handleStartSpeaking();
+      }
+      return next;
+    });
+  }, [
+    voice,
+    isUserTurn,
+    isProcessing,
+    audioPlaying,
+    isPresenting,
+    handleStartSpeaking,
+  ]);
+
   // End session
   async function handleEnd() {
     setShowEndDialog(false);
@@ -939,21 +1081,6 @@ export function SparringRoom({
       setError(String(e));
       setEnding(false);
     }
-  }
-
-  // "I need a moment" — pauses panel, shows a coach whisper
-  function handleNeedMoment() {
-    setCaptions((prev) => [
-      ...prev,
-      {
-        id: `coach-${Date.now()}`,
-        role: "persona",
-        personaName: "Coach",
-        content: "Pause. Take a breath. Acknowledge the concern in one sentence, then answer with one piece of evidence.",
-        type: "coach_whisper" as MessageType,
-        createdAt: Date.now(),
-      },
-    ]);
   }
 
   if (loading) {
@@ -978,40 +1105,17 @@ export function SparringRoom({
   }
 
   const elapsedDisplay = formatTime(elapsedSec);
+  const displayTitle = materialTitle?.trim() || scenarioLabel;
+  const displaySubtitle = formatRoomDisplaySubtitle(roomContext);
+  const latestPersonaCaption =
+    [...captions]
+      .reverse()
+      .find((c) => c.role === "persona" && c.content.trim().length > 0) ?? null;
 
   return (
     <div className="relative flex h-[100dvh] flex-col bg-[var(--bg-base)] text-[var(--text-primary)] overflow-hidden">
-      {/* Background Atmosphere: Ambient overhead arena light */}
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-0 z-0 overflow-hidden"
-      >
-        <div
-          className="absolute -top-[160px] left-1/2 h-[520px] w-[860px] -translate-x-1/2 rounded-full opacity-60 blur-[120px]"
-          style={{
-            background:
-              "radial-gradient(circle, var(--accent-soft) 0%, rgba(255,107,61,0.02) 45%, transparent 70%)",
-          }}
-        />
-        <div
-          className="absolute inset-0 opacity-[0.03] mix-blend-overlay"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-            backgroundRepeat: "repeat",
-          }}
-        />
-      </div>
-      {/* Top bar — glass, tightened to py-3 */}
-      <div
-        className="flex items-center justify-between px-4 py-3 sm:px-6"
-        style={{
-          background: "rgba(10, 10, 14, 0.75)",
-          backdropFilter: "blur(20px) saturate(180%)",
-          WebkitBackdropFilter: "blur(20px) saturate(180%)",
-          borderBottom: "1px solid var(--border-subtle)",
-          boxShadow: "inset 0 1px 0 0 rgba(255, 255, 255, 0.06)",
-        }}
-      >
+      {/* Top bar — calm single-purpose matte obsidian */}
+      <div className="flex items-center justify-between border-b border-[#232327] bg-[#0B0B0D] px-4 py-3 sm:px-6">
         <div className="flex items-center gap-3 min-w-0">
           <Button variant="ghost" size="icon" onClick={() => setShowEndDialog(true)} className="h-8 w-8" aria-label="Exit session">
             <X className="h-4 w-4" />
@@ -1019,32 +1123,41 @@ export function SparringRoom({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <p className="truncate text-sm font-medium text-white">
-                {scenarioLabel}
+                {displayTitle}
               </p>
               {experience === "drill" && drillTarget && (
-                <span className="flex-shrink-0 rounded border border-[#2a2a2a] bg-[#171717] px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-neutral-300">
+                <span className="flex-shrink-0 rounded-md border border-[#232327] bg-[#18181D] px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-neutral-300">
                   Drill: {drillTarget.replace(/-/g, " ")}
                 </span>
               )}
               {experience === "boardroom" && (
-                <span className="flex-shrink-0 rounded border border-amber-500/20 bg-amber-500/[0.06] px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-amber-300/80">
+                <span className="flex-shrink-0 rounded-md border border-amber-500/20 bg-amber-500/[0.06] px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-amber-300/80">
                   Boardroom
                 </span>
               )}
               {experience === "defense" && (
-                <span className="flex-shrink-0 rounded border border-[#2a2a2a] bg-[#171717] px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-neutral-300">
+                <span className="flex-shrink-0 rounded-md border border-[#232327] bg-[#18181D] px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-neutral-300">
                   Defense
                 </span>
               )}
               <EngineStatusChip label={engineLabel} />
             </div>
-            <p className="hidden sm:block text-xs text-neutral-500 max-w-xl truncate">
-              {roomContext}
-            </p>
+            {(displaySubtitle || claims.length > 0) && (
+              <p className="hidden sm:block text-xs text-neutral-500 max-w-xl truncate">
+                {[
+                  displaySubtitle,
+                  claims.length > 0
+                    ? `${claims.length} ${claims.length === 1 ? "claim" : "claims"}`
+                    : "",
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 rounded-full border border-white/5 bg-white/[0.03] px-2.5 py-1 font-mono text-xs text-[var(--text-secondary)] shadow-sm">
+          <div className="flex items-center gap-1.5 rounded-lg border border-[#232327] bg-[#18181D] px-2.5 py-1 font-mono text-xs text-[var(--text-secondary)]">
             <Clock className="h-3.5 w-3.5 text-[var(--accent)]" />
             {elapsedDisplay}
           </div>
@@ -1052,7 +1165,7 @@ export function SparringRoom({
             type="button"
             onClick={() => setShowEndDialog(true)}
             disabled={ending}
-            className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-all hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-300 active:scale-95 disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-lg border border-[#232327] bg-[#18181D] px-3.5 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-300 active:scale-[0.98] disabled:opacity-50"
           >
             {ending ? (
               <>
@@ -1065,338 +1178,219 @@ export function SparringRoom({
         </div>
       </div>
 
-      {/* Body — stacked on mobile, 2-column on desktop */}
-      <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
-        {/* Mobile panel — presence strip (below lg, stacks on top) */}
-        <div
-          className="lg:hidden flex-shrink-0 border-b border-white/[0.06] overflow-x-auto px-4 py-3"
-          style={{
-            background: "rgba(10, 10, 10, 0.4)",
-          }}
-        >
-          <PresenceRail
-            personas={personas}
-            states={personaStates}
-            agitation={agitation}
-            layout="strip"
-            interruptedPersonaId={interruptedPersonaId}
-          />
+      {/* Contextual sub-strips (Coach target, Drill HUD, Boardroom agitation) */}
+      {coachingFocus && (
+        <div className="flex-shrink-0 border-b border-[#232327] bg-[#121215] px-4 py-2 lg:px-6">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)] flex-shrink-0" />
+            <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--accent)] font-semibold flex-shrink-0">
+              Target Rule
+            </span>
+            <p className="text-xs text-neutral-200 truncate flex-1">
+              {coachingFocus}
+            </p>
+          </div>
         </div>
+      )}
 
-        {/* Main area — content + conversation */}
-        <div className="flex flex-1 flex-col overflow-hidden min-w-0">
-          {/* Content strip — show what the user is defending */}
-          {rawMaterial && (
-            <div className="flex-shrink-0 border-b border-[#1a1a1a] px-4 py-2.5 lg:px-6">
-              <div className="flex items-center gap-3">
-                <span className="text-[10px] uppercase tracking-wider text-neutral-600 flex-shrink-0">
-                  Defending
-                </span>
-                <p className="text-xs text-neutral-300 truncate flex-1">
-                  {rawMaterial.length > 120
-                    ? rawMaterial.slice(0, 120) + "…"
-                    : rawMaterial}
-                </p>
-                {claims.length > 0 && (
-                  <span className="text-[10px] text-neutral-600 flex-shrink-0">
-                    {claims.length} {claims.length === 1 ? "claim" : "claims"} extracted
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
+      {experience === "drill" && drillTarget && (
+        <DrillHudStrip
+          drillTarget={drillTarget}
+          outcomes={drillRepOutcomes}
+          drillRetry={drillRetry}
+          drillAttempts={drillAttempts}
+          lastReason={drillLastReason}
+          liveTranscript={
+            voice.isListening
+              ? `${voice.finalTranscript} ${voice.interimTranscript}`.trim()
+              : ""
+          }
+        />
+      )}
 
-          {/* Coaching Focus strip — shows the lesson's Golden Rule / Pass Criteria when launched from Coach */}
-          {coachingFocus && (
-            <div className="flex-shrink-0 border-b border-[var(--border-subtle)] bg-[var(--accent-soft)]/10 px-4 py-2 lg:px-6">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)] flex-shrink-0" />
-                <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--accent)] font-semibold flex-shrink-0">
-                  Target Rule
-                </span>
-                <p className="text-xs text-neutral-200 truncate flex-1">
-                  {coachingFocus}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Live Drill Rep HUD strip — shows target rule, clean rep progress pills, and active retry state */}
-          {experience === "drill" && drillTarget && (
-            <DrillHudStrip
-              drillTarget={drillTarget}
-              outcomes={drillRepOutcomes}
-              drillRetry={drillRetry}
-              drillAttempts={drillAttempts}
-              lastReason={drillLastReason}
-            />
-          )}
-
-          {/* Boardroom live-pressure banner — shows the panel's agitation
-              building in real-time while the user presents. This is the
-              "interrupt meter visibility" fix: in Boardroom, you should SEE
-              the panel getting agitated before they cut you off. */}
-          {experience === "boardroom" && isPresenting && voice.isListening && (
-            <div className="flex-shrink-0 border-b border-[#1a1a1a] px-4 py-2 lg:px-6">
-              <div className="flex items-center gap-3">
-                <span className="text-[10px] uppercase tracking-wider text-amber-500/70 flex-shrink-0 animate-pulse">
-                  Under pressure
-                </span>
-                <div className="flex gap-1.5 flex-1 min-w-0">
-                  {personas.map((p) => {
-                    const score = agitation[p.id] || 0;
-                    const dots = Math.min(5, Math.floor(score / 20));
-                    const danger = score >= 80;
-                    return (
-                      <div key={p.id} className="flex items-center gap-1 flex-shrink-0">
-                        <span className="text-[9px] uppercase tracking-wider text-neutral-600">
-                          {p.name.replace("The ", "")}
-                        </span>
-                        <div className="flex gap-0.5">
-                          {[0,1,2,3,4].map((i) => (
-                            <div
-                              key={i}
-                              className={cn(
-                                "h-1.5 w-1.5 rounded-full transition-colors duration-300",
-                                i < dots
-                                  ? danger
-                                    ? "bg-red-400"
-                                    : "bg-amber-400"
-                                  : "bg-neutral-800"
-                              )}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Conversation feed — scrollable */}
-          <div
-            ref={feedRef}
-            onScroll={handleFeedScroll}
-            aria-live="polite"
-            className="flex-1 overflow-y-auto px-4 py-4 lg:px-6"
-          >
-            <div className="mx-auto max-w-2xl space-y-3">
-              {/* Opening beat — the room is up, the panel's first line is on
-                  its way. Quiet, in the state language (gathering). */}
-              {opening && captions.length === 0 && !isPresenting && (
-                <div className="flex items-center justify-center gap-2 py-10 text-xs text-neutral-500">
-                  <span className="flex gap-0.5">
-                    <span className="spar-thinking-dot inline-block h-1.5 w-1.5 rounded-full bg-neutral-400" />
-                    <span className="spar-thinking-dot inline-block h-1.5 w-1.5 rounded-full bg-neutral-400" />
-                    <span className="spar-thinking-dot inline-block h-1.5 w-1.5 rounded-full bg-neutral-400" />
-                  </span>
-                  The panel is taking their seats…
-                </div>
-              )}
-
-              {/* Presenting prompt (Defense & Boardroom) */}
-              {isPresenting && captions.length === 0 && (
-                <div className="spar-fade-up rounded-md border border-[#1a1a1a] bg-[#0f0f0f] px-5 py-6 text-center">
-                  {settling ? (
-                    <>
-                      <div className="flex items-center justify-center gap-2 mb-2">
-                        {personas.map((p) => (
-                          <div key={p.id} className="flex flex-col items-center gap-1">
-                            <div className="h-2 w-2 animate-pulse rounded-full bg-neutral-500" />
-                          </div>
-                        ))}
-                      </div>
-                      <p className="text-xs text-neutral-600">
-                        The panel is taking their seats...
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-sm text-neutral-300 mb-1">
-                        {experience === "boardroom"
-                          ? "Present. They will interrupt you."
-                          : "The floor is yours."}
-                      </p>
-                      <p className="text-xs text-neutral-600">
-                        {experience === "boardroom"
-                          ? "Present your material. The panel will cut in when they detect weakness. Click "
-                          : "Present your material. The panel is listening. Click "}
-                        <span className="text-neutral-400">Done Presenting</span>
-                        {" "}when you're ready for Q&A.
-                      </p>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* Boardroom "resume presenting" cue — shows after an interrupt
-                  resolves, reminding the user to continue their presentation
-                  (not switch to Q&A mode). Auto-dismisses when they start
-                  speaking again. */}
-              {experience === "boardroom" && isPresenting && isUserTurn && !voice.isListening && captions.length > 0 && (
-                <div className="spar-fade-up rounded-md border border-amber-500/20 bg-amber-500/[0.03] px-4 py-2.5 text-center">
-                  <p className="text-xs text-amber-300/80">
-                    Continue presenting — or click <span className="text-amber-200">Done Presenting</span> if you're finished.
-                  </p>
-                </div>
-              )}
-
-              {/* Coach analysis card (shown after presentation, before Q&A).
-                  Shows the full read: strengths, weakness, anticipated attack,
-                  and the coach's headline read. The user clicks "Begin Q&A"
-                  when they're ready — no auto-dismiss timer. */}
-              {coachAnalysis && (
-                <div className="spar-fade-up rounded-md border border-[#2a2a2a] bg-[#171717] px-4 py-4">
-                  <div className="flex items-start gap-3 mb-3">
-                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md border border-[#2a2a2a] bg-[#1a1a1a]">
-                      <span className="text-[10px] font-bold text-neutral-300">CO</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[10px] uppercase tracking-wider text-neutral-500 mb-1.5">
-                        Coach read
-                      </p>
-                      <p className="text-sm text-neutral-200 leading-relaxed">
-                        {coachAnalysis.coachRead}
-                      </p>
+      {experience === "boardroom" && isPresenting && voice.isListening && (
+        <div className="flex-shrink-0 border-b border-[#232327] px-4 py-2 lg:px-6">
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] uppercase tracking-wider text-amber-500/70 flex-shrink-0 animate-pulse">
+              Under pressure
+            </span>
+            <div className="flex gap-1.5 flex-1 min-w-0">
+              {personas.map((p) => {
+                const score = agitation[p.id] || 0;
+                const dots = Math.min(5, Math.floor(score / 20));
+                const danger = score >= 80;
+                return (
+                  <div key={p.id} className="flex items-center gap-1 flex-shrink-0">
+                    <span className="text-[9px] uppercase tracking-wider text-neutral-600">
+                      {p.name.replace("The ", "")}
+                    </span>
+                    <div className="flex gap-0.5">
+                      {[0, 1, 2, 3, 4].map((i) => (
+                        <div
+                          key={i}
+                          className={cn(
+                            "h-1.5 w-1.5 rounded-full transition-colors duration-300",
+                            i < dots
+                              ? danger
+                                ? "bg-red-400"
+                                : "bg-amber-400"
+                              : "bg-neutral-800"
+                          )}
+                        />
+                      ))}
                     </div>
                   </div>
-
-                  {/* Strengths */}
-                  {coachAnalysis.strengths.length > 0 && (
-                    <div className="mb-2.5">
-                      <p className="text-[10px] uppercase tracking-wider text-neutral-600 mb-1">
-                        What worked
-                      </p>
-                      <ul className="space-y-1">
-                        {coachAnalysis.strengths.map((s, i) => (
-                          <li key={i} className="text-xs text-neutral-400 flex items-start gap-1.5">
-                            <span className="text-neutral-600 mt-0.5">·</span>
-                            <span>{s}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Weakness */}
-                  {coachAnalysis.weakness && (
-                    <div className="mb-2.5">
-                      <p className="text-[10px] uppercase tracking-wider text-neutral-600 mb-1">
-                        The weakness
-                      </p>
-                      <p className="text-xs text-neutral-300">{coachAnalysis.weakness}</p>
-                    </div>
-                  )}
-
-                  {/* Anticipated attack */}
-                  {coachAnalysis.anticipatedAttack && (
-                    <div className="mb-3">
-                      <p className="text-[10px] uppercase tracking-wider text-amber-500/60 mb-1">
-                        They'll attack first
-                      </p>
-                      <p className="text-xs text-amber-300/80">{coachAnalysis.anticipatedAttack}</p>
-                    </div>
-                  )}
-
-                  {/* Begin Q&A button */}
-                  <button
-                    onClick={() => beginQA()}
-                    className="w-full flex items-center justify-center gap-2 px-4 h-10 rounded-md bg-neutral-100 text-black text-xs font-medium hover:bg-white transition-all mt-1"
-                  >
-                    Begin Q&A
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              )}
-
-              {/* Analyzing presentation indicator */}
-              {analyzingPresentation && (
-                <div className="flex items-center justify-center gap-2 py-8">
-                  <Loader2 className="h-4 w-4 animate-spin text-neutral-500" />
-                  <span className="text-xs text-neutral-500">
-                    The panel is reviewing your presentation...
-                  </span>
-                </div>
-              )}
-
-              {captions.map((c) => (
-                <CaptionRow key={c.id} entry={c} />
-              ))}
-              {/* Processing indicator */}
-              {isProcessing && (
-                <div className="flex items-center gap-2 text-xs text-neutral-500">
-                  <span className="flex gap-0.5">
-                    <span className="spar-thinking-dot inline-block h-1.5 w-1.5 rounded-full bg-neutral-400" />
-                    <span className="spar-thinking-dot inline-block h-1.5 w-1.5 rounded-full bg-neutral-400" />
-                    <span className="spar-thinking-dot inline-block h-1.5 w-1.5 rounded-full bg-neutral-400" />
-                  </span>
-                  The panel is thinking...
-                </div>
-              )}
-              <div ref={captionsEndRef} />
+                );
+              })}
             </div>
           </div>
         </div>
+      )}
 
-        {/* Right rail — panelist presence (desktop only, lg+) */}
-        <aside
-          className="hidden lg:flex flex-col border-l border-white/[0.05] bg-[#0a0a0a] overflow-y-auto px-5 py-5"
-          style={{ width: "380px", minWidth: "320px", maxWidth: "420px" }}
-        >
-          <p className="text-[10px] uppercase tracking-[0.18em] text-neutral-600 mb-4">
-            The Panel
-          </p>
+      {/* Face-to-Face Centered Stage + Bottom AI Caption */}
+      <main
+        aria-live="polite"
+        className="flex flex-1 flex-col items-center justify-between overflow-y-auto px-4 py-6 sm:px-8"
+      >
+        <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center justify-center gap-6">
           <PresenceRail
             personas={personas}
             states={personaStates}
             agitation={agitation}
-            layout="rail"
+            layout="stage"
             interruptedPersonaId={interruptedPersonaId}
           />
-        </aside>
-      </div>
 
-      {/* Bottom bar — narrow, glass */}
-      <div
-        className="flex-shrink-0"
-        style={{
-          background: "rgba(10, 10, 10, 0.65)",
-          backdropFilter: "blur(20px) saturate(180%)",
-          WebkitBackdropFilter: "blur(20px) saturate(180%)",
-          borderTop: "1px solid rgba(255, 255, 255, 0.08)",
-          boxShadow: "inset 0 -1px 0 0 rgba(255, 255, 255, 0.04), 0 -8px 24px -12px rgba(0, 0, 0, 0.5)",
-        }}
-      >
-        <div className="flex items-center justify-between gap-3 px-4 py-2 sm:px-6">
-          {/* Left — I need a moment */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleNeedMoment}
-            disabled={
-              !canPauseForMoment({
-                liveSessionActive,
-                liveStatus: turnController.liveEngineStatus,
-                isPresenting,
-                isUserTurn,
-                isListening: voice.isListening,
-                isProcessing,
-                audioPlaying,
-                analyzing: analyzingPresentation,
-                coachReadOpen: coachAnalysis !== null,
-                drillRetry,
-                ending,
-              })
-            }
-            className="text-neutral-400 hover:text-white"
-          >
-            <Hand className="h-4 w-4 mr-1.5" />
-            <span>I need a moment</span>
-          </Button>
+          {/* Opening beat */}
+          {opening && !latestPersonaCaption && !isPresenting && (
+            <div className="flex items-center justify-center gap-2 text-xs text-neutral-500">
+              <span className="flex gap-0.5">
+                <span className="spar-thinking-dot inline-block h-1.5 w-1.5 rounded-full bg-neutral-400" />
+                <span className="spar-thinking-dot inline-block h-1.5 w-1.5 rounded-full bg-neutral-400" />
+                <span className="spar-thinking-dot inline-block h-1.5 w-1.5 rounded-full bg-neutral-400" />
+              </span>
+              The panel is taking their seats…
+            </div>
+          )}
 
-          {/* Center — engine-aware speak controls */}
+          {/* Presenting prompt (Defense & Boardroom) */}
+          {isPresenting && !latestPersonaCaption && (
+            <div className="spar-fade-up w-full max-w-lg rounded-xl border border-[#232327] bg-[#121215] px-5 py-5 text-center">
+              {settling ? (
+                <p className="text-xs text-neutral-500">
+                  The panel is taking their seats...
+                </p>
+              ) : (
+                <>
+                  <p className="mb-1 text-sm text-neutral-200">
+                    {experience === "boardroom"
+                      ? "Present. They will interrupt you."
+                      : "The floor is yours."}
+                  </p>
+                  <p className="text-xs text-neutral-500">
+                    {experience === "boardroom"
+                      ? "Present your material. The panel will cut in when they detect weakness. Click "
+                      : "Present your material. The panel is listening. Click "}
+                    <span className="text-neutral-300">Done Presenting</span>
+                    {" "}when you&apos;re ready for Q&amp;A.
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Boardroom resume presenting cue */}
+          {experience === "boardroom" && isPresenting && isUserTurn && !voice.isListening && captions.length > 0 && (
+            <div className="spar-fade-up rounded-xl border border-amber-500/20 bg-amber-500/[0.04] px-4 py-2 text-center">
+              <p className="text-xs text-amber-300/80">
+                Continue presenting — or click <span className="text-amber-200">Done Presenting</span> if you&apos;re finished.
+              </p>
+            </div>
+          )}
+
+          {/* Coach analysis card (shown after presentation, before Q&A) */}
+          {coachAnalysis && (
+            <div className="spar-fade-up w-full max-w-xl rounded-xl border border-[#232327] bg-[#121215] px-5 py-4 text-left">
+              <div className="mb-3 flex items-start gap-3">
+                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-[#232327] bg-[#18181D]">
+                  <span className="text-[10px] font-bold text-neutral-300">CO</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="mb-1 text-[10px] uppercase tracking-wider text-neutral-500">
+                    Coach read
+                  </p>
+                  <p className="text-sm leading-relaxed text-neutral-200">
+                    {coachAnalysis.coachRead}
+                  </p>
+                </div>
+              </div>
+
+              {coachAnalysis.strengths.length > 0 && (
+                <div className="mb-2.5">
+                  <p className="mb-1 text-[10px] uppercase tracking-wider text-neutral-600">
+                    What worked
+                  </p>
+                  <ul className="space-y-1">
+                    {coachAnalysis.strengths.map((s, i) => (
+                      <li key={i} className="flex items-start gap-1.5 text-xs text-neutral-400">
+                        <span className="mt-0.5 text-neutral-600">·</span>
+                        <span>{s}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {coachAnalysis.weakness && (
+                <div className="mb-2.5">
+                  <p className="mb-1 text-[10px] uppercase tracking-wider text-neutral-600">
+                    The weakness
+                  </p>
+                  <p className="text-xs text-neutral-300">{coachAnalysis.weakness}</p>
+                </div>
+              )}
+
+              {coachAnalysis.anticipatedAttack && (
+                <div className="mb-3">
+                  <p className="mb-1 text-[10px] uppercase tracking-wider text-amber-500/60">
+                    They&apos;ll attack first
+                  </p>
+                  <p className="text-xs text-amber-300/80">{coachAnalysis.anticipatedAttack}</p>
+                </div>
+              )}
+
+              <button
+                onClick={() => beginQA()}
+                className="mt-1 flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-neutral-100 px-4 text-xs font-medium text-black transition-colors hover:bg-white"
+              >
+                Begin Q&amp;A
+                <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Analyzing presentation indicator */}
+          {analyzingPresentation && (
+            <div className="flex items-center justify-center gap-2 py-2">
+              <Loader2 className="h-4 w-4 animate-spin text-neutral-500" />
+              <span className="text-xs text-neutral-500">
+                The panel is reviewing your presentation...
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Bottom Closed-Caption Track — AI panelist message only (never ChatGPT chat bubbles) */}
+        {!coachAnalysis && latestPersonaCaption && (
+          <div className="w-full max-w-2xl shrink-0 pt-3">
+            <AiStageCaption entry={latestPersonaCaption} />
+          </div>
+        )}
+      </main>
+
+      {/* Bottom control deck — centered voice controls only */}
+      <div className="flex-shrink-0 border-t border-[#232327] bg-[#0B0B0D]">
+        <div className="flex items-center justify-center px-4 py-2.5 sm:px-6">
           <RoomControlDeck
             isSupported={voice.isSupported}
             connectionError={connectionError}
@@ -1411,22 +1405,13 @@ export function SparringRoom({
             audioPlaying={audioPlaying}
             liveStatus={liveDeckStatus}
             waveformAmplitude={waveformAmplitude}
+            handsFree={handsFree}
+            onToggleHandsFree={handleToggleHandsFree}
             onStartSpeaking={handleStartSpeaking}
             onStopSpeaking={handleStopSpeaking}
             onDonePresenting={handleDonePresenting}
             onRetry={handleConnectionRetry}
           />
-
-          {/* Right — End session */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowEndDialog(true)}
-            disabled={ending}
-            className="text-neutral-400 hover:text-red-400"
-          >
-            End
-          </Button>
         </div>
       </div>
 
@@ -1452,7 +1437,9 @@ export function SparringRoom({
       {voice.error && <RoomToast>{voice.error}</RoomToast>}
 
       {/* Error toast */}
-      {error && captions.length > 0 && <RoomToast>{error}</RoomToast>}
+      {error && captions.length > 0 && (
+        <RoomToast onDismiss={() => setError(null)}>{error}</RoomToast>
+      )}
 
       {/* End session dialog */}
       <AlertDialog open={showEndDialog} onOpenChange={setShowEndDialog}>
@@ -1491,13 +1478,29 @@ export {
 } from "./room-state";
 
 /** Quiet announcement toast — screen readers hear it the moment it lands. */
-export function RoomToast({ children }: { children: React.ReactNode }) {
+export function RoomToast({
+  children,
+  onDismiss,
+}: {
+  children: React.ReactNode;
+  onDismiss?: () => void;
+}) {
   return (
     <div
       role="alert"
-      className="fixed bottom-20 left-4 right-4 z-40 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400"
+      className="fixed top-16 left-4 right-4 z-40 mx-auto flex max-w-xl items-center justify-between gap-3 rounded-xl border border-red-500/30 bg-[#1B1113] px-4 py-2.5 text-xs sm:text-sm text-red-300"
     >
-      {children}
+      <span>{children}</span>
+      {onDismiss && (
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="Dismiss error"
+          className="shrink-0 rounded-md p-1 text-red-300/70 transition-colors hover:bg-red-500/15 hover:text-red-200"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
     </div>
   );
 }
@@ -1509,16 +1512,52 @@ export function EngineStatusChip({ label }: { label: EngineStatusLabel }) {
       data-engine={label.toLowerCase()}
       title={label === "Live" ? "Gemini Live voice engine" : "Classic voice engine"}
       className={cn(
-        "flex-shrink-0 rounded border px-1.5 py-0.5 text-[9px] uppercase tracking-wider",
+        "flex-shrink-0 rounded-md border px-1.5 py-0.5 text-[9px] uppercase tracking-wider",
         label === "Live"
           ? "border-emerald-500/20 bg-emerald-500/[0.06] text-emerald-300/80"
-          : "border-[#2a2a2a] bg-[#171717] text-neutral-400",
+          : "border-[#232327] bg-[#18181D] text-neutral-400",
         label === "Connecting" && "animate-pulse",
       )}
     >
       {label}
     </span>
   );
+}
+
+export function shouldAutoStartMic(params: {
+  handsFree: boolean;
+  isSupported: boolean;
+  isPresenting: boolean;
+  isUserTurn: boolean;
+  isProcessing: boolean;
+  audioPlaying: boolean;
+  isListening: boolean;
+  opening: boolean;
+  loading: boolean;
+  showEndDialog: boolean;
+  connectionError: boolean;
+  coachAnalysisOpen: boolean;
+  liveStatus: "connecting" | "live" | "off";
+}): boolean {
+  return (
+    params.handsFree &&
+    params.isSupported &&
+    !params.isPresenting &&
+    params.isUserTurn &&
+    !params.isProcessing &&
+    !params.audioPlaying &&
+    !params.isListening &&
+    !params.opening &&
+    !params.loading &&
+    !params.showEndDialog &&
+    !params.connectionError &&
+    !params.coachAnalysisOpen &&
+    params.liveStatus === "off"
+  );
+}
+
+export function autoSendSilenceMs(experience: string): number {
+  return experience === "drill" ? 1600 : 2100;
 }
 
 export interface RoomControlDeckProps {
@@ -1536,6 +1575,8 @@ export interface RoomControlDeckProps {
   /** "off" — the classic click flow owns the deck; otherwise the live engine does. */
   liveStatus: "connecting" | "live" | "off";
   waveformAmplitude: number;
+  handsFree?: boolean;
+  onToggleHandsFree?: () => void;
   onStartSpeaking: () => void;
   onStopSpeaking: () => void;
   onDonePresenting: () => void;
@@ -1562,6 +1603,8 @@ export function RoomControlDeck({
   audioPlaying,
   liveStatus,
   waveformAmplitude,
+  handsFree,
+  onToggleHandsFree,
   onStartSpeaking,
   onStopSpeaking,
   onDonePresenting,
@@ -1578,7 +1621,7 @@ export function RoomControlDeck({
       ) : connectionError ? (
         <button
           onClick={onRetry}
-          className="flex items-center gap-2 px-4 h-10 rounded-md border border-[#3a3a3a] bg-[#171717] text-xs font-medium text-neutral-200 hover:bg-[#1a1a1a] transition-all"
+          className="flex items-center gap-2 px-4 h-10 rounded-lg border border-[#34343B] bg-[#18181D] text-xs font-medium text-neutral-200 hover:bg-[#202026] transition-colors"
         >
           <Loader2 className="h-3.5 w-3.5" />
           Retry
@@ -1606,7 +1649,7 @@ export function RoomControlDeck({
         // Coach analysis card is showing — hint the user to read it
         // and click "Begin Q&A" in the card above
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#2a2a2a] bg-[#171717]">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#232327] bg-[#18181D]">
             <FileText className="h-4 w-4 text-neutral-400" />
           </div>
           <span className="text-[10px] uppercase tracking-wider text-neutral-500">
@@ -1626,7 +1669,7 @@ export function RoomControlDeck({
           {isListening ? (
             <button
               onClick={onDonePresenting}
-              className="flex items-center gap-2 px-4 h-10 rounded-md bg-neutral-100 text-black text-xs font-medium hover:bg-white transition-all"
+              className="flex items-center gap-2 px-4 h-10 rounded-lg bg-neutral-100 text-black text-xs font-medium hover:bg-white transition-colors"
             >
               <Square className="h-3.5 w-3.5 fill-current" />
               Done Presenting
@@ -1663,7 +1706,7 @@ export function RoomControlDeck({
           ) : (
             <button
               onClick={onStartSpeaking}
-              className="group flex items-center gap-2 px-4 h-10 rounded-md bg-neutral-100 text-black text-xs font-medium hover:bg-white transition-all"
+              className="group flex items-center gap-2 px-4 h-10 rounded-lg bg-neutral-100 text-black text-xs font-medium hover:bg-white transition-colors"
               aria-label="Try again"
             >
               <Mic className="h-3.5 w-3.5" />
@@ -1718,6 +1761,25 @@ export function RoomControlDeck({
           </span>
         )
       )}
+      {onToggleHandsFree && liveStatus === "off" && !isPresenting && (
+        <button
+          type="button"
+          onClick={onToggleHandsFree}
+          className={cn(
+            "rounded-full border px-2.5 py-1 text-[10px] font-medium tracking-wide transition-colors",
+            handsFree
+              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/15"
+              : "border-[#232327] bg-[#18181D] text-neutral-400 hover:border-[#34343B] hover:text-neutral-200",
+          )}
+          title={
+            handsFree
+              ? "Hands-free auto-mic is enabled. Click to switch to manual."
+              : "Manual click-to-talk mode. Click to enable hands-free auto-mic."
+          }
+        >
+          {handsFree ? "Auto-Mic On · Space to send" : "Manual Mic"}
+        </button>
+      )}
     </div>
   );
 }
@@ -1741,7 +1803,7 @@ export function PresenceRail({
   personas: SessionPersona[];
   states: Record<string, "idle" | "listening" | "thinking" | "speaking" | "about-to-interrupt">;
   agitation: Record<string, number>;
-  layout?: "rail" | "strip";
+  layout?: "rail" | "strip" | "stage";
   /** The panelist whose turn a live barge-in just cut off (flicker). */
   interruptedPersonaId?: string | null;
 }) {
@@ -1753,6 +1815,24 @@ export function PresenceRail({
     if (s === "thinking" || s === "about-to-interrupt") return "gathering";
     return "listening";
   };
+
+  if (layout === "stage") {
+    return (
+      <div className="flex flex-wrap items-center justify-center gap-8 sm:gap-14">
+        {ordered.map((p) => (
+          <PanelistPresence
+            key={p.id}
+            archetype={p.archetype}
+            name={p.name}
+            status={presenceFor(p.id)}
+            variant="stage"
+            aboutToInterrupt={(agitation[p.id] ?? 0) >= 80}
+            interrupted={interruptedPersonaId === p.id}
+          />
+        ))}
+      </div>
+    );
+  }
 
   if (layout === "strip") {
     return (
@@ -1790,6 +1870,44 @@ export function PresenceRail({
   );
 }
 
+/** Closed-caption subtitle rendered directly over the stage background (zero card/border). */
+export function AiStageCaption({ entry }: { entry: CaptionEntry }) {
+  const isInterruption = entry.type === "interruption";
+  const accentHue = entry.archetype
+    ? ARCHETYPES[entry.archetype].accentHue
+    : undefined;
+
+  return (
+    <div className="spar-fade-up mx-auto max-w-2xl px-4 py-2 text-center">
+      <div className="mb-1.5 flex items-center justify-center gap-2">
+        {accentHue && (
+          <span
+            aria-hidden
+            className="h-1.5 w-1.5 rounded-full"
+            style={{ backgroundColor: accentHue }}
+          />
+        )}
+        <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-neutral-500">
+          {entry.personaName}
+        </span>
+        {isInterruption && (
+          <span className="text-[10px] uppercase tracking-wider text-amber-400/80">
+            · Interrupting
+          </span>
+        )}
+        {typeof entry.claimRef === "number" && entry.claimRef > 0 && (
+          <span className="text-[10px] text-neutral-600">
+            · Claim {entry.claimRef}
+          </span>
+        )}
+      </div>
+      <p className="text-[15px] leading-relaxed text-[#E4E4E7] sm:text-base">
+        {entry.content}
+      </p>
+    </div>
+  );
+}
+
 export function CaptionRow({ entry }: { entry: CaptionEntry }) {
   const isUser = entry.role === "user";
   const isCoach = entry.type === "coach_whisper";
@@ -1798,7 +1916,7 @@ export function CaptionRow({ entry }: { entry: CaptionEntry }) {
 
   if (isCoach) {
     return (
-      <div className="spar-fade-up rounded-md border border-[#1a1a1a] bg-[#0f0f0f] px-4 py-3">
+      <div className="spar-fade-up rounded-xl border border-[#232327] bg-[#121215] px-4 py-3">
         <p className="text-[10px] uppercase tracking-wider text-neutral-600 mb-1">
           Coach whisper
         </p>
@@ -1816,10 +1934,10 @@ export function CaptionRow({ entry }: { entry: CaptionEntry }) {
           </div>
           <div
             className={cn(
-              "rounded-md rounded-br-sm border px-4 py-2.5 text-sm text-neutral-200",
+              "rounded-xl rounded-br-sm border px-4 py-2.5 text-sm text-neutral-200",
               entry.isLive
-                ? "border-[#1a1a1a] bg-[#0a0a0a]"
-                : "border-[#2a2a2a] bg-[#171717]"
+                ? "border-[#232327] bg-[#0E0E11]"
+                : "border-[#34343B] bg-[#18181D]"
             )}
           >
             {entry.content}
@@ -1838,7 +1956,7 @@ export function CaptionRow({ entry }: { entry: CaptionEntry }) {
             {entry.personaName}
           </span>
           {isOpening && (
-            <span className="rounded border border-[#2a2a2a] bg-[#171717] px-1 py-px text-[9px] uppercase tracking-wider text-neutral-300">
+            <span className="rounded-md border border-[#232327] bg-[#18181D] px-1.5 py-px text-[9px] uppercase tracking-wider text-neutral-300">
               Opening
             </span>
           )}
@@ -1848,18 +1966,18 @@ export function CaptionRow({ entry }: { entry: CaptionEntry }) {
             </span>
           )}
           {typeof entry.claimRef === "number" && entry.claimRef > 0 && (
-            <span className="rounded border border-[#1a1a1a] bg-[#0f0f0f] px-1 py-px text-[9px] uppercase tracking-wider text-neutral-500">
+            <span className="rounded-md border border-[#232327] bg-[#121215] px-1.5 py-px text-[9px] uppercase tracking-wider text-neutral-500">
               → Claim {entry.claimRef}
             </span>
           )}
         </div>
         <div
           className={cn(
-            "rounded-md rounded-bl-sm border px-4 py-2.5 text-sm text-neutral-200",
+            "rounded-xl rounded-bl-sm border px-4 py-2.5 text-sm text-neutral-200",
             entry.archetype && "spar-caption-accent",
             isInterruption
-              ? "border-[#2a2a2a] bg-[#141414] ml-2"
-              : "border-[#1a1a1a] bg-[#0f0f0f]"
+              ? "border-[#34343B] bg-[#18181D] ml-2"
+              : "border-[#232327] bg-[#121215]"
           )}
           style={
             entry.archetype
@@ -1884,21 +2002,34 @@ export function DrillHudStrip({
   drillRetry,
   drillAttempts,
   lastReason,
+  liveTranscript,
 }: {
   drillTarget: DrillTarget;
   outcomes: ReadonlyArray<"clean-1" | "clean-2" | "clean-3">;
   drillRetry: boolean;
   drillAttempts: number;
   lastReason: string | null;
+  liveTranscript?: string;
 }) {
   const def = getDrillDefinition(drillTarget);
   const slotCount = Math.max(5, outcomes.length + (drillRetry ? 1 : 0));
+  const liveState =
+    liveTranscript && liveTranscript.trim().length > 0
+      ? detectLiveDrillViolation(liveTranscript, drillTarget)
+      : null;
+
+  // Compute current consecutive 1st-try clean streak
+  let streak = 0;
+  for (let i = outcomes.length - 1; i >= 0; i--) {
+    if (outcomes[i] === "clean-1") streak++;
+    else break;
+  }
 
   return (
-    <div className="flex-shrink-0 border-b border-[var(--border-subtle)] bg-[var(--surface-1)]/90 px-4 py-2.5 lg:px-6">
+    <div className="flex-shrink-0 border-b border-[#232327] bg-[#121215] px-4 py-2.5 lg:px-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
-          <span className="rounded-md border border-[var(--accent)]/30 bg-[var(--accent-soft)]/15 px-2 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-[var(--accent)] flex-shrink-0">
+          <span className="rounded-md border border-[var(--accent-border)] bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-mono font-semibold uppercase tracking-wider text-[var(--accent-text)] flex-shrink-0">
             Drill · {def.label}
           </span>
           <p className="text-xs text-[var(--text-secondary)] truncate">
@@ -1907,6 +2038,22 @@ export function DrillHudStrip({
         </div>
 
         <div className="flex items-center gap-3 flex-shrink-0">
+          {/* Live constraint / buzzer indicator while speaking */}
+          {liveState && liveState.label && (
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums transition-colors",
+                liveState.violated
+                  ? "border-rose-500/40 bg-rose-500/15 text-rose-300 animate-pulse"
+                  : liveState.wordCount >= 12 && drillTarget === "over-explaining"
+                  ? "border-amber-500/40 bg-amber-500/15 text-amber-300"
+                  : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+              )}
+            >
+              {liveState.label}
+            </span>
+          )}
+
           {/* Rep progress slots */}
           <div className="flex items-center gap-1.5" aria-label="Drill rep progress">
             {Array.from({ length: slotCount }).map((_, idx) => {
@@ -1918,7 +2065,7 @@ export function DrillHudStrip({
                   className={cn(
                     "h-2 w-5 rounded-full transition-all",
                     outcome === "clean-1"
-                      ? "bg-[var(--accent)] shadow-[0_0_8px_var(--accent-soft)]"
+                      ? "bg-[var(--accent)]"
                       : outcome === "clean-2"
                       ? "bg-amber-400"
                       : outcome === "clean-3"
@@ -1940,7 +2087,7 @@ export function DrillHudStrip({
               );
             })}
             <span className="ml-1 font-mono text-[10px] text-[var(--text-secondary)] tabular-nums">
-              {outcomes.length} clean
+              {outcomes.length} clean{streak >= 2 ? ` · ${streak} streak` : ""}
             </span>
           </div>
 

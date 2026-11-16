@@ -11,6 +11,7 @@ import {
   type Course,
   type LessonCompletion,
 } from "./courses";
+import { syncToSupabaseTable } from "./supabase";
 
 interface CoachStoreFile {
   courses: Course[];
@@ -167,6 +168,14 @@ export function upsertCourse(course: Course): Course {
     store.courses.push(normalized);
   }
   writeStore(store);
+  void syncToSupabaseTable("spar_courses", {
+    id: normalized.id,
+    slug: normalized.slug ?? normalized.id,
+    title: normalized.title,
+    status: normalized.status ?? "draft",
+    payload: normalized,
+    updated_at: normalized.updatedAt,
+  });
   return normalized;
 }
 

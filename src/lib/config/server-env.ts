@@ -11,6 +11,8 @@ export type ServerProviderConfig = {
    * answers 503 "gemini-unconfigured"), not a server misconfiguration.
    */
   geminiApiKey?: string;
+  /** Optional runtime override for the Gemini Live model ID (e.g. via GEMINI_LIVE_MODEL). */
+  geminiLiveModel?: string;
 };
 
 type ServerEnvironment = Record<string, string | undefined>;
@@ -38,6 +40,7 @@ export function getServerProviderConfig(
   }
 
   const geminiApiKey = env.GEMINI_API_KEY?.trim();
+  const geminiLiveModel = env.GEMINI_LIVE_MODEL?.trim();
 
   return {
     groqApiKey: env.GROQ_API_KEY!,
@@ -45,5 +48,6 @@ export function getServerProviderConfig(
     deepgramApiKey: env.DEEPGRAM_API_KEY!,
     deepgramRegion: region,
     geminiApiKey: geminiApiKey ? geminiApiKey : undefined,
+    ...(geminiLiveModel ? { geminiLiveModel } : {}),
   };
 }

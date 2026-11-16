@@ -27,7 +27,11 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "Spar" }],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: [
+      { url: "/icon.svg?v=2", type: "image/svg+xml" },
+    ],
+    shortcut: "/icon.svg?v=2",
+    apple: "/logo.svg?v=2",
   },
   openGraph: {
     title: "Spar — The sparring room for your next big moment",
@@ -44,6 +48,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var h=window.location.hash,s=window.location.search;if(h.indexOf("access_token=")!==-1||h.indexOf("error=")!==-1||s.indexOf("code=")!==-1||s.indexOf("token_hash=")!==-1||s.indexOf("error=")!==-1){document.documentElement.setAttribute("data-spar-oauth","1");}var raw=window.localStorage.getItem("spar:user-preferences:v1");if(raw){var p=JSON.parse(raw);var a=p&&p.accentColor;if(a==="default"||a==="blue"||a==="green"||a==="yellow"||a==="pink"||a==="orange"){document.documentElement.setAttribute("data-accent",a);}}}catch(e){}`,
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground min-h-screen`}
       >

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { formatSessionRoomContext } from "../domains";
 import { ARCHETYPES, BEHAVIOR_STYLE_PROMPTS } from "../personas";
 import { MODE_CONTRACTS } from "./mode-contracts";
 import { buildLiveSystemInstruction } from "./live-instruction";
@@ -86,5 +87,40 @@ describe("buildLiveSystemInstruction", () => {
     expect(instruction).toContain("Timekeeper");
     expect(instruction).toContain("Never mention being an AI");
     expect(instruction).toContain("Keep spoken turns under 20 seconds unless presenting.");
+  });
+
+  test("renders custom room instructions cleanly without duplication in spoken live instruction", () => {
+    const customRoom = "Roleplay as a skeptical Series A partner asking about net dollar retention.";
+    const roomContext = formatSessionRoomContext({
+      domain: "commercial",
+      customRoom,
+    });
+    const live = buildLiveSystemInstruction({
+      ...baseParams,
+      roomContext,
+    });
+
+    expect(live).toContain("# CUSTOM ROOM INSTRUCTIONS (MUST FOLLOW)");
+    expect(live.split(customRoom).length - 1).toBe(1);
+    expect(live).not.toContain("Custom Room Instructions:");
+  });
+
+  test("injects spoken accent and tone directive without leaking bracket tags into ROOM CONTEXT", () => {
+    const roomContext = formatSessionRoomContext({
+      domain: "sparring",
+      voiceAccent: "british",
+      voiceTone: "warm",
+      customRoom: "Ask tight rebuttal questions.",
+    });
+    const live = buildLiveSystemInstruction({
+      ...baseParams,
+      roomContext,
+    });
+
+    expect(live).toContain("# SPOKEN ACCENT & DELIVERY");
+    expect(live).toContain("British English (Received Pronunciation)");
+    expect(live).toContain("warm yet rigorous conversational tone");
+    expect(live).not.toContain("[VoiceAccent:");
+    expect(live).not.toContain("[VoiceTone:");
   });
 });

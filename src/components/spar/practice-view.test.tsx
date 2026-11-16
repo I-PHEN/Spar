@@ -1,7 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
-import { PracticeView } from "./practice-view";
+import { PracticeView, SAMPLE_DEBATE_CASE } from "./practice-view";
+import {
+  ATTACK_ANGLE_LIST,
+  DOMAIN_PRESET_LIST,
+  STANCE_PRESET_LIST,
+} from "@/lib/domains";
 
 describe("PracticeView", () => {
   test("renders the first step without crashing", () => {
@@ -48,7 +53,7 @@ describe("PracticeView single screen", () => {
   });
 
   test("room description is behind a disclosure, not shown by default", () => {
-    expect(markup).toContain("Customize the room");
+    expect(markup).toContain("More options");
     expect(markup).not.toContain("Describe the specific room");
   });
 
@@ -59,24 +64,33 @@ describe("PracticeView single screen", () => {
     expect(markup).toContain("Add panelist");
   });
 
-  test("softer short-material state exists in source", () => {
+  test("sticky start bar exists without extra setup eyebrow", () => {
     const source = readFileSync(
       new URL("./practice-view.tsx", import.meta.url),
       "utf8",
     );
-    expect(source).toContain("Short, so the panel will have less to challenge");
-    // Sticky start bar.
     expect(source).toContain("sticky");
+    expect(source).not.toContain("SESSION SETUP");
   });
 });
 
 describe("practice aesthetic contract", () => {
-  test("seat cards preview the room: the panelist's accent hue renders", () => {
+  test("seat cards use crisp obsidian surfaces, role taglines, and wider layout without left accent stripes or oklch haze", () => {
     const markup = renderToStaticMarkup(
       <PracticeView onSessionCreated={() => {}} onCancel={() => {}} />,
     );
-    // Ada (skeptic) is the default seat — her blue must be in the markup.
-    expect(markup).toContain("oklch(0.68 0.13 250");
+    expect(markup).toContain("max-w-3xl");
+    expect(markup).toContain("Questions your core assumptions");
+    expect(markup).not.toContain("border-l-[#2F65F6]");
+    expect(markup).toContain("bg-[#16161D]");
+    expect(markup).not.toContain("oklch(");
+
+    const source = readFileSync(
+      new URL("./practice-view.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(source).toContain("Custom room active");
+    expect(source).not.toContain('setCustomRoom("")');
   });
 });
 
@@ -94,7 +108,6 @@ describe("practice polish wave (user review 2)", () => {
       new URL("./practice-view.tsx", import.meta.url),
       "utf8",
     );
-    expect(source).toContain("Try an example");
     expect(source).toContain("TOPIC_EXAMPLES");
   });
 
@@ -116,12 +129,71 @@ describe("practice polish wave (user review 2)", () => {
     expect(source).toContain("Ctrl");
   });
 
-  test("copy follows the material/topic toggle", () => {
+  test("renders upload bar on default view and moves secondary controls into More options", () => {
+    expect(markup).toContain("Attach File");
+    expect(markup).toContain("More options");
+    expect(markup).not.toContain("Subject domain");
+
     const source = readFileSync(
       new URL("./practice-view.tsx", import.meta.url),
       "utf8",
     );
-    expect(source).toContain("paste your material and press Start");
-    expect(source).toContain("state your topic and press Start");
+    expect(source).toContain("MoreOptionsSection");
+    expect(source).toContain("Subject domain");
+    expect(source).toContain("DOMAIN_PRESET_LIST");
+    const domainLabels = DOMAIN_PRESET_LIST.map((d) => d.shortLabel);
+    expect(domainLabels).toContain("Academic");
+    expect(domainLabels).toContain("Interview");
+    expect(domainLabels).toContain("Commercial");
+    expect(domainLabels).toContain("Debate");
+  });
+
+  test("renders 1-click sample debate case loader and debater starter motions", () => {
+    expect(markup).toContain("Load sample debate case");
+    expect(SAMPLE_DEBATE_CASE.hotspots.length).toBe(3);
+    expect(SAMPLE_DEBATE_CASE.domain).toBe("sparring");
+
+    const source = readFileSync(
+      new URL("./practice-view.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(source).toContain("Debate Motion —");
+    expect(source).toContain("Policy Debate —");
+  });
+
+  test("moves secondary stance and panel focus controls behind More options without duplicate custom rule inputs", () => {
+    expect(markup).not.toContain("Your Stance");
+    expect(markup).not.toContain("Your stance");
+    expect(markup).not.toContain("Panel focus");
+    expect(markup).not.toContain("Causal Links &amp; Logic");
+    expect(markup).not.toContain("Quick Custom Rule");
+
+    const source = readFileSync(
+      new URL("./practice-view.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(source).toContain("Your stance");
+    expect(source).toContain("Panel focus");
+    expect(source).toContain("STANCE_PRESET_LIST");
+    expect(source).toContain("ATTACK_ANGLE_LIST");
+    const stanceLabels = STANCE_PRESET_LIST.map((s) => s.shortLabel);
+    expect(stanceLabels).toContain("Defending (Prop)");
+    expect(stanceLabels).toContain("Opposing (Opp)");
+    const angleLabels = ATTACK_ANGLE_LIST.map((a) => a.label);
+    expect(angleLabels).toContain("Causal Links & Logic");
+    expect(source).toContain("Drill Strictness");
+    expect(source).not.toContain("quick-custom-rule");
+  });
+
+  test("supports Reset to defaults and voice tone wiring without regional accent UI", () => {
+    expect(markup).toContain("Reset to defaults");
+
+    const source = readFileSync(
+      new URL("./practice-view.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(source).toContain("handleResetDefaults");
+    expect(source).not.toContain("Voice Accent");
+    expect(source).toContain("voiceTone: prefs.voiceTone");
   });
 });

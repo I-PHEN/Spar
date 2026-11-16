@@ -25,9 +25,12 @@ import {
 import { generatePersonaAudio } from "@/lib/voice";
 import {
   buildDrillPrompt,
+  buildOpenSparPrompt,
   buildDrillInterruptInstruction,
   buildDrillNextQuestionInstruction,
   buildBoardroomInterruptInstruction,
+  buildFollowUpPressureInstruction,
+  detectEvasiveUserTurn,
   getDrillCorrection,
   getDrillAcknowledgment,
   selectNextPersona,
@@ -379,7 +382,8 @@ export async function POST(
           const audio = await generatePersonaAudio(
             correctionText,
             nextPersona.archetype as ArchetypeKey,
-            nextPersona.behaviorStyle as "gentle" | "moderate" | "aggressive"
+            nextPersona.behaviorStyle as "gentle" | "moderate" | "aggressive",
+            { seatOrder: nextPersona.seatOrder, roomContext },
           );
 
           send("sentence", {
@@ -485,6 +489,18 @@ export async function POST(
       ? buildDrillInterruptInstruction((drillTarget as DrillTarget) || "hedging")
       : "";
 
+  const lastPanelQuestion =
+    [...messages].reverse().find((m) => m.role === "persona" && m.type !== "coach_whisper")?.content ??
+    null;
+  const evasiveCheck =
+    experience !== "drill" && !body.isInterrupt
+      ? detectEvasiveUserTurn(userMessageForLlm, lastPanelQuestion)
+      : { evasive: false };
+  const followUpPressureInstruction =
+    evasiveCheck.evasive && evasiveCheck.reason
+      ? buildFollowUpPressureInstruction(evasiveCheck.reason)
+      : "";
+
   const otherPersonas = [...personaMap.values()]
     .filter((persona) => persona.id !== nextPersonaId)
     .map((persona) => ({
@@ -506,6 +522,7 @@ export async function POST(
     interruptInstruction,
     drillInterruptInstruction,
     drillCleanInstruction,
+    followUpPressureInstruction,
   ]
     .filter((section) => section.trim().length > 0)
     .join("\n\n");
@@ -600,7 +617,8 @@ export async function POST(
                   const audio = await generatePersonaAudio(
                     chunk,
                     nextPersona.archetype as ArchetypeKey,
-                    nextPersona.behaviorStyle as "gentle" | "moderate" | "aggressive"
+                    nextPersona.behaviorStyle as "gentle" | "moderate" | "aggressive",
+                    { seatOrder: nextPersona.seatOrder, roomContext },
                   );
                   send("sentence", { text: chunk, audio, index: sentenceIndex });
                   sentenceIndex++;
@@ -630,7 +648,8 @@ export async function POST(
               const audio = await generatePersonaAudio(
                 sentence,
                 nextPersona.archetype as ArchetypeKey,
-                nextPersona.behaviorStyle as "gentle" | "moderate" | "aggressive"
+                nextPersona.behaviorStyle as "gentle" | "moderate" | "aggressive",
+                { seatOrder: nextPersona.seatOrder, roomContext },
               );
               send("sentence", { text: sentence, audio, index: currentIdx });
             }
@@ -648,7 +667,8 @@ export async function POST(
           const audio = await generatePersonaAudio(
             lastSentence,
             nextPersona.archetype as ArchetypeKey,
-            nextPersona.behaviorStyle as "gentle" | "moderate" | "aggressive"
+            nextPersona.behaviorStyle as "gentle" | "moderate" | "aggressive",
+            { seatOrder: nextPersona.seatOrder, roomContext },
           );
           send("sentence", {
             text: lastSentence,
@@ -749,8 +769,7 @@ This is a high-pressure boardroom. Interrupt mid-speech when the user shows weak
     return buildDrillPrompt((drillTarget as DrillTarget) || "hedging");
   }
 
-  return `# EXPERIENCE: OPEN SPAR
-Run direct conversational Q&A. Ask one focused challenge, listen to the answer, and probe the next weakness.`;
+  return buildOpenSparPrompt();
 }
 
 function buildRollingSummary(

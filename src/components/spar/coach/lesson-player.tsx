@@ -207,23 +207,9 @@ export function LessonPlayer({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-between bg-[var(--bg-base)] text-[var(--text-primary)] select-none overflow-hidden">
-      {/* Overhead Electric Cobalt Arena Lighting Dome */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
-      >
-        <div
-          className="absolute -top-36 left-1/2 -translate-x-1/2 w-[780px] h-[480px] rounded-full blur-[110px] opacity-40"
-          style={{
-            background:
-              "radial-gradient(circle, var(--accent-soft) 0%, rgba(47,101,246,0.03) 45%, transparent 70%)",
-          }}
-        />
-      </div>
-
+    <div className="fixed inset-0 z-50 flex flex-col justify-between overflow-hidden bg-[var(--bg-base)] text-[var(--text-primary)] select-none">
       {/* Top Theater Bar & 4-Stage Progress Rail */}
-      <header className="relative z-10 border-b border-[var(--border-subtle)] bg-[var(--surface-1)]/85 backdrop-blur-xl px-4 py-3 sm:px-8 shrink-0">
+      <header className="relative z-10 shrink-0 border-b border-[#232327] bg-[#0B0B0D] px-4 py-3 sm:px-8">
         <div className="mx-auto max-w-4xl space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
@@ -231,7 +217,7 @@ export function LessonPlayer({
                 type="button"
                 onClick={onBackToRoadmap}
                 aria-label="Exit to roadmap"
-                className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--surface-2)]/80 px-3.5 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:border-white/25 hover:text-white active:scale-95"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[#232327] bg-[#18181D] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:border-[#34343B] hover:text-white active:scale-[0.98]"
               >
                 <X className="h-3.5 w-3.5" />
                 <span>Exit to roadmap</span>
@@ -252,7 +238,7 @@ export function LessonPlayer({
             </div>
 
             <div className="flex items-center gap-2.5 text-xs">
-              <span className="rounded-md border border-[var(--border-subtle)] bg-[var(--surface-2)] px-2.5 py-1 text-[11px] font-mono uppercase tracking-wider text-[var(--text-secondary)]">
+              <span className="rounded-md border border-[#232327] bg-[#18181D] px-2.5 py-1 text-[11px] font-mono uppercase tracking-wider text-[var(--text-secondary)]">
                 {activityLabel}
               </span>
               <span className="inline-flex items-center gap-1 text-[var(--text-tertiary)] font-mono text-[11px]">
@@ -297,7 +283,7 @@ export function LessonPlayer({
                     className={cn(
                       "h-1.5 w-full rounded-full transition-all duration-200",
                       active
-                        ? "bg-[var(--accent)] shadow-[0_0_12px_var(--accent-soft)]"
+                        ? "bg-[var(--accent)]"
                         : passed
                         ? "bg-white/75"
                         : "bg-white/10 group-hover:bg-white/20"
@@ -325,7 +311,7 @@ export function LessonPlayer({
               {/* Editorial Challenge Quote Block */}
               <div className="space-y-4 border-l-2 border-[var(--accent)] pl-5 sm:pl-7">
                 <div className="flex flex-wrap items-center gap-2.5">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent)] text-[11px] font-bold text-white">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent)] text-[11px] font-bold text-[var(--accent-foreground)]">
                     {archetypeDef.initials}
                   </span>
                   <span className="text-xs font-semibold uppercase tracking-[0.15em] text-white">
@@ -353,10 +339,10 @@ export function LessonPlayer({
                   type="button"
                   onClick={() => setSelectedInstinct("weak")}
                   className={cn(
-                    "group relative rounded-2xl border p-5 sm:p-6 text-left transition-all duration-150 cursor-pointer flex flex-col justify-between gap-4",
+                    "group relative flex cursor-pointer flex-col justify-between gap-3.5 rounded-xl border p-4 text-left transition-colors sm:p-5",
                     selectedInstinct === "weak"
-                      ? "border-amber-500/60 bg-[#14110B] shadow-[0_12px_32px_-12px_rgba(245,158,11,0.25)]"
-                      : "border-[var(--border-subtle)] bg-[var(--surface-1)] hover:border-white/20 hover:bg-[var(--surface-2)]/80"
+                      ? "border-amber-500/60 bg-[#14110B]"
+                      : "border-[#232327] bg-[#121215] hover:border-[#34343B] hover:bg-[#18181D]"
                   )}
                 >
                   <div className="space-y-3.5">
@@ -405,10 +391,10 @@ export function LessonPlayer({
                   type="button"
                   onClick={() => setSelectedInstinct("strong")}
                   className={cn(
-                    "group relative rounded-2xl border p-5 sm:p-6 text-left transition-all duration-150 cursor-pointer flex flex-col justify-between gap-4",
+                    "group relative flex cursor-pointer flex-col justify-between gap-3.5 rounded-xl border p-4 text-left transition-colors sm:p-5",
                     selectedInstinct === "strong"
-                      ? "border-[var(--accent)] bg-[#0B1326] shadow-[0_12px_32px_-12px_rgba(47,101,246,0.35)]"
-                      : "border-[var(--border-subtle)] bg-[var(--surface-1)] hover:border-white/20 hover:bg-[var(--surface-2)]/80"
+                      ? "border-[var(--accent)] bg-[var(--accent-soft)]"
+                      : "border-[#232327] bg-[#121215] hover:border-[#34343B] hover:bg-[#18181D]"
                   )}
                 >
                   <div className="space-y-3.5">
@@ -418,7 +404,7 @@ export function LessonPlayer({
                           className={cn(
                             "flex h-7 w-7 items-center justify-center rounded-lg border font-mono text-xs font-bold transition-colors",
                             selectedInstinct === "strong"
-                              ? "border-[var(--accent)] bg-[var(--accent)] text-white"
+                              ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]"
                               : "border-white/15 bg-white/[0.04] text-[var(--text-secondary)] group-hover:text-white"
                           )}
                         >
@@ -429,7 +415,7 @@ export function LessonPlayer({
                         </span>
                       </div>
                       {selectedInstinct === "strong" && (
-                        <span className="rounded-md border border-[var(--accent)] bg-[var(--accent)] px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-white">
+                        <span className="rounded-md border border-[var(--accent)] bg-[var(--accent)] px-2.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--accent-foreground)]">
                           Executive Move
                         </span>
                       )}
@@ -455,7 +441,7 @@ export function LessonPlayer({
 
               {/* Editorial Verdict Reveal Strip */}
               {selectedInstinct === "weak" ? (
-                <div className="rounded-2xl border border-amber-500/30 border-l-4 border-l-amber-400 bg-[var(--surface-1)] px-5 py-4 space-y-1">
+                <div className="rounded-xl border border-amber-500/30 border-l-4 border-l-amber-400 bg-[#121215] px-5 py-4 space-y-1">
                   <p className="font-mono text-[11px] font-bold uppercase tracking-wider text-amber-300">
                     Why Approach A Fails Under Pressure
                   </p>
@@ -464,7 +450,7 @@ export function LessonPlayer({
                   </p>
                 </div>
               ) : selectedInstinct === "strong" ? (
-                <div className="rounded-2xl border border-[var(--accent)]/40 border-l-4 border-l-[var(--accent)] bg-[var(--surface-1)] px-5 py-4 space-y-1">
+                <div className="rounded-xl border border-[var(--accent)]/40 border-l-4 border-l-[var(--accent)] bg-[#121215] px-5 py-4 space-y-1">
                   <p className="font-mono text-[11px] font-bold uppercase tracking-wider text-[var(--accent)]">
                     Why Approach B Commands the Room
                   </p>
@@ -473,7 +459,7 @@ export function LessonPlayer({
                   </p>
                 </div>
               ) : (
-                <div className="rounded-2xl border border-dashed border-[var(--border-subtle)] bg-[var(--surface-1)]/40 px-5 py-3.5 text-center font-mono text-xs text-[var(--text-tertiary)]">
+                <div className="rounded-xl border border-dashed border-[#232327] bg-[#121215] px-5 py-3.5 text-center font-mono text-xs text-[var(--text-tertiary)]">
                   Select Approach A or Approach B above to reveal the coach&apos;s tape read
                 </div>
               )}
@@ -484,7 +470,7 @@ export function LessonPlayer({
           {stage === 1 && (
             <section className="space-y-7">
               {/* Top Hero: The Golden Rule Editorial Statement */}
-              <div className="rounded-2xl border border-[var(--border-subtle)] border-l-4 border-l-[var(--accent)] bg-[var(--surface-1)] p-6 sm:p-7 space-y-2.5 shadow-lg">
+              <div className="rounded-xl border border-[#232327] border-l-4 border-l-[var(--accent)] bg-[#121215] p-6 sm:p-7 space-y-2.5">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--accent)]">
                     THE GOLDEN RULE · {slides.mentalModel.headline}
@@ -503,7 +489,7 @@ export function LessonPlayer({
               {/* Asymmetric Split: Visual Diagram Frame + 3 Execution Steps */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
                 {/* Left: Architectural Diagram Stage */}
-                <div className="lg:col-span-7 rounded-2xl border border-[var(--border-subtle)] bg-[#07090E] p-4 sm:p-6 flex flex-col justify-center">
+                <div className="lg:col-span-7 rounded-xl border border-[#232327] bg-[#0B0B0D] p-4 sm:p-6 flex flex-col justify-center">
                   {renderVisual ? (
                     renderVisual(slides.mentalModel.visual || slides.trap.visual)
                   ) : (
@@ -514,7 +500,7 @@ export function LessonPlayer({
                 </div>
 
                 {/* Right: 3 Numbered Execution Milestones */}
-                <div className="lg:col-span-5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 sm:p-6 flex flex-col justify-between space-y-4">
+                <div className="lg:col-span-5 rounded-xl border border-[#232327] bg-[#121215] p-5 sm:p-6 flex flex-col justify-between space-y-4">
                   <p className="font-mono text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--text-secondary)]">
                     How to Execute It
                   </p>
@@ -568,7 +554,7 @@ export function LessonPlayer({
               </div>
 
               {/* Recessed Studio Recording Console */}
-              <div className="rounded-2xl border border-[var(--border-subtle)] bg-[#07090E] p-5 sm:p-7 space-y-6 shadow-2xl">
+              <div className="rounded-xl border border-[#232327] bg-[#121215] p-5 sm:p-7 space-y-6">
                 {/* Top Console Bar: Status + Live Word Budget Bar */}
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between text-xs font-mono">
@@ -612,9 +598,7 @@ export function LessonPlayer({
                     <div
                       className={cn(
                         "h-full rounded-full transition-all duration-200",
-                        isOverWordBudget
-                          ? "bg-amber-400"
-                          : "bg-[var(--accent)] shadow-[0_0_10px_var(--accent-soft)]"
+                        isOverWordBudget ? "bg-amber-400" : "bg-[var(--accent)]"
                       )}
                       style={{ width: `${wordBudgetRatio}%` }}
                     />
@@ -622,7 +606,7 @@ export function LessonPlayer({
                 </div>
 
                 {/* Center Teleprompter Transcript Surface */}
-                <div className="min-h-[104px] rounded-xl border border-white/[0.07] bg-[var(--surface-1)]/80 p-4 sm:p-5 flex flex-col justify-center">
+                <div className="flex min-h-[104px] flex-col justify-center rounded-xl border border-[#232327] bg-[#0B0B0D] p-4 sm:p-5">
                   {showTypeInput ? (
                     <textarea
                       rows={3}
@@ -658,7 +642,7 @@ export function LessonPlayer({
                       <button
                         type="button"
                         onClick={() => setDrillResponse("")}
-                        className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3.5 py-2 text-xs font-medium text-[var(--text-secondary)] hover:text-white transition-colors"
+                        className="rounded-xl border border-[#232327] bg-[#18181D] px-3.5 py-2 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:border-[#34343B] hover:text-white"
                       >
                         Clear
                       </button>
@@ -669,9 +653,9 @@ export function LessonPlayer({
                       onClick={micStatus === "listening" ? stopMicRecording : startMicRecording}
                       aria-label={micStatus === "listening" ? "Stop recording" : "Speak response"}
                       className={cn(
-                        "inline-flex items-center gap-2.5 rounded-full px-6 py-3 text-xs sm:text-sm font-bold transition-all cursor-pointer active:scale-95",
+                        "inline-flex cursor-pointer items-center gap-2.5 rounded-xl px-5 py-2.5 text-xs font-semibold transition-colors active:scale-[0.98] sm:text-sm",
                         micStatus === "listening"
-                          ? "bg-[var(--accent)] text-white shadow-[0_0_28px_rgba(47,101,246,0.55)] ring-4 ring-[var(--accent)]/30"
+                          ? "bg-[var(--accent)] text-[var(--accent-foreground)] ring-2 ring-[var(--accent)]/40"
                           : "bg-white text-[#0A0D14] hover:bg-neutral-200"
                       )}
                     >
@@ -703,7 +687,7 @@ export function LessonPlayer({
           {stage === 3 && (
             <section className="space-y-6">
               {/* Dossier Header */}
-              <div className="flex flex-wrap items-end justify-between gap-4 border-b border-[var(--border-subtle)] pb-4">
+              <div className="flex flex-wrap items-end justify-between gap-4 border-b border-[#232327] pb-4">
                 <div>
                   <span className="font-mono text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--accent)]">
                     TAPE EVALUATION DOSSIER
@@ -717,7 +701,7 @@ export function LessonPlayer({
 
                 {/* 3 Precision Telemetry Chips */}
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3.5 py-2">
+                  <div className="rounded-xl border border-[#232327] bg-[#121215] px-3.5 py-2">
                     <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--text-tertiary)] block">
                       Directness
                     </span>
@@ -731,7 +715,7 @@ export function LessonPlayer({
                     </span>
                   </div>
 
-                  <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3.5 py-2">
+                  <div className="rounded-xl border border-[#232327] bg-[#121215] px-3.5 py-2">
                     <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--text-tertiary)] block">
                       Word Economy
                     </span>
@@ -740,7 +724,7 @@ export function LessonPlayer({
                     </span>
                   </div>
 
-                  <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-1)] px-3.5 py-2">
+                  <div className="rounded-xl border border-[#232327] bg-[#121215] px-3.5 py-2">
                     <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--text-tertiary)] block">
                       Clean Speech
                     </span>
@@ -762,7 +746,7 @@ export function LessonPlayer({
 
               {/* Side-by-Side Tape Comparison */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 space-y-2.5">
+                <div className="rounded-xl border border-[#232327] bg-[#121215] p-5 space-y-2.5">
                   <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)] block">
                     Your Recorded Tape
                   </span>
@@ -771,7 +755,7 @@ export function LessonPlayer({
                   </p>
                 </div>
 
-                <div className="rounded-2xl border border-[var(--accent)]/40 bg-[#0B1326] p-5 space-y-2.5">
+                <div className="rounded-xl border border-[var(--accent-border)] bg-[var(--accent-soft)] p-5 space-y-2.5">
                   <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--accent)] block">
                     Executive Benchmark
                   </span>
@@ -782,7 +766,7 @@ export function LessonPlayer({
               </div>
 
               {/* Coach Takeaway & Live Chamber Handoff */}
-              <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-1)] p-5 space-y-3">
+              <div className="rounded-xl border border-[#232327] bg-[#121215] p-5 space-y-3">
                 <div className="flex items-start gap-3">
                   <span className="rounded-md bg-[var(--accent-soft)]/25 border border-[var(--accent)]/40 px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--accent)] shrink-0 mt-0.5">
                     Coach Note
@@ -812,7 +796,7 @@ export function LessonPlayer({
       </main>
 
       {/* Bottom Sticky Action Deck */}
-      <footer className="relative z-10 border-t border-[var(--border-subtle)] bg-[var(--surface-1)]/90 backdrop-blur-xl px-4 py-3.5 sm:px-8 shrink-0">
+      <footer className="relative z-10 shrink-0 border-t border-[#232327] bg-[#0B0B0D] px-4 py-3.5 sm:px-8">
         <div className="mx-auto flex max-w-4xl items-center justify-between gap-3">
           {stage === 0 && (
             <>
@@ -827,8 +811,7 @@ export function LessonPlayer({
               <Button
                 type="button"
                 onClick={() => setStage(1)}
-                className="rounded-full bg-white px-7 h-10 text-[#0A0D14] text-xs sm:text-sm font-bold hover:bg-neutral-200 active:translate-y-[3px] transition-all"
-                style={{ boxShadow: "0 4px 0 #CBD5E1" }}
+                className="h-10 rounded-xl bg-[var(--accent)] px-6 text-xs font-semibold text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent-hover)] active:scale-[0.98] sm:text-sm"
               >
                 Continue
                 <ArrowRight className="ml-1.5 h-4 w-4" />
@@ -842,7 +825,7 @@ export function LessonPlayer({
                 variant="outline"
                 size="sm"
                 onClick={() => setStage(0)}
-                className="rounded-full border-[var(--border-subtle)] bg-[var(--surface-2)] text-xs text-[var(--text-secondary)] hover:text-white px-4 h-10"
+                className="h-10 rounded-xl border-[#232327] bg-[#18181D] px-4 text-xs text-[var(--text-secondary)] hover:border-[#34343B] hover:text-white"
               >
                 <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
                 Back
@@ -850,8 +833,7 @@ export function LessonPlayer({
 
               <Button
                 onClick={() => setStage(2)}
-                className="rounded-full bg-white px-7 h-10 text-[#0A0D14] text-xs sm:text-sm font-bold hover:bg-neutral-200 active:translate-y-[3px] transition-all"
-                style={{ boxShadow: "0 4px 0 #CBD5E1" }}
+                className="h-10 rounded-xl bg-[var(--accent)] px-6 text-xs font-semibold text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent-hover)] active:scale-[0.98] sm:text-sm"
               >
                 Try Speaking Drill
                 <ArrowRight className="ml-1.5 h-4 w-4" />
@@ -865,7 +847,7 @@ export function LessonPlayer({
                 variant="outline"
                 size="sm"
                 onClick={() => setStage(1)}
-                className="rounded-full border-[var(--border-subtle)] bg-[var(--surface-2)] text-xs text-[var(--text-secondary)] hover:text-white px-4 h-10"
+                className="h-10 rounded-xl border-[#232327] bg-[#18181D] px-4 text-xs text-[var(--text-secondary)] hover:border-[#34343B] hover:text-white"
               >
                 <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
                 Back
@@ -874,8 +856,7 @@ export function LessonPlayer({
               <Button
                 disabled={drillResponse.trim().length === 0}
                 onClick={handleCheckDrillResponse}
-                className="rounded-full bg-white px-7 h-10 text-[#0A0D14] text-xs sm:text-sm font-bold hover:bg-neutral-200 disabled:opacity-40 active:translate-y-[3px] transition-all"
-                style={{ boxShadow: "0 4px 0 #CBD5E1" }}
+                className="h-10 rounded-xl bg-[var(--accent)] px-6 text-xs font-semibold text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent-hover)] disabled:opacity-40 active:scale-[0.98] sm:text-sm"
               >
                 Check Response
                 <ArrowRight className="ml-1.5 h-4 w-4" />
@@ -893,7 +874,7 @@ export function LessonPlayer({
                     setDrillResponse("");
                     setStage(2);
                   }}
-                  className="rounded-full border-[var(--border-subtle)] bg-[var(--surface-2)] text-xs text-[var(--text-secondary)] hover:text-white px-4 h-10"
+                  className="h-10 rounded-xl border-[#232327] bg-[#18181D] px-4 text-xs text-[var(--text-secondary)] hover:border-[#34343B] hover:text-white"
                 >
                   <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
                   Try Another Rep
@@ -911,9 +892,9 @@ export function LessonPlayer({
                         totalCriteriaCount: evaluation?.totalCriteriaCount,
                       })
                     }
-                    className="rounded-full border-[var(--accent)]/50 bg-[var(--accent-soft)]/20 text-xs font-semibold text-white hover:bg-[var(--accent-soft)]/35 px-4 h-10"
+                    className="h-10 rounded-xl border-[var(--accent-border)] bg-[var(--accent-soft)] px-4 text-xs font-semibold text-white hover:border-[var(--accent)] hover:bg-[#141F3A]"
                   >
-                    <Swords className="mr-1.5 h-3.5 w-3.5 text-[var(--accent)]" />
+                    <Swords className="mr-1.5 h-3.5 w-3.5 text-[var(--accent-text)]" />
                     Live Chamber
                   </Button>
                 )}
@@ -924,8 +905,7 @@ export function LessonPlayer({
                   onCompleteLesson(course.id, lesson.id);
                   onBackToRoadmap();
                 }}
-                className="rounded-full bg-white px-7 h-10 text-[#0A0D14] text-xs sm:text-sm font-bold hover:bg-neutral-200 active:translate-y-[3px] transition-all"
-                style={{ boxShadow: "0 4px 0 #CBD5E1" }}
+                className="h-10 rounded-xl bg-[var(--accent)] px-6 text-xs font-semibold text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent-hover)] active:scale-[0.98] sm:text-sm"
               >
                 Complete Lesson
                 <ArrowRight className="ml-1.5 h-4 w-4" />

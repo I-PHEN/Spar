@@ -60,6 +60,7 @@ export interface TurnControllerDependencies {
   persistLiveExchange?(exchange: LiveTurnExchange): Promise<void>;
   now(): number;
   createLifecycleId?(): string;
+  resolveVoiceModel?(persona: LivePersona): string;
 }
 
 type SttTurnEvent =
@@ -160,6 +161,18 @@ export class LiveTurnController {
     this.requestOptions = requestOptions;
   }
 
+  hasSubmittedCurrentTurn(): boolean {
+    return this.submittedCurrentTurn;
+  }
+
+  async finalizePrimaryTranscript(
+    transcript: string,
+    confidence = 0.9,
+    requestOptions: TurnRequestOptions = {},
+  ): Promise<void> {
+    await this.submitManualTranscript(transcript, confidence, requestOptions);
+  }
+
   async finalizeFallbackTranscript(
     transcript: string,
     confidence = 1,
@@ -185,7 +198,11 @@ export class LiveTurnController {
     if (this.disposed || event.turnId !== this.turn.turnId) return;
     if (event.type === "turn-start") {
       this.publish({ activePersona: event.persona });
-      const voice = PERSONA_VOICES[event.persona.archetype as keyof typeof PERSONA_VOICES] ?? this.voiceModel;
+      const resolved = this.dependencies.resolveVoiceModel?.(event.persona);
+      const voice =
+        resolved ||
+        PERSONA_VOICES[event.persona.archetype as keyof typeof PERSONA_VOICES] ||
+        this.voiceModel;
       this.activeVoiceModel = voice;
       void this.dependencies.beginSpeech(event.turnId, voice);
     } else if (event.type === "text-delta") {
@@ -496,6 +513,7 @@ async function* fetchTurn(request: LiveTurnRequest, signal: AbortSignal): AsyncI
 export interface UseTurnControllerOptions {
   sessionId: string;
   voiceModel: string;
+  resolveVoiceModel?: (persona: LivePersona) => string;
   voiceDependencies?: StreamingVoiceDependencies;
   speechDependencies?: StreamingSpeechDependencies;
   /** Engine selection: configure to try Gemini Live first; absent keeps the cascade primary. */
@@ -571,6 +589,8 @@ export function createTurnControllerHook(
     // (useRef's initial value alone would pin the first, panel-less render
     // and the engine selection would never engage).
     liveConfiguredRef.current = !!options.live;
+    const resolveVoiceModelRef = runtime.useRef(options.resolveVoiceModel);
+    resolveVoiceModelRef.current = options.resolveVoiceModel;
     const liveVoice = useLiveVoiceHook(options.live ? {
       sessionId: options.sessionId,
       mode: options.live.mode,
@@ -621,6 +641,7 @@ export function createTurnControllerHook(
         },
         now: () => performance.now(),
         createLifecycleId: () => crypto.randomUUID(),
+        resolveVoiceModel: persona => resolveVoiceModelRef.current?.(persona) ?? "",
       });
       controllerRef.current = controller;
       const unsubscribe = controller.subscribe(setSnapshot);
@@ -640,13 +661,32 @@ export function createTurnControllerHook(
       }
     }, []);
     const finishInput = runtime.useCallback(async (requestOptions = {}) => {
-      const transcript = `${voiceRef.current.finalTranscript} ${voiceRef.current.interimTranscript}`.trim();
+      const controller = controllerRef.current;
+      const fallbackText = `${voiceRef.current.finalTranscript} ${voiceRef.current.interimTranscript}`.trim();
       if (voiceRef.current.usingFallback) {
         voiceRef.current.stop();
-        if (transcript) await controllerRef.current?.finalizeFallbackTranscript(transcript, voiceRef.current.finalizedTranscript?.confidence ?? 1, requestOptions);
-        controllerRef.current?.setSttFallback(false);
+        if (fallbackText) {
+          await controller?.finalizeFallbackTranscript(
+            fallbackText,
+            voiceRef.current.finalizedTranscript?.confidence ?? 1,
+            requestOptions,
+          );
+        }
+        controller?.setSttFallback(false);
       } else {
-        controllerRef.current?.queuePrimaryEndOfTurn(requestOptions);
+        controller?.queuePrimaryEndOfTurn(requestOptions);
+        voiceRef.current.stop();
+        const preview = (
+          controller?.getSnapshot().transcriptPreview ||
+          fallbackText
+        ).trim();
+        if (controller && !controller.hasSubmittedCurrentTurn() && preview) {
+          await controller.finalizePrimaryTranscript(
+            preview,
+            voiceRef.current.finalizedTranscript?.confidence ?? 0.9,
+            requestOptions,
+          );
+        }
       }
     }, []);
     const submitPresentationTurn = runtime.useCallback(async (transcript: string, alreadyPersisted: boolean, requestOptions = {}) => {

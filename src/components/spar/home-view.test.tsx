@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { HomeView, SessionHistoryCard, StatCard, groupSessionsByDate } from "./home-view";
 
@@ -87,6 +88,21 @@ describe("SessionHistoryCard", () => {
     expect(m).not.toContain("Practice:");
     expect(m).not.toContain("Read debrief");
   });
+
+  test("renders discreet delete button outside the card debrief button when onDelete is provided", () => {
+    const m = renderToStaticMarkup(
+      <SessionHistoryCard
+        session={session}
+        onOpenDebrief={() => {}}
+        onDelete={() => {}}
+      />,
+    );
+    expect(m).toContain('aria-label="Delete session Machine learning"');
+    const roleButtonIndex = m.indexOf('role="button"');
+    const deleteButtonIndex = m.indexOf('aria-label="Delete session Machine learning"');
+    expect(roleButtonIndex).toBeGreaterThan(-1);
+    expect(deleteButtonIndex).toBeGreaterThan(roleButtonIndex);
+  });
 });
 
 describe("HomeView", () => {
@@ -99,16 +115,63 @@ describe("HomeView", () => {
     expect(markup).not.toContain(">Enter the Sparring Room<");
   });
 
-  test("home view body is calm and action-oriented without heavy stats row", () => {
-    expect(markup).not.toContain("Total sessions");
-    expect(markup).not.toContain("Sessions this week");
+  test("renders 3-metric workspace bar without wireframe header line or Ada card", () => {
+    expect(markup).toContain("Sessions this week");
+    expect(markup).toContain("Current streak");
+    expect(markup).toContain("Top skill");
+    expect(markup).not.toContain("Across the table");
+    expect(markup).not.toContain(">Ada<");
   });
 
-  test("header includes executive command title, username, and calm tagline without duplicate CTA", () => {
-    expect(markup).toContain("Executive Command");
+  test("header includes time-of-day greeting, username, and calm action without wireframe border or AI branding", () => {
+    expect(markup).not.toContain("Executive Command");
     expect(markup).toContain("Michael.");
-    expect(markup).toContain("Sharpen your instincts against adversarial panels.");
+    expect(markup).not.toContain("Sharpen your instincts against adversarial panels.");
     expect(markup).not.toContain("Set preparation target");
+    expect(markup).toContain("Start setup");
+    expect(markup).not.toContain("Start first session");
+  });
+
+  test("omits Today's Focus and WhatsApp clutter on minimal Home", () => {
+    expect(markup).not.toContain("Early Testers Community");
+    expect(markup).not.toContain("Today&#x27;s Focus");
+    expect(markup).not.toContain("border-l-[#2F65F6]");
+  });
+
+  test("includes quick timeframe pills and equal-height launcher without mode toggle or repeat clutter", () => {
+    expect(markup).toContain("max-w-5xl");
+    expect(markup).toContain("items-stretch");
+    expect(markup).toContain("In 3 days");
+    expect(markup).toContain("In 1 week");
+    expect(markup).toContain("In 2 weeks");
+    expect(markup).not.toContain('aria-label="Session mode"');
+    expect(markup).not.toContain("Repeat last");
+
+    const source = readFileSync(
+      new URL("./home-view.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(source).toContain("Once you finish a round");
+    expect(source).toContain("sessions.slice(0, 5)");
+    expect(source).toContain("CardFooter");
+    expect(source).not.toContain("CardFrame");
+    expect(source).not.toContain("MagicCard");
+    expect(source).not.toContain("Across the table");
+    expect(source).not.toContain("Repeat last");
+  });
+
+  test("includes collapsible recent sessions header and clear action", () => {
+    expect(markup).toContain('aria-expanded="true"');
+    expect(markup).toContain("Recent sessions");
+  });
+
+  test("uses Option 1 single-surface compact solid palette with zero double frames or lighting", () => {
+    expect(markup).toContain("bg-[#151518]");
+    expect(markup).toContain("border-[#232327]");
+    expect(markup).toContain("rounded-xl");
+    expect(markup).not.toContain('data-slot="card-frame"');
+    expect(markup).not.toContain("radial-gradient");
+    expect(markup).not.toContain("min-h-[224px]");
   });
 });
 

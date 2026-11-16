@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { formatSessionRoomContext } from "./domains";
 import { ARCHETYPES, buildPersonaSystemPrompt, buildPersonaSessionRules } from "./personas";
 
 const EXPECTED: Record<string, { name: string; tagline: string; initials: string }> = {
@@ -52,5 +53,28 @@ describe("persona display", () => {
     const allyText = JSON.stringify(ARCHETYPES.ally).toLowerCase();
     expect(soWhatText).not.toContain("stakeholder");
     expect(allyText).not.toContain("stakeholder");
+  });
+
+  test("renders custom room instructions once cleanly without duplicating inside ROOM CONTEXT", () => {
+    const customRoom = "Challenge every claim with peer-review methodology questions.";
+    const roomContext = formatSessionRoomContext({
+      domain: "academic",
+      customRoom,
+    });
+    const rules = buildPersonaSessionRules({
+      scenarioLabel: "Q&A",
+      materialTitle: "Catalyst selectivity study",
+      rawMaterial: "Catalyst selectivity study",
+      roomContext,
+      domain: "academic",
+      claims: [],
+      patternMemory: "",
+      otherPersonas: [],
+    });
+
+    expect(rules).toContain("# CUSTOM ROOM INSTRUCTIONS (MUST FOLLOW)");
+    expect(rules.split(customRoom).length - 1).toBe(1);
+    expect(rules).toContain("# ROOM CONTEXT");
+    expect(rules).not.toContain("Custom Room Instructions:");
   });
 });

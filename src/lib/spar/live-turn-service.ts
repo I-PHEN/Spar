@@ -4,7 +4,10 @@ import { db } from "@/lib/db";
 import {
   buildDrillNextQuestionInstruction,
   buildDrillPrompt,
+  buildOpenSparPrompt,
   buildBoardroomInterruptInstruction,
+  buildFollowUpPressureInstruction,
+  detectEvasiveUserTurn,
   getDrillAcknowledgment,
   getDrillCorrection,
   selectNextPersona,
@@ -12,7 +15,7 @@ import {
 import { buildPatternMemoryContext } from "@/lib/llm";
 import { applyMetricEvent, type TurnMetricEvent, type TurnMetricRecord } from "@/lib/observability/turn-metrics";
 import { extractPartialContent, parseStreamedPersonaResponse } from "@/lib/openrouter";
-import { buildPersonaContext } from "@/lib/persona/context-builder";
+import { ContextBudgetError, MAX_CONTEXT_TOKENS, buildPersonaContext } from "@/lib/persona/context-builder";
 import { buildPersonaSessionRules, buildPersonaStablePrefix } from "@/lib/personas";
 import { createPersonaGenerator } from "@/lib/providers/persona-generator";
 import type { GenerationFailureCode, GenerationUsage, PersonaGenerator } from "@/lib/providers/types";
@@ -95,6 +98,106 @@ function abortIfNeeded(signal: AbortSignal): void {
   if (signal.aborted) throw new DOMException("Turn cancelled.", "AbortError");
 }
 
+function truncateWellFormed(value: string, limit: number): string {
+  if (value.length <= limit) return value;
+  const sliced = value.slice(0, Math.max(0, limit));
+  const last = sliced.charCodeAt(sliced.length - 1);
+  return last >= 0xd800 && last <= 0xdbff ? sliced.slice(0, -1) : sliced;
+}
+
+function truncateTailWellFormed(value: string, limit: number): string {
+  if (value.length <= limit) return value;
+  const start = Math.max(0, value.length - limit);
+  const sliced = value.slice(start);
+  const first = sliced.charCodeAt(0);
+  return first >= 0xdc00 && first <= 0xdfff ? sliced.slice(1) : sliced;
+}
+
+function stripMarkdownSection(rules: string, heading: string): string {
+  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return rules
+    .replace(new RegExp(`\\n*${escaped}[\\s\\S]*?(?=\\n# |$)`, "g"), "")
+    .trim();
+}
+
+function compactSessionRulesToChars(rules: string, maxChars: number): string {
+  if (rules.length <= maxChars) return rules;
+  let compact = rules;
+  compact = compact.replace(/\n\s*Source excerpt:\n[\s\S]*?(?=\n\s*(?:Citation rule:|Domain rule:)|\n# |$)/g, "");
+  compact = compact.replace(/\n\s*Source material:[^\n]*/g, "");
+  if (compact.length <= maxChars) return compact.trim();
+  compact = stripMarkdownSection(compact, "# PRIOR PATTERNS");
+  if (compact.length <= maxChars) return compact.trim();
+  compact = stripMarkdownSection(compact, "# ROOM CONTEXT");
+  if (compact.length <= maxChars) return compact.trim();
+  if (maxChars <= 24) return truncateWellFormed(compact, maxChars);
+  return `${truncateWellFormed(compact, maxChars - 3).trimEnd()}...`;
+}
+
+function buildContextWithinBudget(input: {
+  stablePrefix: string;
+  sessionRules: string;
+  rollingSummary: string;
+  deterministicState: Readonly<Record<string, unknown>>;
+  history: ReadonlyArray<{ role: "user" | "assistant"; content: string }>;
+  newestUtterance: string;
+}): ReturnType<typeof buildPersonaContext> {
+  try {
+    return buildPersonaContext(input);
+  } catch (error) {
+    if (!(error instanceof ContextBudgetError)) throw error;
+  }
+
+  const baseImmutableChars =
+    input.stablePrefix.length +
+    JSON.stringify(input.deterministicState).length +
+    180;
+  const maxTotalChars = Math.floor(MAX_CONTEXT_TOKENS * 3.5);
+  const utterance = input.newestUtterance;
+
+  const tryWithLimits = (rulesLimit: number, currentUtterance: string) =>
+    buildPersonaContext({
+      ...input,
+      sessionRules: compactSessionRulesToChars(input.sessionRules, Math.max(0, rulesLimit)),
+      newestUtterance: currentUtterance,
+    });
+
+  const availableWithHistory = maxTotalChars - baseImmutableChars - utterance.length - 900;
+  if (availableWithHistory >= 600) {
+    try {
+      return tryWithLimits(availableWithHistory, utterance);
+    } catch (error) {
+      if (!(error instanceof ContextBudgetError)) throw error;
+    }
+  }
+
+  const maxRulesChars = maxTotalChars - baseImmutableChars - utterance.length;
+  if (maxRulesChars >= 120) {
+    try {
+      return tryWithLimits(maxRulesChars, utterance);
+    } catch (error) {
+      if (!(error instanceof ContextBudgetError)) throw error;
+    }
+  }
+
+  const minRules = compactSessionRulesToChars(input.sessionRules, 480);
+  const remainingForUtterance = Math.max(
+    120,
+    maxTotalChars - baseImmutableChars - minRules.length - 16,
+  );
+  const cappedUtterance =
+    utterance.length > remainingForUtterance
+      ? `[...] ${truncateTailWellFormed(utterance, remainingForUtterance - 6)}`
+      : utterance;
+  return buildPersonaContext({
+    ...input,
+    sessionRules: minRules,
+    rollingSummary: "",
+    history: [],
+    newestUtterance: cappedUtterance,
+  });
+}
+
 export function createLiveTurnService(dependencies: LiveTurnDependencies): LiveTurnService {
   return async function* liveTurn(request, signal) {
     const transcript = request.transcript.trim().slice(0, 5_000);
@@ -170,7 +273,7 @@ export function createLiveTurnService(dependencies: LiveTurnDependencies): LiveT
       if (request.drillInterrupt && context.experience === "drill") {
         for await (const event of acceptText(getDrillCorrection((context.deterministicState.drillTarget as DrillTarget) ?? "hedging"))) yield event;
       } else {
-        const personaContext = buildPersonaContext({
+        const personaContext = buildContextWithinBudget({
           stablePrefix: context.stablePrefix,
           sessionRules: context.sessionRules,
           rollingSummary: context.rollingSummary,
@@ -252,10 +355,26 @@ export function createLiveTurnService(dependencies: LiveTurnDependencies): LiveT
         }
       }
       const parsed = parseStreamedPersonaResponse(raw);
-      if (!request.drillInterrupt && (!parsed || parsed.content !== providerContent)) {
+      if (!request.drillInterrupt && (!parsed || !parsed.content.trim())) {
         abandonLiveTurnBuffer(request.sessionId, request.turnId);
         yield { type: "error", turnId: request.turnId, code: "invalid-response", message: "The panelist returned an invalid response." };
         return;
+      }
+      if (!request.drillInterrupt && parsed && parsed.content !== providerContent) {
+        if (parsed.content.startsWith(providerContent)) {
+          const tail = parsed.content.slice(providerContent.length);
+          for await (const output of acceptText(tail)) yield output;
+          const tailFlushed = chunker.flush();
+          for (const phrase of tailFlushed.chunks) {
+            yield { type: "phrase", turnId: request.turnId, phrase };
+            if (firstPhrase) {
+              firstPhrase = false;
+              yield await emitMetric({ type: "first-phrase", turnId: request.turnId, sessionId: request.sessionId, offsetMs: offset() });
+            }
+          }
+        } else {
+          answer = parsed.content;
+        }
       }
       const metadata = {
         personaId: context.persona.id,
@@ -283,7 +402,7 @@ function experienceRules(experience: ExperienceKey, drillTarget: string | null):
   if (experience === "defense") return "# EXPERIENCE: DEFENSE\nChallenge a specific claim from the presentation. Never open with a generic question.";
   if (experience === "boardroom") return "# EXPERIENCE: BOARDROOM\nApply high-pressure boardroom questioning and challenge the specific weakness.";
   if (experience === "drill") return buildDrillPrompt((drillTarget as DrillTarget) || "hedging");
-  return "# EXPERIENCE: OPEN SPAR\nRun direct conversational Q&A. Ask one focused challenge and probe the next weakness.";
+  return buildOpenSparPrompt();
 }
 
 function rollingSummary(history: ReadonlyArray<{ role: "user" | "assistant"; content: string }>): string {
@@ -358,20 +477,35 @@ async function defaultLoadContext(request: LiveTurnRequest, signal: AbortSignal)
   const history = session.messages.map(message => message.role === "user"
     ? { role: "user" as const, content: message.content }
     : { role: "assistant" as const, content: `${personaMap.get(message.personaId ?? "")?.name ?? "Panelist"}: ${message.content}` });
+  const lastPanelQuestion =
+    [...session.messages].reverse().find((m) => m.role === "persona" && m.type !== "coach_whisper")?.content ??
+    null;
+  const evasiveCheck =
+    experience !== "drill"
+      ? detectEvasiveUserTurn(request.transcript, lastPanelQuestion)
+      : { evasive: false };
+  const compactClaims = claims.slice(0, 5).map((claim) => ({
+    ...claim,
+    label: claim.label.slice(0, 60),
+    claim: claim.claim.slice(0, 220),
+    evidence: claim.evidence ? claim.evidence.slice(0, 120) : undefined,
+  }));
   const rules = [
     buildPersonaSessionRules({
       scenarioLabel: cached?.scenarioLabel ?? "Custom Session",
-      claims,
-      patternMemory,
+      claims: compactClaims,
+      patternMemory: patternMemory.slice(0, 450),
       otherPersonas: [...personaMap.values()].filter(item => item.id !== persona.id).map(item => ({ name: item.name, archetype: item.archetype as ArchetypeKey })),
       roomContext: session.roomContext ?? "",
       coachingFocus: session.coachingFocus ?? null,
       materialTitle: session.materialTitle ?? null,
       rawMaterial: session.rawMaterial ?? null,
+      maxRawExcerptChars: compactClaims.length > 0 ? 400 : 800,
     }),
     experienceRules(experience, session.drillTarget),
     request.isInterrupt && experience === "boardroom" ? buildBoardroomInterruptInstruction() : "",
     request.drillClean && experience === "drill" ? buildDrillNextQuestionInstruction((session.drillTarget as DrillTarget) || "hedging") : "",
+    evasiveCheck.evasive && evasiveCheck.reason ? buildFollowUpPressureInstruction(evasiveCheck.reason) : "",
   ].filter(Boolean).join("\n\n");
   return { persona, experience, selectedRegion: process.env.DEEPGRAM_REGION === "eu" ? "eu" : "us",
     stablePrefix, sessionRules: rules, rollingSummary: rollingSummary(history), history,

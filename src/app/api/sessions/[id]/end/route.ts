@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { SessionSummary } from "@prisma/client";
 import { db } from "@/lib/db";
+import { syncToSupabaseTable } from "@/lib/supabase";
 import {
   generateDebrief,
   buildPatternMemoryContext,
@@ -372,6 +373,27 @@ export async function POST(
       status: "debriefed",
       telemetry: JSON.stringify(telemetry),
     },
+  });
+
+  void syncToSupabaseTable("Session", {
+    id: session.id,
+    userId: session.userId,
+    experience: session.experience,
+    scenario: session.scenario,
+    mode: session.mode,
+    status: "debriefed",
+    telemetry: JSON.stringify(telemetry),
+    updatedAt: new Date().toISOString(),
+  });
+  void syncToSupabaseTable("SessionSummary", {
+    id: summary.id,
+    sessionId: summary.sessionId,
+    momentDescription: summary.momentDescription,
+    whatWentWell: summary.whatWentWell,
+    thePattern: summary.thePattern,
+    oneThingToPractice: summary.oneThingToPractice,
+    telemetryInsights: summary.telemetryInsights,
+    shareableSummary: summary.shareableSummary,
   });
 
   // Update PatternMemory: upsert the pattern tagged from the debrief.
