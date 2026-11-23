@@ -6,6 +6,9 @@ import {
   YourAnswersSection,
   TelemetryInsight,
   DrillStat,
+  TesterPulseCard,
+  WhatsAppCommunityBanner,
+  shouldShowExitPulsePrompt,
 } from "./debrief-view";
 import type { DebriefPayload, TelemetrySnapshot } from "@/lib/types";
 
@@ -123,9 +126,11 @@ describe("DebriefContent (Executive Coaching Dossier)", () => {
     expect(markup).toContain("The Pattern");
     expect(markup).toContain("Deflection when challenged on unit economics.");
 
-    // One Thing to Practice
+    // One Thing to Practice (delivered by Kwesi without left-side border stripe)
     expect(markup).toContain("One Thing to Practice");
     expect(markup).toContain("Lead with the exact number before providing strategic context.");
+    expect(markup).toContain("KWESI · ONE THING TO PRACTICE");
+    expect(markup).not.toContain("border-l-4");
 
     // Telemetry insights
     expect(markup).toContain("Telemetry");
@@ -292,5 +297,106 @@ describe("TelemetryInsight and DrillStat helpers", () => {
     );
     expect(markup).toContain("Recovery Time");
     expect(markup).toContain("1.8s");
+  });
+});
+
+describe("Beta rating & WhatsApp funnel", () => {
+  test("TesterPulseCard and WhatsAppCommunityBanner render before Full transcript in Fight Night Volt styling", () => {
+    const markup = renderToStaticMarkup(
+      <DebriefContent
+        sessionId="session-beta-1"
+        scenarioLabel="Free Spar"
+        data={{
+          debrief: mockDebrief,
+          telemetry: mockTelemetry,
+          transcript: mockTranscript,
+        }}
+        clips={new Map()}
+        playingIndex={null}
+        showTranscript={false}
+        copied={false}
+        onPlay={() => {}}
+        onPause={() => {}}
+        onCopy={() => {}}
+        onToggleTranscript={() => {}}
+        onBackHome={() => {}}
+        onSparAgain={() => {}}
+      />,
+    );
+
+    const pulseIndex = markup.indexOf("Tester Pulse — Rate This Round");
+    const whatsappIndex = markup.indexOf("Join WhatsApp Group");
+    const transcriptIndex = markup.indexOf("Full transcript");
+
+    expect(pulseIndex).toBeGreaterThan(-1);
+    expect(whatsappIndex).toBeGreaterThan(pulseIndex);
+    expect(transcriptIndex).toBeGreaterThan(whatsappIndex);
+    expect(markup).toContain('data-testid="volt-burst"');
+
+    const incompleteMarkup = renderToStaticMarkup(
+      <DebriefContent
+        sessionId="session-beta-2"
+        scenarioLabel="Free Spar"
+        data={{
+          debrief: mockDebrief,
+          telemetry: { ...mockTelemetry, userTurns: 0 },
+          transcript: mockTranscript,
+        }}
+        clips={new Map()}
+        playingIndex={null}
+        showTranscript={false}
+        copied={false}
+        onPlay={() => {}}
+        onPause={() => {}}
+        onCopy={() => {}}
+        onToggleTranscript={() => {}}
+        onBackHome={() => {}}
+        onSparAgain={() => {}}
+      />,
+    );
+    expect(incompleteMarkup).not.toContain('data-testid="volt-burst"');
+
+    const pulseMarkup = renderToStaticMarkup(<TesterPulseCard sessionId="s1" />);
+    expect(pulseMarkup).toContain("#C6FF3D");
+    expect(pulseMarkup).not.toContain("emerald-");
+
+    const waMarkup = renderToStaticMarkup(<WhatsAppCommunityBanner />);
+    expect(waMarkup).toContain("#C6FF3D");
+    expect(waMarkup).not.toContain("emerald-");
+
+    const waCompact = renderToStaticMarkup(<WhatsAppCommunityBanner compact />);
+    expect(waCompact).toContain("#C6FF3D");
+    expect(waCompact).not.toContain("emerald-");
+  });
+
+  test("shouldShowExitPulsePrompt gates strictly on unrated, unseen, and valid sessionId", () => {
+    expect(
+      shouldShowExitPulsePrompt({
+        alreadyRated: false,
+        promptAlreadySeen: false,
+        hasSessionId: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowExitPulsePrompt({
+        alreadyRated: true,
+        promptAlreadySeen: false,
+        hasSessionId: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowExitPulsePrompt({
+        alreadyRated: false,
+        promptAlreadySeen: true,
+        hasSessionId: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldShowExitPulsePrompt({
+        alreadyRated: false,
+        promptAlreadySeen: false,
+        hasSessionId: false,
+      }),
+    ).toBe(false);
   });
 });

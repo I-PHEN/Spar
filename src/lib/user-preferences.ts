@@ -101,9 +101,7 @@ export function parseUserPreferences(
         parsed.defaultMode === "open_spar" || parsed.defaultMode === "drill"
           ? parsed.defaultMode
           : DEFAULT_USER_PREFERENCES.defaultMode,
-      accentColor: isAccentThemeKey(parsed.accentColor)
-        ? parsed.accentColor
-        : DEFAULT_USER_PREFERENCES.accentColor,
+      accentColor: DEFAULT_USER_PREFERENCES.accentColor,
       defaultAccent: isAccentKey(parsed.defaultAccent)
         ? parsed.defaultAccent
         : DEFAULT_USER_PREFERENCES.defaultAccent,

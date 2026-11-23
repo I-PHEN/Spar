@@ -10,7 +10,7 @@ describe("SparringMockup (truth mockup)", () => {
     expect(markup).toContain("Q&amp;A");
     expect(markup).toContain("Ada");
     expect(markup).toContain("rounded-full");
-    expect(markup).toContain("oklch(0.68 0.13 250"); // skeptic accent
+    expect(markup).toContain("oklch(0.72 0.19 250"); // skeptic accent
   });
 
   test("speaks the room's real language, not the old room's", () => {

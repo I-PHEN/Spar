@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import {
   Loader2,
@@ -27,10 +27,20 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { DebriefPayload, TelemetrySnapshot } from "@/lib/types";
 import { getSessionClips, createClipURL } from "@/lib/audio-db";
+import { getWhatsAppCommunityUrl } from "@/lib/community";
 import { cn } from "@/lib/utils";
 import type { Variants } from "framer-motion";
+import { Kwesi } from "./kwesi-mascot";
+import { VoltBurst } from "./volt-burst";
 
 export interface DebriefViewProps {
   sessionId: string;
@@ -184,11 +194,12 @@ export function DebriefView({
   if (loading) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-6 text-center bg-[var(--bg-base)]">
-        <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-1)]">
-          <Loader2 className="h-6 w-6 animate-spin text-[var(--accent)]" />
+        <Kwesi pose="thinking" size="md" />
+        <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-1)]">
+          <Loader2 className="h-5 w-5 animate-spin text-[var(--accent)]" />
         </div>
         <div className="space-y-1.5">
-          <p className="text-sm font-medium tracking-tight text-[var(--text-primary)]">
+          <p className="font-display text-base font-bold tracking-tight text-[var(--text-primary)]">
             The coach is reviewing the tape...
           </p>
           <p className="max-w-md text-xs leading-relaxed text-[var(--text-secondary)]">
@@ -203,11 +214,9 @@ export function DebriefView({
   if (error || !data) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-6 text-center bg-[var(--bg-base)]">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full border border-red-500/20 bg-red-500/10 text-red-400">
-          <AlertCircle className="h-6 w-6" />
-        </div>
+        <Kwesi pose="shake-it-off" size="md" />
         <div className="space-y-1">
-          <p className="text-sm font-medium text-[var(--text-primary)]">
+          <p className="font-display text-base font-bold text-[var(--text-primary)]">
             {error || "Failed to load debrief."}
           </p>
           <p className="text-xs text-[var(--text-secondary)]">
@@ -239,6 +248,34 @@ export function DebriefView({
       onSparAgain={onSparAgain}
     />
   );
+}
+
+export const FIRST_PULSE_PROMPT_SEEN_KEY = "spar.betaPulsePromptSeen";
+
+export function shouldShowExitPulsePrompt(params: {
+  alreadyRated: boolean;
+  promptAlreadySeen: boolean;
+  hasSessionId: boolean;
+}): boolean {
+  return params.hasSessionId && !params.alreadyRated && !params.promptAlreadySeen;
+}
+
+function readExitPulsePromptSeen(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(FIRST_PULSE_PROMPT_SEEN_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+function markExitPulsePromptSeen(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(FIRST_PULSE_PROMPT_SEEN_KEY, "true");
+  } catch {
+    // Ignore storage failures in private windows
+  }
 }
 
 /**
@@ -276,11 +313,35 @@ export function DebriefContent({
   onSparAgain: () => void;
 }) {
   const shouldReduceMotion = useReducedMotion();
+  const [ratedThisSession, setRatedThisSession] = useState(false);
+  const [pendingExitAction, setPendingExitAction] = useState<"home" | "again" | null>(
+    null,
+  );
   const d = data.debrief;
   const t = data.telemetry;
   const targetRule = courseContext?.passCriteria || data.coachingFocus || null;
   const resolvedLabel = data.materialTitle?.trim() || scenarioLabel || "Session";
   const completedRep = !t || t.userTurns > 0;
+
+  function runExitAction(action: "home" | "again") {
+    if (action === "home") onBackHome();
+    else onSparAgain();
+  }
+
+  function handleExitIntent(action: "home" | "again") {
+    if (
+      shouldShowExitPulsePrompt({
+        alreadyRated: ratedThisSession,
+        promptAlreadySeen: readExitPulsePromptSeen(),
+        hasSessionId: Boolean(sessionId),
+      })
+    ) {
+      markExitPulsePromptSeen();
+      setPendingExitAction(action);
+      return;
+    }
+    runExitAction(action);
+  }
 
   const containerVariants: Variants = {
     hidden: { opacity: 0 },
@@ -309,8 +370,9 @@ export function DebriefContent({
           initial={{ opacity: 0, y: shouldReduceMotion ? 0 : -8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="mb-8 border-b border-[var(--border-subtle)] pb-6"
+          className="relative mb-8 border-b border-[var(--border-subtle)] pb-6"
         >
+          <VoltBurst active={completedRep} className="left-24 top-10" />
           <div className="flex flex-wrap items-center gap-2">
             {courseContext ? (
               <>
@@ -354,7 +416,7 @@ export function DebriefContent({
             )}
           </div>
 
-          <h1 className="mt-3 text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl">
+          <h1 className="font-display mt-3 text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl">
             {courseContext?.lessonTitle
               ? `Lesson Debrief: ${courseContext.lessonTitle}`
               : "The coach's notes"}
@@ -395,7 +457,7 @@ export function DebriefContent({
               accent="primary"
               highlighted
             >
-              <div className="relative pl-3.5 border-l-4 border-[var(--accent)]">
+              <div className="rounded-xl border border-[var(--accent-border)] bg-[var(--surface-2)]/70 p-4">
                 <p className="text-sm leading-relaxed text-[var(--text-primary)] font-normal sm:text-base">
                   &ldquo;{d.momentDescription}&rdquo;
                 </p>
@@ -512,7 +574,7 @@ export function DebriefContent({
                 {d.whatWentWell.length > 0 ? (
                   d.whatWentWell.map((item, i) => (
                     <li key={i} className="flex items-start gap-2.5 text-sm leading-relaxed text-[var(--text-primary)]">
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-400/90" />
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#C6FF3D]" />
                       <span>{item}</span>
                     </li>
                   ))
@@ -546,11 +608,12 @@ export function DebriefContent({
               accent="primary"
               highlighted
             >
-              <div className="rounded-xl border border-[var(--accent)]/30 bg-[var(--surface-2)]/80 p-4">
-                <p className="text-sm font-medium leading-relaxed text-[var(--text-primary)]">
-                  {d.oneThingToPractice}
-                </p>
-              </div>
+              <Kwesi
+                pose={completedRep ? "proud" : "shake-it-off"}
+                size="md"
+                badgeLabel="KWESI · ONE THING TO PRACTICE"
+                line={d.oneThingToPractice}
+              />
             </DebriefSection>
           </motion.div>
 
@@ -625,7 +688,7 @@ export function DebriefContent({
                   >
                     {copied ? (
                       <>
-                        <Check className="h-3.5 w-3.5 mr-1.5 text-emerald-400" /> Copied to clipboard
+                        <Check className="h-3.5 w-3.5 mr-1.5 text-[#C6FF3D]" /> Copied to clipboard
                       </>
                     ) : (
                       <>
@@ -671,6 +734,16 @@ export function DebriefContent({
             </motion.div>
           )}
         </motion.div>
+
+        {/* Tester Pulse 1–5 Rating Card & Early Testers WhatsApp Community Funnel */}
+        <div className="mt-6 space-y-4">
+          <TesterPulseCard
+            sessionId={sessionId}
+            scenarioLabel={scenarioLabel}
+            onRated={() => setRatedThisSession(true)}
+          />
+          <WhatsAppCommunityBanner />
+        </div>
 
         {/* Full Transcript Accordion */}
         {data.transcript && data.transcript.length > 0 && (
@@ -738,17 +811,11 @@ export function DebriefContent({
           </div>
         )}
 
-        {/* Tester Pulse 1–5 Rating Card & Early Testers WhatsApp Community Funnel */}
-        <div className="mt-6 space-y-4">
-          <TesterPulseCard sessionId={sessionId} scenarioLabel={scenarioLabel} />
-          <WhatsAppCommunityBanner />
-        </div>
-
         {/* Footer Navigation CTAs */}
         <div className="mt-8 flex flex-col gap-3 border-t border-[var(--border-subtle)] pt-6 sm:flex-row sm:justify-between">
           <Button
             variant="ghost"
-            onClick={onBackHome}
+            onClick={() => handleExitIntent("home")}
             className="text-[var(--text-secondary)] hover:text-white"
           >
             <ArrowLeft className="h-4 w-4 mr-1.5" />
@@ -756,10 +823,10 @@ export function DebriefContent({
               ? `Back to ${courseContext.courseTitle || "Course"} Roadmap`
               : "Back to Home"}
           </Button>
-          <Button
-            onClick={onSparAgain}
-            className="rounded-full bg-white px-6 text-[#0A0D14] font-bold hover:bg-neutral-200 active:translate-y-[3px] transition-all"
-            style={{ boxShadow: "0 4px 0 #CBD5E1" }}
+          <button
+            type="button"
+            onClick={() => handleExitIntent("again")}
+            className="spar-volt-btn inline-flex h-11 items-center justify-center rounded-2xl px-6 text-sm font-bold text-[#0B0D06]"
           >
             {courseContext
               ? !completedRep
@@ -769,9 +836,24 @@ export function DebriefContent({
                 : "Continue Course"
               : "Spar again"}{" "}
             <ArrowRight className="h-4 w-4 ml-1.5" />
-          </Button>
+          </button>
         </div>
       </div>
+
+      <ExitPulseDialog
+        open={pendingExitAction !== null}
+        sessionId={sessionId}
+        scenarioLabel={scenarioLabel}
+        onOpenChange={(open) => {
+          if (!open) setPendingExitAction(null);
+        }}
+        onRated={() => setRatedThisSession(true)}
+        onContinue={() => {
+          const action = pendingExitAction;
+          setPendingExitAction(null);
+          if (action) runExitAction(action);
+        }}
+      />
     </div>
   );
 }
@@ -793,17 +875,15 @@ export function DebriefSection({
 }) {
   const accentClasses = {
     primary: "text-[var(--accent-text)] bg-[var(--accent-soft)] border border-[var(--accent-border)]",
-    emerald: "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20",
+    emerald: "text-[#C6FF3D] bg-[#C6FF3D]/10 border border-[#C6FF3D]/25",
     amber: "text-amber-400 bg-amber-500/10 border border-amber-500/20",
     slate: "text-[var(--text-secondary)] bg-[var(--surface-2)] border border-[var(--border-subtle)]",
   };
   return (
     <section
       className={cn(
-        "rounded-xl border p-5 sm:p-6 transition-colors",
-        highlighted
-          ? "border-[var(--accent-border)] bg-[#121215]"
-          : "border-[#232327] bg-[#121215] hover:border-[#34343B]"
+        "p-5 sm:p-6",
+        highlighted ? "spar-chunky-card-volt" : "spar-chunky-card",
       )}
     >
       <div className="mb-3.5 flex items-center gap-2.5">
@@ -815,7 +895,7 @@ export function DebriefSection({
         >
           {icon}
         </span>
-        <h2 className="text-sm font-semibold tracking-tight text-[var(--text-primary)]">{title}</h2>
+        <h2 className="font-display text-base font-bold tracking-tight text-[var(--text-primary)]">{title}</h2>
         <span className="ml-auto font-mono text-[10px] text-[var(--text-tertiary)]">{number}</span>
       </div>
       {children}
@@ -833,7 +913,7 @@ export function TelemetryInsight({
   metric?: string;
 }) {
   return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-2)]/70 p-3.5 transition-colors hover:border-[var(--border-strong)]">
+    <div className="spar-stat-tile p-3.5 transition-colors hover:border-[var(--border-strong)]">
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
           {label}
@@ -899,12 +979,12 @@ export function YourAnswersSection({
   const hasClips = clips.size > 0;
 
   return (
-    <section className="rounded-xl border border-[#232327] bg-[#121215] p-5 sm:p-6">
+    <section className="spar-chunky-card p-5 sm:p-6">
       <div className="mb-3.5 flex items-center gap-2.5">
         <span className="flex h-6 w-6 items-center justify-center rounded-md border border-[var(--accent)]/30 bg-[var(--accent-soft)]/20 text-[var(--accent)]">
           <Headphones className="h-3.5 w-3.5" />
         </span>
-        <h2 className="text-sm font-semibold tracking-tight text-[var(--text-primary)]">Your answers</h2>
+        <h2 className="font-display text-sm font-bold tracking-tight text-[var(--text-primary)]">Your answers</h2>
         <span className="ml-auto font-mono text-[10px] text-[var(--text-tertiary)]">
           {userAnswers.length} {userAnswers.length === 1 ? "clip" : "clips"}
         </span>
@@ -1022,7 +1102,7 @@ export function YourAnswersSection({
 
 export function DrillStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-2)]/70 p-3 transition-colors hover:border-[var(--border-strong)]">
+    <div className="spar-stat-tile p-3 transition-colors hover:border-[var(--border-strong)]">
       <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-secondary)]">
         {label}
       </p>
@@ -1042,12 +1122,128 @@ const TESTER_PULSE_TAGS = [
   "Off-Topic Question",
 ];
 
+function formatPulseRatingLabel(rating: number): string {
+  if (rating === 5) return "Sharpest round yet";
+  if (rating === 4) return "Strong spar";
+  if (rating === 3) return "Solid, room to tighten";
+  if (rating > 0) return "Needs tuning";
+  return "Select 1–5 stars";
+}
+
+async function submitSessionFeedback(params: {
+  sessionId?: string;
+  rating: number;
+  tags: string[];
+  comment: string;
+  scenarioLabel?: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const targetId = params.sessionId || "general";
+    const res = await fetch(
+      `/api/sessions/${encodeURIComponent(targetId)}/feedback`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rating: params.rating,
+          tags: params.tags,
+          comment: params.comment.trim() || undefined,
+          scenarioLabel: params.scenarioLabel,
+        }),
+      },
+    );
+    const json = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) {
+      return { ok: false, error: json.error || "Could not save feedback" };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Network error while saving feedback" };
+  }
+}
+
+function PulseStarPicker({
+  rating,
+  onSelect,
+}: {
+  rating: number;
+  onSelect: (star: number) => void;
+}) {
+  const shouldReduceMotion = useReducedMotion();
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {[1, 2, 3, 4, 5].map((star) => {
+        const active = star <= rating;
+        return (
+          <motion.button
+            key={star}
+            type="button"
+            onClick={() => onSelect(star)}
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.88 }}
+            animate={
+              active && !shouldReduceMotion ? { scale: [1, 1.14, 1] } : undefined
+            }
+            transition={{ duration: 0.22 }}
+            aria-label={`Rate ${star} out of 5 stars`}
+            aria-pressed={active}
+            className={cn(
+              "flex h-10 w-10 items-center justify-center rounded-xl border-2 transition-all",
+              active
+                ? "border-[#C6FF3D] bg-[#C6FF3D]/15 text-[#C6FF3D] shadow-[0_2px_0_0_#6B8E1A]"
+                : "border-[var(--border-strong)] bg-[var(--surface-2)] text-[var(--text-tertiary)] hover:border-white/25 hover:text-[#C6FF3D]",
+            )}
+          >
+            <Star className={cn("h-4 w-4", active && "fill-[#C6FF3D]")} />
+          </motion.button>
+        );
+      })}
+      <span className="ml-1 text-xs font-medium text-[var(--text-secondary)]">
+        {formatPulseRatingLabel(rating)}
+      </span>
+    </div>
+  );
+}
+
+function PulseTagPicker({
+  selectedTags,
+  onToggle,
+}: {
+  selectedTags: string[];
+  onToggle: (tag: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {TESTER_PULSE_TAGS.map((tag) => {
+        const selected = selectedTags.includes(tag);
+        return (
+          <button
+            key={tag}
+            type="button"
+            onClick={() => onToggle(tag)}
+            aria-pressed={selected}
+            className={cn(
+              "rounded-full border px-3 py-1 text-[11px] font-medium transition-all",
+              selected
+                ? "border-[#C6FF3D]/55 bg-[#C6FF3D]/14 font-semibold text-[#C6FF3D]"
+                : "border-[var(--border-subtle)] bg-[var(--surface-2)] text-[var(--text-secondary)] hover:border-white/20 hover:text-white",
+            )}
+          >
+            {tag}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function TesterPulseCard({
   sessionId,
   scenarioLabel,
+  onRated,
 }: {
   sessionId?: string;
   scenarioLabel?: string;
+  onRated?: (rating: number) => void;
 }) {
   const [rating, setRating] = useState<number>(0);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -1055,6 +1251,11 @@ export function TesterPulseCard({
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const communityUrl = getWhatsAppCommunityUrl();
+  const onRatedRef = useRef(onRated);
+  useEffect(() => {
+    onRatedRef.current = onRated;
+  }, [onRated]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -1063,10 +1264,12 @@ export function TesterPulseCard({
       .then((res) => (res.ok ? res.json() : null))
       .then((json) => {
         if (!mounted || !json?.feedback) return;
-        setRating(Number(json.feedback.rating) || 0);
+        const loadedRating = Number(json.feedback.rating) || 0;
+        setRating(loadedRating);
         setSelectedTags(Array.isArray(json.feedback.tags) ? json.feedback.tags : []);
         setComment(typeof json.feedback.comment === "string" ? json.feedback.comment : "");
         setSubmitted(true);
+        if (loadedRating > 0) onRatedRef.current?.(loadedRating);
       })
       .catch(() => {});
     return () => {
@@ -1085,53 +1288,44 @@ export function TesterPulseCard({
     if (rating < 1 || rating > 5 || submitting) return;
     setSubmitting(true);
     setSubmitError(null);
-    try {
-      const targetId = sessionId || "general";
-      const res = await fetch(`/api/sessions/${encodeURIComponent(targetId)}/feedback`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          rating,
-          tags: selectedTags,
-          comment: comment.trim() || undefined,
-          scenarioLabel,
-        }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setSubmitError(json.error || "Could not save feedback");
-        return;
-      }
-      setSubmitted(true);
-    } catch {
-      setSubmitError("Network error while saving feedback");
-    } finally {
-      setSubmitting(false);
+    const result = await submitSessionFeedback({
+      sessionId,
+      rating,
+      tags: selectedTags,
+      comment,
+      scenarioLabel,
+    });
+    setSubmitting(false);
+    if (!result.ok) {
+      setSubmitError(result.error);
+      return;
     }
+    setSubmitted(true);
+    onRated?.(rating);
   }
 
   return (
-    <section className="rounded-xl border border-[#232327] bg-[#121215] p-5 sm:p-6">
+    <section className="spar-chunky-card p-5 sm:p-6">
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
-          <span className="flex h-6 w-6 items-center justify-center rounded-md border border-amber-500/30 bg-amber-500/10 text-amber-400">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#C6FF3D]/35 bg-[#C6FF3D]/12 text-[#C6FF3D]">
             <Star className="h-3.5 w-3.5" />
           </span>
           <div>
-            <h2 className="text-sm font-semibold tracking-tight text-[var(--text-primary)]">
+            <h2 className="font-display text-sm font-bold tracking-tight text-[var(--text-primary)]">
               Tester Pulse — Rate This Round
             </h2>
           </div>
         </div>
-        <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--text-tertiary)]">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
           Early Beta Feedback
         </span>
       </div>
 
       {submitted ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border-2 border-[#C6FF3D]/35 bg-[#14170E] px-4 py-3.5">
           <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="h-4 w-4 text-emerald-400 flex-shrink-0" />
+            <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-[#C6FF3D]" />
             <div>
               <p className="text-xs font-semibold text-white">
                 Thanks for rating this round ({rating}/5).
@@ -1141,71 +1335,29 @@ export function TesterPulseCard({
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setSubmitted(false)}
-            className="text-[11px] font-medium text-emerald-300 hover:underline"
-          >
-            Update rating
-          </button>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <a
+              href={communityUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="spar-volt-btn inline-flex h-8 items-center gap-1.5 rounded-xl px-3 text-[11px] font-bold text-[#0B0D06]"
+            >
+              Join WhatsApp Group
+              <ExternalLink className="h-3 w-3" />
+            </a>
+            <button
+              type="button"
+              onClick={() => setSubmitted(false)}
+              className="text-[11px] font-medium text-[#C6FF3D] hover:underline"
+            >
+              Update rating
+            </button>
+          </div>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            {[1, 2, 3, 4, 5].map((star) => {
-              const active = star <= rating;
-              return (
-                <button
-                  key={star}
-                  type="button"
-                  onClick={() => setRating(star)}
-                  aria-label={`Rate ${star} out of 5 stars`}
-                  aria-pressed={active}
-                  className={cn(
-                    "flex h-9 w-9 items-center justify-center rounded-xl border transition-all",
-                    active
-                      ? "border-amber-400/50 bg-amber-500/15 text-amber-400"
-                      : "border-[var(--border-subtle)] bg-[var(--surface-2)] text-[var(--text-tertiary)] hover:border-white/20 hover:text-amber-300"
-                  )}
-                >
-                  <Star className={cn("h-4 w-4", active && "fill-amber-400")} />
-                </button>
-              );
-            })}
-            <span className="ml-1 text-xs text-[var(--text-secondary)]">
-              {rating === 0
-                ? "Select 1–5 stars"
-                : rating === 5
-                ? "Sharpest round yet"
-                : rating === 4
-                ? "Strong spar"
-                : rating === 3
-                ? "Solid, room to tighten"
-                : "Needs tuning"}
-            </span>
-          </div>
-
-          <div className="flex flex-wrap gap-1.5">
-            {TESTER_PULSE_TAGS.map((tag) => {
-              const selected = selectedTags.includes(tag);
-              return (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => toggleTag(tag)}
-                  aria-pressed={selected}
-                  className={cn(
-                    "rounded-full border px-3 py-1 text-[11px] font-medium transition-all",
-                    selected
-                      ? "border-[var(--accent)] bg-[var(--accent)]/20 text-white"
-                      : "border-[var(--border-subtle)] bg-[var(--surface-2)] text-[var(--text-secondary)] hover:border-white/20 hover:text-white"
-                  )}
-                >
-                  {tag}
-                </button>
-              );
-            })}
-          </div>
+          <PulseStarPicker rating={rating} onSelect={setRating} />
+          <PulseTagPicker selectedTags={selectedTags} onToggle={toggleTag} />
 
           <div className="flex flex-col gap-2.5 sm:flex-row">
             <input
@@ -1213,13 +1365,12 @@ export function TesterPulseCard({
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder="What felt sharpest? Anything feel off or worth improving for debaters?"
-              className="flex-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3.5 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--accent)] focus:outline-none"
+              className="flex-1 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3.5 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[#C6FF3D] focus:outline-none"
             />
-            <Button
+            <button
               type="submit"
-              size="sm"
               disabled={rating === 0 || submitting}
-              className="rounded-xl bg-[var(--accent)] px-5 text-xs font-semibold text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)] disabled:opacity-40"
+              className="spar-volt-btn inline-flex h-9 items-center justify-center rounded-xl px-5 text-xs font-bold text-[#0B0D06] disabled:pointer-events-none disabled:opacity-40"
             >
               {submitting ? (
                 <>
@@ -1228,15 +1379,155 @@ export function TesterPulseCard({
               ) : (
                 "Submit Feedback"
               )}
-            </Button>
+            </button>
           </div>
 
           {submitError && (
-            <p className="text-xs text-red-400">{submitError}</p>
+            <p className="text-xs text-[#FF5A1F]">{submitError}</p>
           )}
         </form>
       )}
     </section>
+  );
+}
+
+/** First-round exit pulse modal — shown at most once when leaving an unrated debrief. */
+export function ExitPulseDialog({
+  open,
+  sessionId,
+  scenarioLabel,
+  onOpenChange,
+  onRated,
+  onContinue,
+}: {
+  open: boolean;
+  sessionId?: string;
+  scenarioLabel?: string;
+  onOpenChange: (open: boolean) => void;
+  onRated: (rating: number) => void;
+  onContinue: () => void;
+}) {
+  const [rating, setRating] = useState<number>(0);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [comment, setComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const communityUrl = getWhatsAppCommunityUrl();
+
+  function toggleTag(tag: string) {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
+    );
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (rating < 1 || rating > 5 || submitting) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    const result = await submitSessionFeedback({
+      sessionId,
+      rating,
+      tags: selectedTags,
+      comment,
+      scenarioLabel,
+    });
+    setSubmitting(false);
+    if (!result.ok) {
+      setSubmitError(result.error);
+      return;
+    }
+    setSaved(true);
+    onRated(rating);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="rounded-[24px] border-2 border-[var(--border-strong)] bg-[#141418] text-white shadow-[0_6px_0_0_#060608] sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="font-display text-lg font-bold tracking-tight text-white">
+            {saved ? "Appreciate the pulse" : "Quick pulse before you go"}
+          </DialogTitle>
+          <DialogDescription className="text-xs text-[var(--text-secondary)]">
+            {saved
+              ? "Want to shape v1 with other speakers and founders?"
+              : "How did that round feel? Takes 3 seconds."}
+          </DialogDescription>
+        </DialogHeader>
+
+        {saved ? (
+          <div className="space-y-4 pt-1">
+            <div className="rounded-2xl border-2 border-[#C6FF3D]/35 bg-[#14170E] p-4">
+              <p className="text-xs font-semibold text-white">
+                Saved your {rating}/5 rating for this round.
+              </p>
+              <p className="mt-1 text-[11px] leading-relaxed text-[var(--text-secondary)]">
+                Join the Early Testers WhatsApp Group to share feature requests and get beta updates.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2.5">
+              <a
+                href={communityUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-[#C6FF3D]/45 bg-[#C6FF3D]/12 px-4 text-xs font-bold text-[#C6FF3D] transition-colors hover:bg-[#C6FF3D]/20"
+              >
+                Join WhatsApp Group
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+              <button
+                type="button"
+                onClick={onContinue}
+                className="spar-volt-btn inline-flex h-10 items-center justify-center rounded-xl px-5 text-xs font-bold text-[#0B0D06]"
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4 pt-1">
+            <PulseStarPicker rating={rating} onSelect={setRating} />
+            <PulseTagPicker selectedTags={selectedTags} onToggle={toggleTag} />
+
+            <input
+              type="text"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Optional note on voice, pushback, or UX..."
+              className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-2)] px-3.5 py-2 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[#C6FF3D] focus:outline-none"
+            />
+
+            {submitError && (
+              <p className="text-xs text-[#FF5A1F]">{submitError}</p>
+            )}
+
+            <div className="flex items-center justify-end gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={onContinue}
+                className="inline-flex h-10 items-center justify-center rounded-xl border border-[#2C2C34] bg-[#18181D] px-4 text-xs font-medium text-neutral-300 transition-colors hover:bg-[#22222A] hover:text-white"
+              >
+                Skip
+              </button>
+              <button
+                type="submit"
+                disabled={rating === 0 || submitting}
+                className="spar-volt-btn inline-flex h-10 items-center justify-center rounded-xl px-5 text-xs font-bold text-[#0B0D06] disabled:pointer-events-none disabled:opacity-40"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Saving...
+                  </>
+                ) : (
+                  "Submit & continue"
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1245,15 +1536,13 @@ export function WhatsAppCommunityBanner({
 }: {
   compact?: boolean;
 } = {}) {
-  const communityUrl =
-    process.env.NEXT_PUBLIC_WHATSAPP_COMMUNITY_URL?.trim() ||
-    "https://chat.whatsapp.com/";
+  const communityUrl = getWhatsAppCommunityUrl();
 
   if (compact) {
     return (
-      <section className="flex flex-col gap-3 rounded-xl border border-[#232327] bg-[#121215] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <section className="flex flex-col gap-3 rounded-xl border border-[#262630] bg-[#131318] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2.5 min-w-0">
-          <span className="h-2 w-2 flex-shrink-0 rounded-full bg-emerald-400" />
+          <span className="h-2 w-2 flex-shrink-0 rounded-full bg-[#C6FF3D]" />
           <p className="text-xs text-[var(--text-secondary)] truncate">
             <span className="font-medium text-[var(--text-primary)]">
               Early Testers Community
@@ -1266,7 +1555,7 @@ export function WhatsAppCommunityBanner({
           href={communityUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300 transition-colors hover:bg-emerald-500/20 hover:text-white"
+          className="inline-flex flex-shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[#C6FF3D]/40 bg-[#C6FF3D]/12 px-3 py-1.5 text-xs font-semibold text-[#C6FF3D] transition-colors hover:bg-[#C6FF3D]/20 hover:text-white"
         >
           Join WhatsApp Group
           <ExternalLink className="h-3 w-3" />
@@ -1276,17 +1565,17 @@ export function WhatsAppCommunityBanner({
   }
 
   return (
-    <section className="rounded-xl border border-emerald-500/25 bg-[#121215] p-5">
+    <section className="spar-stat-tile border-2 border-[#C6FF3D]/35 bg-[#131510] p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
-          <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
+          <span className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-[#C6FF3D]/35 bg-[#C6FF3D]/12 text-[#C6FF3D]">
             <MessageSquare className="h-4 w-4" />
           </span>
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-400">
+            <p className="font-display text-[10px] font-bold uppercase tracking-[0.18em] text-[#C6FF3D]">
               Early Testers Community
             </p>
-            <h3 className="mt-0.5 text-sm font-semibold text-[var(--text-primary)]">
+            <h3 className="font-display mt-0.5 text-sm font-bold text-[var(--text-primary)]">
               Join the Spar Debaters &amp; Speakers WhatsApp Group
             </h3>
             <p className="mt-1 text-xs leading-relaxed text-[var(--text-secondary)]">
@@ -1298,7 +1587,7 @@ export function WhatsAppCommunityBanner({
           href={communityUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex flex-shrink-0 items-center justify-center gap-1.5 rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-4 py-2 text-xs font-semibold text-emerald-200 transition-colors hover:bg-emerald-500/20 hover:text-white"
+          className="spar-volt-btn inline-flex h-10 flex-shrink-0 items-center justify-center gap-1.5 rounded-xl px-4 text-xs font-bold text-[#0B0D06]"
         >
           Join WhatsApp Group
           <ExternalLink className="h-3.5 w-3.5" />

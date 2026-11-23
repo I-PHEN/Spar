@@ -8,8 +8,11 @@ import {
   EngineStatusChip,
   PresenceRail,
   RoomControlDeck,
+  RoomStatusNotice,
   RoomToast,
+  buildAudioStatusNotice,
   engineStatusLabel,
+  formatRoomErrorMessage,
   liveOwnsControls,
   liveUserInterimCaption,
   recordsTurnAudio,
@@ -248,7 +251,7 @@ describe("caption rows", () => {
       />,
     );
     expect(m).toContain("spar-caption-accent");
-    expect(m).toContain("oklch(0.68 0.13 250");
+    expect(m).toContain("oklch(0.72 0.19 250");
   });
 
   test("user captions stay neutral (no accent edge)", () => {
@@ -408,5 +411,88 @@ describe("drill framing and barge-in", () => {
     expect(source).toContain("formatRoomDisplaySubtitle");
     expect(source).toContain('layout="stage"');
     expect(source).toContain("<AiStageCaption");
+  });
+});
+
+describe("beta voice fallback & error handling", () => {
+  test("formatRoomErrorMessage translates raw TTS failures into non-blocking caption-only guidance", () => {
+    const speech = formatRoomErrorMessage("browser-speech-unavailable");
+    expect(speech).toEqual({
+      message:
+        "Panel voice unavailable right now — panel questions appear in captions below so you can finish this round.",
+      isAudioOnlyDegradation: true,
+      isBlockingConnectionError: false,
+    });
+
+    const playback = formatRoomErrorMessage("playback-unavailable");
+    expect(playback?.isAudioOnlyDegradation).toBe(true);
+    expect(playback?.isBlockingConnectionError).toBe(false);
+
+    const rateLimited = formatRoomErrorMessage("rate-limited");
+    expect(rateLimited?.message).toContain("High beta traffic");
+    expect(rateLimited?.isBlockingConnectionError).toBe(true);
+
+    const network = formatRoomErrorMessage("network-loss");
+    expect(network?.message).toContain("Connection hiccup");
+    expect(network?.isBlockingConnectionError).toBe(true);
+
+    expect(formatRoomErrorMessage(null)).toBeNull();
+  });
+
+  test("buildAudioStatusNotice respects precedence caption-only > tts-fallback > stt-fallback", () => {
+    expect(
+      buildAudioStatusNotice({
+        usingTtsFallback: true,
+        usingSttFallback: true,
+        captionOnlyMode: true,
+      })?.key,
+    ).toBe("caption-only");
+
+    expect(
+      buildAudioStatusNotice({
+        usingTtsFallback: true,
+        usingSttFallback: true,
+        captionOnlyMode: false,
+      })?.key,
+    ).toBe("tts-fallback");
+
+    expect(
+      buildAudioStatusNotice({
+        usingTtsFallback: false,
+        usingSttFallback: true,
+        captionOnlyMode: false,
+      })?.key,
+    ).toBe("stt-fallback");
+
+    expect(
+      buildAudioStatusNotice({
+        usingTtsFallback: false,
+        usingSttFallback: false,
+        captionOnlyMode: false,
+      }),
+    ).toBeNull();
+  });
+
+  test("RoomStatusNotice renders role=status banner with Fight Night styling", () => {
+    const amberNotice = buildAudioStatusNotice({
+      usingTtsFallback: true,
+      usingSttFallback: false,
+      captionOnlyMode: false,
+    })!;
+    const amberMarkup = renderToStaticMarkup(
+      <RoomStatusNotice notice={amberNotice} onDismiss={() => {}} />,
+    );
+    expect(amberMarkup).toContain('role="status"');
+    expect(amberMarkup).toContain("Backup voice active");
+    expect(amberMarkup).toContain("#FF5A1F");
+
+    const voltNotice = buildAudioStatusNotice({
+      usingTtsFallback: false,
+      usingSttFallback: true,
+      captionOnlyMode: false,
+    })!;
+    const voltMarkup = renderToStaticMarkup(<RoomStatusNotice notice={voltNotice} />);
+    expect(voltMarkup).toContain("Browser mic active");
+    expect(voltMarkup).toContain("#C6FF3D");
   });
 });

@@ -11,6 +11,7 @@ import {
   FileText,
   Pause,
   ArrowRight,
+  VolumeX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +26,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { PanelistPresence } from "./panelist-presence";
 import { WaveformBar } from "./waveform-bar";
+import { Kwesi } from "./kwesi-mascot";
 import {
   engineStatusLabel,
   liveOwnsControls,
@@ -176,6 +178,8 @@ export function SparringRoom({
   const userTurnStartedAtRef = useRef<number | null>(null);
   const speechStartedAtRef = useRef<number | null>(null);
   const [connectionError, setConnectionError] = useState(false);
+  const [captionOnlyMode, setCaptionOnlyMode] = useState(false);
+  const [dismissedNoticeKey, setDismissedNoticeKey] = useState<string | null>(null);
   const [personaStates, setPersonaStates] = useState<Record<string, PersonaState>>({});
   const [loading, setLoading] = useState(true);
   // Quiet "taking their seats" beat while /open generates the opening line.
@@ -388,8 +392,15 @@ export function SparringRoom({
     setIsProcessing(busy);
     setAudioPlaying(turnController.turn.status === "speaking");
     if (turnController.error) {
-      setError(turnController.error);
-      setConnectionError(true);
+      const parsed = formatRoomErrorMessage(turnController.error);
+      if (parsed?.isAudioOnlyDegradation) {
+        setCaptionOnlyMode(true);
+        setConnectionError(false);
+        setIsUserTurn(true);
+      } else if (parsed) {
+        setError(parsed.message);
+        setConnectionError(true);
+      }
     }
     const personaId = turnController.activePersona?.id;
     if (personaId) {
@@ -530,8 +541,11 @@ export function SparringRoom({
               await playBase64Audio(m.audio);
             } catch (e) {
               console.error("Audio playback failed:", e);
+              if (mounted) setCaptionOnlyMode(true);
             }
             setAudioPlaying(false);
+          } else {
+            setCaptionOnlyMode(true);
           }
 
           // Persona done — back to listening
@@ -1096,7 +1110,9 @@ export function SparringRoom({
     return (
       <div className="flex h-[100dvh] flex-col items-center justify-center gap-3 px-6 text-center">
         <AlertCircle className="h-7 w-7 text-destructive" />
-        <p className="text-sm text-muted-foreground">{error}</p>
+        <p className="text-sm text-muted-foreground">
+          {formatRoomErrorMessage(error)?.message ?? error}
+        </p>
         <Button variant="outline" onClick={onExit}>
           Back to Home
         </Button>
@@ -1107,6 +1123,14 @@ export function SparringRoom({
   const elapsedDisplay = formatTime(elapsedSec);
   const displayTitle = materialTitle?.trim() || scenarioLabel;
   const displaySubtitle = formatRoomDisplaySubtitle(roomContext);
+  const audioStatusNotice = buildAudioStatusNotice({
+    usingTtsFallback: turnController.usingTtsFallback,
+    usingSttFallback: turnController.usingSttFallback,
+    captionOnlyMode,
+  });
+  const formattedToastError = error
+    ? (formatRoomErrorMessage(error)?.message ?? error)
+    : null;
   const latestPersonaCaption =
     [...captions]
       .reverse()
@@ -1122,7 +1146,7 @@ export function SparringRoom({
           </Button>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <p className="truncate text-sm font-medium text-white">
+              <p className="truncate font-display text-[15px] font-bold tracking-tight text-white">
                 {displayTitle}
               </p>
               {experience === "drill" && drillTarget && (
@@ -1156,16 +1180,16 @@ export function SparringRoom({
             )}
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 rounded-lg border border-[#232327] bg-[#18181D] px-2.5 py-1 font-mono text-xs text-[var(--text-secondary)]">
-            <Clock className="h-3.5 w-3.5 text-[var(--accent)]" />
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-1.5 rounded-xl border-2 border-[var(--border-strong)] bg-[#141418] px-3 py-1 font-mono text-xs font-medium text-[var(--text-primary)] shadow-[0_2px_0_0_#060608]">
+            <Clock className="h-3.5 w-3.5 text-[#C6FF3D]" />
             {elapsedDisplay}
           </div>
           <button
             type="button"
             onClick={() => setShowEndDialog(true)}
             disabled={ending}
-            className="flex items-center gap-1.5 rounded-lg border border-[#232327] bg-[#18181D] px-3.5 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-300 active:scale-[0.98] disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-xl border border-[#2C2C34] bg-[#18181D] px-3.5 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:border-red-500/50 hover:bg-red-500/12 hover:text-red-300 active:scale-[0.98] disabled:opacity-50"
           >
             {ending ? (
               <>
@@ -1177,6 +1201,14 @@ export function SparringRoom({
           </button>
         </div>
       </div>
+
+      {/* Voice / Caption fallback status banner */}
+      {audioStatusNotice && dismissedNoticeKey !== audioStatusNotice.key && (
+        <RoomStatusNotice
+          notice={audioStatusNotice}
+          onDismiss={() => setDismissedNoticeKey(audioStatusNotice.key)}
+        />
+      )}
 
       {/* Contextual sub-strips (Coach target, Drill HUD, Boardroom agitation) */}
       {coachingFocus && (
@@ -1419,8 +1451,8 @@ export function SparringRoom({
       {!voice.isSupported && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 px-6">
           <div className="max-w-sm text-center">
-            <AlertCircle className="h-10 w-10 mx-auto mb-4 text-neutral-500" />
-            <h2 className="text-lg font-semibold text-white mb-2">
+            <Kwesi pose="shake-it-off" size="md" className="mb-4 justify-center" />
+            <h2 className="font-display text-lg font-bold text-white mb-2">
               Voice sparring needs Chrome or Edge
             </h2>
             <p className="text-sm text-neutral-400 mb-4">
@@ -1437,22 +1469,28 @@ export function SparringRoom({
       {voice.error && <RoomToast>{voice.error}</RoomToast>}
 
       {/* Error toast */}
-      {error && captions.length > 0 && (
-        <RoomToast onDismiss={() => setError(null)}>{error}</RoomToast>
+      {formattedToastError && captions.length > 0 && (
+        <RoomToast onDismiss={() => setError(null)}>{formattedToastError}</RoomToast>
       )}
 
       {/* End session dialog */}
       <AlertDialog open={showEndDialog} onOpenChange={setShowEndDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-[24px] border-2 border-[var(--border-strong)] bg-[#141418] text-white shadow-[0_6px_0_0_#060608]">
           <AlertDialogHeader>
-            <AlertDialogTitle>End this sparring session?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle className="font-display text-lg font-bold tracking-tight text-white">
+              End this sparring session?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-neutral-400">
               The panel will stop and your coach will write the debrief. You can&apos;t resume this session — but the patterns will be remembered next time.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep sparring</AlertDialogCancel>
-            <AlertDialogAction onClick={handleEnd}>End &amp; get coached</AlertDialogAction>
+            <AlertDialogCancel className="rounded-xl border border-[#2C2C34] bg-[#18181D] text-neutral-200 hover:bg-[#22222A] hover:text-white">
+              Keep sparring
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleEnd} className="spar-white-btn rounded-xl px-4">
+              End &amp; get coached
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -1476,6 +1514,177 @@ export {
   startsRecorderOnFallback,
   liveUserInterimCaption,
 } from "./room-state";
+
+export interface FormattedRoomError {
+  message: string;
+  isAudioOnlyDegradation: boolean;
+  isBlockingConnectionError: boolean;
+}
+
+/** Translate internal engine codes into calm user-facing beta guidance. */
+export function formatRoomErrorMessage(
+  rawError: string | null,
+): FormattedRoomError | null {
+  if (!rawError || !rawError.trim()) return null;
+  const trimmed = rawError.trim();
+  const lower = trimmed.toLowerCase();
+
+  if (
+    lower === "browser-speech-unavailable" ||
+    lower === "playback-unavailable" ||
+    lower.includes("audio playback failed")
+  ) {
+    return {
+      message:
+        "Panel voice unavailable right now — panel questions appear in captions below so you can finish this round.",
+      isAudioOnlyDegradation: true,
+      isBlockingConnectionError: false,
+    };
+  }
+
+  if (
+    lower === "rate-limited" ||
+    lower.includes("429") ||
+    lower.includes("rate limit") ||
+    lower.includes("quota")
+  ) {
+    return {
+      message:
+        "High beta traffic right now — tap Retry in a few seconds (your session is saved).",
+      isAudioOnlyDegradation: false,
+      isBlockingConnectionError: true,
+    };
+  }
+
+  if (
+    lower === "service-unavailable" ||
+    lower === "network-loss" ||
+    lower === "spar stream failed." ||
+    lower.includes("failed to fetch") ||
+    lower.includes("network")
+  ) {
+    return {
+      message:
+        "Connection hiccup while reaching the panel — tap Retry to pick up right where you left off.",
+      isAudioOnlyDegradation: false,
+      isBlockingConnectionError: true,
+    };
+  }
+
+  if (
+    lower === "provider-error" ||
+    lower === "live-turn-error" ||
+    lower.includes("could not finish this turn")
+  ) {
+    return {
+      message: "The panelist paused unexpectedly — tap Retry to continue.",
+      isAudioOnlyDegradation: false,
+      isBlockingConnectionError: true,
+    };
+  }
+
+  return {
+    message: trimmed,
+    isAudioOnlyDegradation: false,
+    isBlockingConnectionError: true,
+  };
+}
+
+export interface AudioStatusNoticeData {
+  key: "caption-only" | "tts-fallback" | "stt-fallback";
+  tone: "amber" | "volt";
+  label: string;
+  detail: string;
+}
+
+/** Prioritize audio degradation notices cleanly for beta sessions. */
+export function buildAudioStatusNotice(params: {
+  usingTtsFallback: boolean;
+  usingSttFallback: boolean;
+  captionOnlyMode: boolean;
+}): AudioStatusNoticeData | null {
+  if (params.captionOnlyMode) {
+    return {
+      key: "caption-only",
+      tone: "amber",
+      label: "Caption-only mode",
+      detail:
+        "Panel audio is unavailable right now — read panel questions in captions below and keep speaking normally.",
+    };
+  }
+  if (params.usingTtsFallback) {
+    return {
+      key: "tts-fallback",
+      tone: "amber",
+      label: "Backup voice active",
+      detail:
+        "Switched to browser voice (live audio limit reached) — your mic and captions still work normally.",
+    };
+  }
+  if (params.usingSttFallback) {
+    return {
+      key: "stt-fallback",
+      tone: "volt",
+      label: "Browser mic active",
+      detail:
+        "Live transcription switched to browser speech recognition — keep speaking normally.",
+    };
+  }
+  return null;
+}
+
+/** Calm Fight Night status strip for non-blocking voice/caption fallbacks. */
+export function RoomStatusNotice({
+  notice,
+  onDismiss,
+}: {
+  notice: AudioStatusNoticeData;
+  onDismiss?: () => void;
+}) {
+  const isAmber = notice.tone === "amber";
+  return (
+    <div
+      role="status"
+      className={cn(
+        "flex-shrink-0 border-b px-4 py-2 lg:px-6",
+        isAmber
+          ? "border-[#FF5A1F]/30 bg-[#1B120E] text-[#FFD3C2]"
+          : "border-[#C6FF3D]/25 bg-[#14170E] text-[#E6FFAA]",
+      )}
+    >
+      <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2.5">
+          {notice.key === "stt-fallback" ? (
+            <Mic className="h-3.5 w-3.5 shrink-0 text-[#C6FF3D]" />
+          ) : (
+            <VolumeX className="h-3.5 w-3.5 shrink-0 text-[#FF5A1F]" />
+          )}
+          <span
+            className={cn(
+              "shrink-0 rounded-md border px-2 py-0.5 font-display text-[10px] font-bold uppercase tracking-wider",
+              isAmber
+                ? "border-[#FF5A1F]/35 bg-[#FF5A1F]/15 text-[#FF5A1F]"
+                : "border-[#C6FF3D]/35 bg-[#C6FF3D]/15 text-[#C6FF3D]",
+            )}
+          >
+            {notice.label}
+          </span>
+          <p className="truncate text-xs">{notice.detail}</p>
+        </div>
+        {onDismiss && (
+          <button
+            type="button"
+            onClick={onDismiss}
+            aria-label="Dismiss notice"
+            className="shrink-0 rounded-md p-1 opacity-70 transition-opacity hover:opacity-100"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 /** Quiet announcement toast — screen readers hear it the moment it lands. */
 export function RoomToast({
@@ -1512,9 +1721,9 @@ export function EngineStatusChip({ label }: { label: EngineStatusLabel }) {
       data-engine={label.toLowerCase()}
       title={label === "Live" ? "Gemini Live voice engine" : "Classic voice engine"}
       className={cn(
-        "flex-shrink-0 rounded-md border px-1.5 py-0.5 text-[9px] uppercase tracking-wider",
+        "flex-shrink-0 rounded-md border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider",
         label === "Live"
-          ? "border-emerald-500/20 bg-emerald-500/[0.06] text-emerald-300/80"
+          ? "border-[#C6FF3D]/45 bg-[#C6FF3D]/12 text-[#C6FF3D]"
           : "border-[#232327] bg-[#18181D] text-neutral-400",
         label === "Connecting" && "animate-pulse",
       )}
@@ -1630,8 +1839,8 @@ export function RoomControlDeck({
         // Live engine owns the room: no per-turn controls, mic stays live.
         liveStatus === "live" ? (
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-emerald-500/25 bg-emerald-500/[0.08]">
-              <Mic className="h-5 w-5 text-emerald-300" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#C6FF3D]/40 bg-[#C6FF3D]/12">
+              <Mic className="h-5 w-5 text-[#C6FF3D]" />
             </div>
             <span className="text-[10px] uppercase tracking-wider text-neutral-500">
               Mic live — just talk, interruption is instant
@@ -1669,7 +1878,7 @@ export function RoomControlDeck({
           {isListening ? (
             <button
               onClick={onDonePresenting}
-              className="flex items-center gap-2 px-4 h-10 rounded-lg bg-neutral-100 text-black text-xs font-medium hover:bg-white transition-colors"
+              className="spar-volt-btn flex items-center gap-2 px-5 h-11 rounded-full text-xs"
             >
               <Square className="h-3.5 w-3.5 fill-current" />
               Done Presenting
@@ -1677,7 +1886,7 @@ export function RoomControlDeck({
           ) : (
             <button
               onClick={onStartSpeaking}
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-black transition-transform active:scale-95"
+              className="spar-volt-btn flex h-14 w-14 items-center justify-center rounded-full"
               aria-label="Start presenting"
             >
               <Mic className="h-5 w-5" />
@@ -1698,7 +1907,7 @@ export function RoomControlDeck({
           {isListening ? (
             <button
               onClick={onStopSpeaking}
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-black transition-transform active:scale-95"
+              className="spar-volt-btn flex h-14 w-14 items-center justify-center rounded-full"
               aria-label="Stop speaking"
             >
               <Square className="h-4 w-4 fill-current" />
@@ -1706,7 +1915,7 @@ export function RoomControlDeck({
           ) : (
             <button
               onClick={onStartSpeaking}
-              className="group flex items-center gap-2 px-4 h-10 rounded-lg bg-neutral-100 text-black text-xs font-medium hover:bg-white transition-colors"
+              className="spar-volt-btn group flex items-center gap-2 px-5 h-11 rounded-full text-xs"
               aria-label="Try again"
             >
               <Mic className="h-3.5 w-3.5" />
@@ -1723,7 +1932,7 @@ export function RoomControlDeck({
         isListening ? (
           <button
             onClick={onStopSpeaking}
-            className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-black transition-transform active:scale-95"
+            className="spar-volt-btn flex h-14 w-14 items-center justify-center rounded-full"
             aria-label="Stop speaking"
           >
             <Square className="h-4 w-4 fill-current" />
@@ -1731,14 +1940,14 @@ export function RoomControlDeck({
         ) : (
           <button
             onClick={onStartSpeaking}
-            className="group flex h-12 w-12 items-center justify-center rounded-full bg-neutral-100 text-black transition-transform active:scale-95"
+            className="spar-volt-btn group flex h-14 w-14 items-center justify-center rounded-full"
             aria-label="Start speaking"
           >
             <Mic className="h-5 w-5" />
           </button>
         )
       ) : (
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-900 text-neutral-600">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-[#232327] bg-neutral-900 text-neutral-600">
           <Pause className="h-4 w-4" />
         </div>
       )}
@@ -1766,9 +1975,9 @@ export function RoomControlDeck({
           type="button"
           onClick={onToggleHandsFree}
           className={cn(
-            "rounded-full border px-2.5 py-1 text-[10px] font-medium tracking-wide transition-colors",
+            "rounded-full border px-3 py-1 text-[10px] font-semibold tracking-wide transition-colors",
             handsFree
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/15"
+              ? "border-[#C6FF3D]/55 bg-[#C6FF3D]/12 text-[#C6FF3D] hover:bg-[#C6FF3D]/20"
               : "border-[#232327] bg-[#18181D] text-neutral-400 hover:border-[#34343B] hover:text-neutral-200",
           )}
           title={
@@ -1891,7 +2100,7 @@ export function AiStageCaption({ entry }: { entry: CaptionEntry }) {
           {entry.personaName}
         </span>
         {isInterruption && (
-          <span className="text-[10px] uppercase tracking-wider text-amber-400/80">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-[#FF5A1F]">
             · Interrupting
           </span>
         )}
@@ -1936,8 +2145,8 @@ export function CaptionRow({ entry }: { entry: CaptionEntry }) {
             className={cn(
               "rounded-xl rounded-br-sm border px-4 py-2.5 text-sm text-neutral-200",
               entry.isLive
-                ? "border-[#232327] bg-[#0E0E11]"
-                : "border-[#34343B] bg-[#18181D]"
+                ? "border-[#C6FF3D]/45 bg-[#0E0E11]"
+                : "border-[#C6FF3D]/30 bg-[#18181D]"
             )}
           >
             {entry.content}
@@ -1961,7 +2170,7 @@ export function CaptionRow({ entry }: { entry: CaptionEntry }) {
             </span>
           )}
           {isInterruption && (
-            <span className="text-[10px] uppercase tracking-wider text-neutral-500">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#FF5A1F]">
               Interrupting
             </span>
           )}
@@ -1976,7 +2185,7 @@ export function CaptionRow({ entry }: { entry: CaptionEntry }) {
             "rounded-xl rounded-bl-sm border px-4 py-2.5 text-sm text-neutral-200",
             entry.archetype && "spar-caption-accent",
             isInterruption
-              ? "border-[#34343B] bg-[#18181D] ml-2"
+              ? "border-[#FF5A1F]/45 bg-[#18181D] ml-2"
               : "border-[#232327] bg-[#121215]"
           )}
           style={
@@ -2047,7 +2256,7 @@ export function DrillHudStrip({
                   ? "border-rose-500/40 bg-rose-500/15 text-rose-300 animate-pulse"
                   : liveState.wordCount >= 12 && drillTarget === "over-explaining"
                   ? "border-amber-500/40 bg-amber-500/15 text-amber-300"
-                  : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                  : "border-[#C6FF3D]/40 bg-[#C6FF3D]/12 text-[#C6FF3D]"
               )}
             >
               {liveState.label}

@@ -67,39 +67,35 @@ export function CourseEmblem({
       <div
         aria-hidden="true"
         className={cn(
-          "absolute inset-0 border border-[var(--border-subtle)] bg-[var(--surface-1)] opacity-40 transition-transform duration-300",
+          "absolute inset-0 border-2 border-[#2C2C35] bg-[#141418] opacity-65 transition-transform duration-300",
           cornerClass,
           backOffsetClass
         )}
-        style={{
-          boxShadow: "0 6px 16px -6px rgba(0,0,0,0.7)",
-        }}
       />
 
-      {/* Front primary emblem tile */}
+      {/* Front primary tactile Volt-accented emblem tile */}
       <div
         className={cn(
-          "relative flex h-full w-full items-center justify-center border border-[var(--border-subtle)] bg-[var(--surface-2)] transition-transform duration-200 group-hover:scale-[1.02]",
-          cornerClass,
-          "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_8px_20px_-8px_rgba(0,0,0,0.6)]"
+          "relative flex h-full w-full items-center justify-center border-2 border-[#C6FF3D]/60 bg-[#171A10] shadow-[0_4px_0_0_#3A4A10] transition-transform duration-200 group-hover:scale-[1.03]",
+          cornerClass
         )}
         style={{
           backgroundImage:
-            "linear-gradient(135deg, var(--surface-2) 0%, rgba(47, 101, 246, 0.14) 100%)",
+            "linear-gradient(135deg, #1A200E 0%, rgba(198, 255, 61, 0.16) 100%)",
         }}
       >
         {/* Subtle radial inner sheen */}
         <div
           aria-hidden="true"
-          className={cn("pointer-events-none absolute inset-0 opacity-40", cornerClass)}
+          className={cn("pointer-events-none absolute inset-0 opacity-35", cornerClass)}
           style={{
             background:
               "radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.12), transparent 60%)",
           }}
         />
 
-        {/* Duotone Accent Icon */}
-        <div className="relative z-10 text-[var(--accent)]">
+        {/* Duotone Volt Icon */}
+        <div className="relative z-10 text-[#C6FF3D]">
           {getCourseEmblemIcon(category, iconSizes)}
         </div>
       </div>

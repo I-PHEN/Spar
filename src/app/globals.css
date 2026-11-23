@@ -12,6 +12,8 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-display);
+  --font-display-alt: var(--font-display-alt);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -57,7 +59,7 @@
 
   /* Deep base — slightly darker for more contrast against elevated cards.
      Think of a dimly-lit room with a single overhead light. */
-  /* Spar Design Direction Tokens (Calm Matte Obsidian) */
+  /* Spar Design Direction Tokens (Fight Night Obsidian + Volt) */
   --bg-base: #0B0B0D;
   --surface-1: #121215;
   --surface-2: #18181D;
@@ -66,12 +68,27 @@
   --text-primary: #F5F5F7;
   --text-secondary: #A1A1AA;
   --text-tertiary: #71717A;
-  --accent: #F4F4F5;
-  --accent-hover: #FFFFFF;
-  --accent-dark: #D4D4D8;
-  --accent-soft: rgba(244, 244, 245, 0.12);
-  --accent-border: rgba(244, 244, 245, 0.28);
-  --accent-text: #F4F4F5;
+
+  /* Fixed Brand Tokens (always Volt & Ember regardless of user accent picker) */
+  --brand-volt: #C6FF3D;
+  --brand-volt-hover: #D4FF66;
+  --brand-volt-deep: #6B8E1A;
+  --brand-volt-ledge: #4D6810;
+  --brand-volt-soft: rgba(198, 255, 61, 0.14);
+  --brand-volt-border: rgba(198, 255, 61, 0.42);
+  --brand-volt-foreground: #0B0D06;
+  --brand-ember: #FF5A1F;
+  --brand-ember-deep: #9A2E0B;
+  --brand-ember-soft: rgba(255, 90, 31, 0.14);
+  --brand-ember-border: rgba(255, 90, 31, 0.45);
+
+  /* Default user-selectable accent = Electric Volt */
+  --accent: #C6FF3D;
+  --accent-hover: #D4FF66;
+  --accent-dark: #6B8E1A;
+  --accent-soft: rgba(198, 255, 61, 0.14);
+  --accent-border: rgba(198, 255, 61, 0.42);
+  --accent-text: #C6FF3D;
   --success: #34D399;
   --danger: #F87171;
 
@@ -97,7 +114,7 @@
   --muted-foreground: oklch(0.60 0 0);  /* brighter for readability */
 
   /* Accent Foreground */
-  --accent-foreground: #111113;
+  --accent-foreground: #0B0D06;
 
   --destructive: oklch(0.62 0.18 25);
   --destructive-foreground: oklch(0.98 0 0);
@@ -129,6 +146,7 @@
     @apply border-border outline-ring/50;
   }
   html {
+    scrollbar-gutter: stable;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -219,6 +237,109 @@
     transform: translateY(3px);
     box-shadow: 0 1px 0 var(--accent-dark);
   }
+}
+
+/* Fight Night Display Typography & Chunky Tactile Surfaces */
+@utility font-display {
+  font-family: var(--font-display), var(--font-geist-sans), sans-serif;
+  letter-spacing: -0.025em;
+}
+
+@utility font-display-alt {
+  font-family: var(--font-display-alt), var(--font-geist-sans), sans-serif;
+  letter-spacing: -0.025em;
+}
+
+@utility spar-chunky-card {
+  background-color: var(--surface-1);
+  border: 2px solid var(--border-strong);
+  border-radius: 24px;
+  box-shadow: 0 4px 0 0 #060608, inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+  transition: transform 140ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 140ms cubic-bezier(0.22, 1, 0.36, 1), border-color 140ms ease;
+}
+
+@utility spar-chunky-card-interactive {
+  &:hover {
+    transform: translateY(-2px);
+    border-color: #4A4A56;
+    box-shadow: 0 6px 0 0 #060608, inset 0 1px 0 0 rgba(255, 255, 255, 0.09);
+  }
+  &:active {
+    transform: translateY(2px);
+    box-shadow: 0 2px 0 0 #060608;
+  }
+}
+
+@utility spar-chunky-card-volt {
+  background-color: var(--surface-2);
+  background-image: radial-gradient(circle 380px at 100% 0%, var(--brand-volt-soft), transparent 70%);
+  border: 2px solid var(--brand-volt);
+  border-radius: 24px;
+  box-shadow: 0 4px 0 0 var(--brand-volt-deep), inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+  transition: transform 140ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 140ms cubic-bezier(0.22, 1, 0.36, 1);
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 0 0 var(--brand-volt-deep), inset 0 1px 0 0 rgba(255, 255, 255, 0.16);
+  }
+  &:active {
+    transform: translateY(3px);
+    box-shadow: 0 1px 0 0 var(--brand-volt-deep);
+  }
+}
+
+@utility spar-chunky-card-ember {
+  background-color: var(--surface-1);
+  background-image: radial-gradient(circle 320px at 100% 0%, var(--brand-ember-soft), transparent 70%);
+  border: 2px solid var(--brand-ember);
+  border-radius: 24px;
+  box-shadow: 0 4px 0 0 var(--brand-ember-deep), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+}
+
+@utility spar-volt-btn {
+  background-color: var(--brand-volt);
+  color: var(--brand-volt-foreground);
+  border: 2px solid #D9FF73;
+  border-radius: 16px;
+  font-weight: 700;
+  box-shadow: 0 4px 0 0 var(--brand-volt-deep);
+  transition: transform 100ms ease, box-shadow 100ms ease, filter 100ms ease;
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 5px 0 0 var(--brand-volt-deep);
+    filter: brightness(1.04);
+  }
+  &:active {
+    transform: translateY(3px);
+    box-shadow: 0 1px 0 0 var(--brand-volt-deep);
+  }
+}
+
+@utility spar-white-btn {
+  background-color: #F5F5F7;
+  color: #0B0D06;
+  border-radius: 14px;
+  font-weight: 600;
+  transition: background-color 120ms ease, transform 100ms ease, opacity 120ms ease;
+  &:hover {
+    background-color: #FFFFFF;
+  }
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+@utility spar-stat-tile {
+  background-color: var(--surface-1);
+  border: 2px solid var(--border-strong);
+  border-radius: 18px;
+  box-shadow: 0 3px 0 0 #060608;
+}
+
+@utility spar-chip {
+  border: 1.5px solid var(--border-strong);
+  border-radius: 9999px;
+  background-color: var(--surface-2);
+  box-shadow: 0 2px 0 0 #060608;
 }
 
 /* Custom animations */
@@ -327,68 +448,18 @@ textarea:-webkit-autofill {
   background-size: 16px 16px;
 }
 
-/* Display accent presets selected in Settings -> Appearance */
-:root[data-accent="default"] {
-  --accent: #F4F4F5;
-  --accent-hover: #FFFFFF;
-  --accent-dark: #D4D4D8;
-  --accent-soft: rgba(244, 244, 245, 0.12);
-  --accent-border: rgba(244, 244, 245, 0.28);
-  --accent-text: #F4F4F5;
-  --accent-foreground: #111113;
-}
-
-:root[data-accent="blue"] {
-  --accent: #2F65F6;
-  --accent-hover: #2555D9;
-  --accent-dark: #1E40AF;
-  --accent-soft: rgba(47, 101, 246, 0.14);
-  --accent-border: rgba(47, 101, 246, 0.42);
-  --accent-text: #9AB5FF;
-  --accent-foreground: #FFFFFF;
-}
-
-:root[data-accent="green"] {
-  --accent: #22C55E;
-  --accent-hover: #16A34A;
-  --accent-dark: #15803D;
-  --accent-soft: rgba(34, 197, 94, 0.14);
-  --accent-border: rgba(34, 197, 94, 0.42);
-  --accent-text: #86EFAC;
-  --accent-foreground: #091910;
-}
-
-:root[data-accent="yellow"] {
-  --accent: #EAB308;
-  --accent-hover: #CA8A04;
-  --accent-dark: #A16207;
-  --accent-soft: rgba(234, 179, 8, 0.15);
-  --accent-border: rgba(234, 179, 8, 0.42);
-  --accent-text: #FDE047;
-  --accent-foreground: #111113;
-}
-
-:root[data-accent="pink"] {
-  --accent: #EC4899;
-  --accent-hover: #DB2777;
-  --accent-dark: #BE185D;
-  --accent-soft: rgba(236, 72, 153, 0.14);
-  --accent-border: rgba(236, 72, 153, 0.42);
-  --accent-text: #F9A8D4;
-  --accent-foreground: #FFFFFF;
-}
-
-:root[data-accent="orange"] {
-  --accent: #F97316;
-  --accent-hover: #EA580C;
-  --accent-dark: #C2410C;
-  --accent-soft: rgba(249, 115, 22, 0.14);
-  --accent-border: rgba(249, 115, 22, 0.42);
-  --accent-text: #FDBA74;
-  --accent-foreground: #111113;
+/* Spar signature accent locked to Electric Volt (#C6FF3D) */
+:root[data-accent] {
+  --accent: #C6FF3D;
+  --accent-hover: #D4FF66;
+  --accent-dark: #6B8E1A;
+  --accent-soft: rgba(198, 255, 61, 0.14);
+  --accent-border: rgba(198, 255, 61, 0.42);
+  --accent-text: #C6FF3D;
+  --accent-foreground: #0B0D06;
 }
 
 @utility bg-dot-thick-cobalt {
-  background-image: radial-gradient(circle, rgba(47, 101, 246, 0.85) 1.25px, transparent 1.25px);
+  background-image: radial-gradient(circle, rgba(198, 255, 61, 0.7) 1.25px, transparent 1.25px);
   background-size: 16px 16px;
 }

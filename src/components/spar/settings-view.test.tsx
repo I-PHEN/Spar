@@ -20,7 +20,8 @@ describe("SettingsView / SettingsModal (Claude + ChatGPT two-pane redesign)", ()
 
     // Left rail tabs
     expect(markup).toContain("Account");
-    expect(markup).toContain("Appearance");
+    expect(markup).not.toContain("Appearance");
+    expect(markup).not.toContain("Accent color");
     expect(markup).toContain("Room Defaults");
     expect(markup).toContain("Audio &amp; Mic");
     expect(markup).not.toContain("Voice &amp; Accents");
@@ -69,27 +70,18 @@ describe("SettingsView / SettingsModal (Claude + ChatGPT two-pane redesign)", ()
     expect(localSession).toContain("Local Session");
   });
 
-  test("renders Appearance tab with display Accent color swatches and live preview", () => {
+  test("locks visual branding to Electric Volt with no Appearance color picker tab", () => {
     const markup = renderToStaticMarkup(
       <SettingsModal
-        initialTab="appearance"
         userName="Michael"
         onUserUpdated={() => {}}
         onSignOut={() => {}}
       />,
     );
 
-    expect(markup).toContain("Accent color");
-    expect(markup).toContain('role="radiogroup"');
-    expect(markup).toContain("Default");
-    expect(markup).toContain("Blue");
-    expect(markup).toContain("Green");
-    expect(markup).toContain("Yellow");
-    expect(markup).toContain("Pink");
-    expect(markup).toContain("Orange");
-    expect(markup).toContain("Live accent preview");
-    expect(markup).not.toContain("Spoken accent");
-    expect(markup).not.toContain("Mixed International Panel");
+    expect(markup).not.toContain("Accent color");
+    expect(markup).not.toContain("Appearance");
+    expect(markup).not.toContain("Live accent preview");
   });
 
   test("renders Room Defaults tab with domain, mode, and panel intensity rows", () => {

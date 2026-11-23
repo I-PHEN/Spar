@@ -22,7 +22,7 @@ describe("HeroHighlight", () => {
     expect(markup).toContain(
       "[mask-image:radial-gradient(ellipse_at_center,black_45%,transparent_100%)]",
     );
-    expect(markup).toContain("from-[#2F65F6]/35");
+    expect(markup).toContain("from-[#C6FF3D]/30");
     expect(markup).toContain("background-size:0% 100%");
   });
 });

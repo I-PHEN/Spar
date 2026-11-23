@@ -1,12 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import { DEFAULT_COURSES } from "@/lib/courses";
+import { DEFAULT_COURSES, getCourseLessons } from "@/lib/courses";
 import { CoachView, ExecutiveBriefingDeck } from "./coach-view";
+import { MyCourseCard } from "./coach/my-course-card";
 import { LessonPlayer } from "./coach/lesson-player";
 import { DebriefContent } from "./debrief-view";
 
 describe("CoachView (3-Screen Learner Experience)", () => {
-  test("Screen A (Catalog): renders minimal 'Coach' header, clean course cards, and browse drawer trigger without creator controls", () => {
+  test("Screen A (Catalog): renders minimal 'Learn' header, tactile course cards, and browse drawer trigger without creator controls", () => {
     const markup = renderToStaticMarkup(
       <CoachView
         onSessionCreated={() => {}}
@@ -22,8 +23,10 @@ describe("CoachView (3-Screen Learner Experience)", () => {
       />
     );
 
-    // Minimal Coach header (no wireframe divider border)
-    expect(markup).toContain("Coach");
+    // Minimal Learn header with tactile course cards
+    expect(markup).toContain("Learn");
+    expect(markup).not.toContain(">Coach<");
+    expect(markup).toContain("spar-chunky-card-volt");
     expect(markup).toContain("Browse courses");
     expect(markup).not.toMatch(/<header[^>]*border-b/);
 
@@ -108,7 +111,7 @@ describe("CoachView (3-Screen Learner Experience)", () => {
     expect(markup).toContain("Start");
   });
 
-  test("Screen C (Interactive Lesson Player): renders full-screen theater stage with Hook & Reflex stage and Exit to roadmap action", () => {
+  test("Screen C (Interactive Lesson Player): renders full-screen theater stage with single undivided progress bar and Exit to roadmap action", () => {
     const markup = renderToStaticMarkup(
       <CoachView
         onSessionCreated={() => {}}
@@ -123,8 +126,9 @@ describe("CoachView (3-Screen Learner Experience)", () => {
     expect(markup).toContain("fixed inset-0 z-50");
     expect(markup).toContain("Exit to roadmap");
     expect(markup).toContain("Surviving the Friendly Trap");
-    expect(markup).toContain("1. Reflex Check");
+    expect(markup).toContain('role="progressbar"');
     expect(markup).toContain("Which instinct is fatal here?");
+    expect(markup).toContain("spar-volt-btn");
     expect(markup).toContain("Continue");
   });
 
@@ -285,7 +289,7 @@ describe("LessonPlayer (4-Slide Brilliant Minimalist Flow)", () => {
   const course = DEFAULT_COURSES[0];
   const lesson = course.modules[0].lessons[0];
 
-  test("Slide 1 (The Pressure Test): renders curveball prompt, 2 bite-sized choice cards, and zero text walls", () => {
+  test("Slide 1 (The Pressure Test): renders single undivided progress bar, spacious choices, tactile 2.5D Continue button, and zero left stripes", () => {
     const markup = renderToStaticMarkup(
       <LessonPlayer
         course={course}
@@ -298,22 +302,46 @@ describe("LessonPlayer (4-Slide Brilliant Minimalist Flow)", () => {
       />
     );
 
-    // Segmented progress bar
-    expect(markup).toContain("1. Reflex Check");
-    expect(markup).toContain("2. Tactical Model");
-    expect(markup).toContain("3. Speaking Drill");
-    expect(markup).toContain("4. Breakdown");
+    // Single undivided progress bar (no 4-part split tabs)
+    expect(markup).toContain('role="progressbar"');
+    expect(markup).toContain('aria-valuenow="25"');
+    expect(markup).not.toContain('role="tablist"');
+    expect(markup).not.toContain("1. Reflex Check");
+    expect(markup).not.toContain("border-l-4");
+    expect(markup).not.toContain("border-l-2");
 
-    // Clean hook prompt & choice cards
+    // Clean hook prompt & choice cards & 2.5D Volt Continue CTA
     expect(markup).toContain(lesson.practice?.hookPrompt || lesson.slides.tape.prompt);
     expect(markup).toContain("Which instinct is fatal here?");
     expect(markup).toContain("Approach A");
     expect(markup).toContain("Approach B");
+    expect(markup).toContain("spar-volt-btn");
     expect(markup).toContain("Continue");
 
     // Must NOT contain cluttered full-page textarea or large forms in Slide 1
     expect(markup).not.toContain("Speak with microphone or type your immediate answer");
     expect(markup).not.toContain("CHOOSE YOUR REFLEX (OR SPEAK CUSTOM BELOW):");
+  });
+
+  test("MyCourseCard at 100% completion uses unified Fight Night Volt palette with zero emerald clash", () => {
+    const course =
+      DEFAULT_COURSES.find((c) => c.id === "zero-hedge-concision") ??
+      DEFAULT_COURSES[0];
+    const completedIds = new Set(getCourseLessons(course).map((l) => l.id));
+    const markup = renderToStaticMarkup(
+      <MyCourseCard
+        course={course}
+        completedLessonIds={completedIds}
+        isHeroCourse
+        onSelectCourse={() => {}}
+        onStartOrContinueLesson={() => {}}
+        onRemoveCourse={() => {}}
+      />,
+    );
+
+    expect(markup).toContain("100%");
+    expect(markup).toContain("#C6FF3D");
+    expect(markup).not.toContain("emerald-");
   });
 });
 

@@ -14,7 +14,7 @@ describe("PanelistPresence (portrait)", () => {
 
   test("carries the persona's accent hue", () => {
     // skeptic accent — the room's only color comes from the persona
-    expect(markup).toContain("oklch(0.68 0.13 250");
+    expect(markup).toContain("oklch(0.72 0.19 250");
   });
 
   test("avatar is a circle, equal in every variant (user-locked)", () => {
@@ -80,7 +80,7 @@ describe("PanelistPresence (row variant)", () => {
     expect(m).toContain("Listening");
     expect(m).not.toContain("Challenges your impact and relevance");
     // accent still present in the compact treatment
-    expect(m).toContain("oklch(0.65 0.08 180");
+    expect(m).toContain("oklch(0.76 0.16 190");
   });
 
   test("stage variant: centered larger circular face-to-face presence", () => {

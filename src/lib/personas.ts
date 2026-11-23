@@ -35,7 +35,7 @@ export interface ArchetypeDefinition {
   forbidden: string[];
   /** Avatar initials (2 chars max) */
   initials: string;
-  /** Muted accent hue for the avatar (oklch, very desaturated) */
+  /** Vivid fighter accent hue for the avatar (oklch) */
   accentHue: string;
   /** Accent color for the active speaker's left border (Tailwind class) */
   accentBorder: string;
@@ -68,7 +68,7 @@ export const ARCHETYPES: Record<ArchetypeKey, ArchetypeDefinition> = {
       "Never accept a vague answer. Always push for specificity.",
     ],
     initials: "A",
-    accentHue: "oklch(0.68 0.13 250)", // primary blue family
+    accentHue: "oklch(0.72 0.19 250)", // electric blue
     accentBorder: "border-l-blue-400",
     icon: "search",
   },
@@ -96,8 +96,8 @@ export const ARCHETYPES: Record<ArchetypeKey, ArchetypeDefinition> = {
       "Never ask about impact or strategy — that's not your lane.",
     ],
     initials: "V",
-    accentHue: "oklch(0.70 0.10 60)", // muted amber
-    accentBorder: "border-l-red-400",
+    accentHue: "oklch(0.78 0.18 70)", // vivid amber
+    accentBorder: "border-l-amber-400",
     icon: "microscope",
   },
   so_what: {
@@ -124,8 +124,8 @@ export const ARCHETYPES: Record<ArchetypeKey, ArchetypeDefinition> = {
       "Never probe methodology — that's the Nitpicker's lane.",
     ],
     initials: "C",
-    accentHue: "oklch(0.65 0.08 180)", // muted teal
-    accentBorder: "border-l-amber-400",
+    accentHue: "oklch(0.76 0.16 190)", // vivid teal/cyan
+    accentBorder: "border-l-teal-400",
     icon: "target",
   },
   timekeeper: {
@@ -152,8 +152,8 @@ export const ARCHETYPES: Record<ArchetypeKey, ArchetypeDefinition> = {
       "Never probe methodology or impact — your only job is concision.",
     ],
     initials: "M",
-    accentHue: "oklch(0.62 0.10 145)", // muted sage
-    accentBorder: "border-l-emerald-400",
+    accentHue: "oklch(0.70 0.21 295)", // vivid electric violet (kept distinct from Volt)
+    accentBorder: "border-l-violet-400",
     icon: "timer",
   },
   ally: {
@@ -180,8 +180,8 @@ export const ARCHETYPES: Record<ArchetypeKey, ArchetypeDefinition> = {
       "Never be sarcastic or fake-warm. Be direct in your support.",
     ],
     initials: "P",
-    accentHue: "oklch(0.65 0.12 15)", // muted rose
-    accentBorder: "border-l-violet-400",
+    accentHue: "oklch(0.72 0.20 15)", // vivid rose/coral
+    accentBorder: "border-l-rose-400",
     icon: "handshake",
   },
 };

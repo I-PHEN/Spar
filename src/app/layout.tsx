@@ -1,5 +1,10 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import {
+  Geist,
+  Geist_Mono,
+  Space_Grotesk,
+  Bricolage_Grotesque,
+} from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 
@@ -10,6 +15,16 @@ const geistSans = Geist({
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-display-alt",
+  subsets: ["latin"],
+});
+
+const bricolageGrotesque = Bricolage_Grotesque({
+  variable: "--font-display",
   subsets: ["latin"],
 });
 
@@ -51,12 +66,12 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var h=window.location.hash,s=window.location.search;if(h.indexOf("access_token=")!==-1||h.indexOf("error=")!==-1||s.indexOf("code=")!==-1||s.indexOf("token_hash=")!==-1||s.indexOf("error=")!==-1){document.documentElement.setAttribute("data-spar-oauth","1");}var raw=window.localStorage.getItem("spar:user-preferences:v1");if(raw){var p=JSON.parse(raw);var a=p&&p.accentColor;if(a==="default"||a==="blue"||a==="green"||a==="yellow"||a==="pink"||a==="orange"){document.documentElement.setAttribute("data-accent",a);}}}catch(e){}`,
+            __html: `try{var h=window.location.hash,s=window.location.search;if(h.indexOf("access_token=")!==-1||h.indexOf("error=")!==-1||s.indexOf("code=")!==-1||s.indexOf("token_hash=")!==-1||s.indexOf("error=")!==-1){document.documentElement.setAttribute("data-spar-oauth","1");}document.documentElement.removeAttribute("data-accent");}catch(e){}`,
           }}
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground min-h-screen`}
+        className={`${geistSans.variable} ${geistMono.variable} ${spaceGrotesk.variable} ${bricolageGrotesque.variable} antialiased bg-background text-foreground min-h-screen`}
       >
         {children}
         <Toaster />

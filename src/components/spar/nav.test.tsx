@@ -4,27 +4,32 @@ import { Nav, ProfileMenuContent } from "./nav";
 import { SparLogo } from "./spar-logo";
 
 describe("SparLogo & User Profile Nav", () => {
-  test("SparLogo renders the Counter-Blades vector mark standalone without a box wrapper", () => {
+  test("SparLogo renders the Volt-tile Counter-Blades mark standalone without a box wrapper", () => {
     const markup = renderToStaticMarkup(<SparLogo size="md" />);
     expect(markup).toContain('viewBox="0 0 40 40"');
-    expect(markup).toContain("#2F65F6");
-    expect(markup).toContain("#1D4ED8");
-    expect(markup).toContain("#F5F5F7");
+    expect(markup).toContain('rx="10"');
+    expect(markup).toContain("#C6FF3D");
+    expect(markup).toContain("#0B0B0D");
+    expect(markup).toContain("#2E3D0B");
+    expect(markup).toContain("#1A2207");
     expect(markup).not.toContain("<div");
   });
 
-  test("Nav groups Home and Coach next to a circular Profile button instead of top-level Settings", () => {
+  test("Nav groups Home and Learn next to a circular Profile button instead of top-level Settings", () => {
     const markup = renderToStaticMarkup(
       <Nav current="home" onNavigate={() => {}} />,
     );
     expect(markup).toContain("Home");
-    expect(markup).toContain("Coach");
+    expect(markup).toContain("Learn");
+    expect(markup).toContain("Community");
+    expect(markup).toContain('target="_blank"');
     expect(markup).toContain("Open user profile menu");
     expect(markup).toContain('title="Account"');
     expect(markup).toContain(">AC<");
     expect(markup).toContain("h-8 w-8 items-center justify-center rounded-full");
     expect(markup).toContain("bg-[#0E0E11]");
-    expect(markup).toContain("#2F65F6");
+    expect(markup).toContain("#C6FF3D");
+    expect(markup).not.toContain(">Coach<");
     expect(markup).not.toContain("Settings");
     expect(markup).not.toContain("Progress");
     expect(markup).not.toContain("Sparring Room");
@@ -52,7 +57,7 @@ describe("SparLogo & User Profile Nav", () => {
     expect(singleNameMarkup).not.toContain(">Alex<");
   });
 
-  test("ProfileMenuContent renders strictly Settings and Log out without extra submenu shortcuts", () => {
+  test("ProfileMenuContent renders Settings, Spar Community, and Log out without extra submenu shortcuts", () => {
     const markup = renderToStaticMarkup(
       <ProfileMenuContent
         displayName="Michael Ayiam"
@@ -67,8 +72,10 @@ describe("SparLogo & User Profile Nav", () => {
     expect(markup).toContain("Michael Ayiam");
     expect(markup).toContain("michael@example.com");
     expect(markup).toContain(">Settings<");
+    expect(markup).toContain(">Spar Community<");
     expect(markup).toContain(">Log out<");
-    expect(markup.match(/role="menuitem"/g)?.length).toBe(2);
+    expect(markup).toContain('target="_blank"');
+    expect(markup.match(/role="menuitem"/g)?.length).toBe(3);
     expect(markup).not.toContain("Room Defaults");
     expect(markup).not.toContain("Voice &amp; Accents");
   });

@@ -488,6 +488,10 @@ async function* fetchTurn(request: LiveTurnRequest, signal: AbortSignal): AsyncI
   const response = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}/spar-stream`, {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), signal,
   });
+  if (response.status === 429) throw new Error("rate-limited");
+  if (response.status === 502 || response.status === 503 || response.status === 504) {
+    throw new Error("service-unavailable");
+  }
   if (!response.ok || !response.body) throw new Error("Spar stream failed.");
   const reader = response.body.getReader();
   const decoder = new TextDecoder();

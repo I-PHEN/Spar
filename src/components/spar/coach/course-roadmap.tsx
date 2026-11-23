@@ -79,7 +79,7 @@ export function CourseRoadmap({
 
   return (
     <div className="min-h-screen bg-[var(--bg-base)] text-[var(--text-primary)]">
-      <div className="mx-auto max-w-6xl space-y-6 px-4 py-6 pb-16 sm:px-6 sm:py-8 lg:pb-20">
+      <div className="mx-auto max-w-6xl space-y-6 px-5 pb-16 pt-7 sm:px-8 sm:pt-10 lg:pb-20">
       {/* Top Breadcrumb Navigation */}
       <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs">
         <button
@@ -98,13 +98,13 @@ export function CourseRoadmap({
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-12 items-start">
         {/* LEFT COLUMN: Pinned Course Card */}
         <aside className="lg:col-span-5 lg:sticky lg:top-24 space-y-4">
-          <div className="space-y-5 rounded-xl border border-[#232327] bg-[#121215] p-6 sm:p-7">
+          <div className="spar-chunky-card space-y-5 p-6 sm:p-7">
             {/* Distinctive Illustration / Motif Icon */}
             <CourseEmblem category={course.category} size="lg" />
 
             {/* Title & Single-Sentence Clean Premise */}
             <div className="space-y-2">
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+              <h1 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
                 {course.title}
               </h1>
               <p className="text-sm leading-relaxed text-neutral-300 font-normal">
@@ -112,15 +112,15 @@ export function CourseRoadmap({
               </p>
             </div>
 
-            {/* Minimal Stats Row matching Brilliant (36 Lessons · 434 Exercises) */}
+            {/* Minimal Stats Row matching Brilliant */}
             <div className="flex items-center gap-4 text-xs font-mono text-[var(--text-secondary)] pt-2 border-t border-white/[0.06]">
               <span className="inline-flex items-center gap-1.5">
-                <span className="text-[var(--accent)] font-semibold">◎</span>
+                <span className="text-[#C6FF3D] font-semibold">◎</span>
                 <span>{totalCount} Lessons</span>
               </span>
               <span>·</span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="text-[var(--accent)] font-semibold">⚡</span>
+                <span className="text-[#C6FF3D] font-semibold">⚡</span>
                 <span>{totalCount * 3} Exercises</span>
               </span>
             </div>
@@ -132,13 +132,13 @@ export function CourseRoadmap({
                   <span className="font-medium text-white">
                     {completedCount} of {totalCount} completed
                   </span>
-                  <span className="font-mono text-[var(--accent)] font-semibold tabular-nums">
+                  <span className="font-mono text-[#C6FF3D] font-bold tabular-nums">
                     {progressPct}%
                   </span>
                 </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-[#181822] border border-white/[0.08]">
+                <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#0B0B0D] border border-[#2C2C34]">
                   <div
-                    className="h-full rounded-full bg-[var(--accent)] transition-all duration-300"
+                    className="h-full rounded-full bg-[#C6FF3D] transition-all duration-300"
                     style={{ width: `${progressPct}%` }}
                   />
                 </div>
@@ -150,16 +150,11 @@ export function CourseRoadmap({
         {/* RIGHT COLUMN: Tactile Roadmap Path */}
         <main className="lg:col-span-7 flex flex-col items-center space-y-6">
           {/* Top Level Milestone Header Banner (Non-clickable, roadmap objects below are interactive) */}
-          <div
-            className="w-full max-w-md rounded-2xl border-2 border-[var(--accent)] bg-[var(--surface-1)] px-6 py-3.5 text-center shadow-lg select-none"
-            style={{
-              boxShadow: "0 0 20px var(--accent-soft)",
-            }}
-          >
-            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--accent)] block">
+          <div className="spar-chunky-card-volt w-full max-w-md px-6 py-4 text-center select-none">
+            <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#C6FF3D] block">
               LEVEL {selectedLessonIndex}
             </span>
-            <h2 className="text-base sm:text-lg font-bold text-white tracking-tight mt-0.5 truncate">
+            <h2 className="font-display text-base sm:text-lg font-bold text-white tracking-tight mt-0.5 truncate">
               {selectedLesson?.title}
             </h2>
           </div>
@@ -197,11 +192,11 @@ export function CourseRoadmap({
 
           {/* Bottom Selected Lesson Action Launcher */}
           {selectedLesson && (
-            <div className="w-full max-w-md space-y-3.5 rounded-xl border border-[#232327] bg-[#121215] p-5 text-center sm:p-6">
+            <div className="spar-chunky-card w-full max-w-md space-y-3.5 p-5 text-center sm:p-6">
               <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-neutral-400 block">
                 {isSelectedDone ? "COMPLETED" : "UP NEXT"}
               </span>
-              <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight">
+              <h3 className="font-display text-lg sm:text-xl font-bold text-white tracking-tight">
                 {selectedLesson.title}
               </h3>
 
@@ -212,7 +207,7 @@ export function CourseRoadmap({
                     variant="outline"
                     disabled={launchingChamber}
                     onClick={() => onLaunchChamber(course, selectedLesson)}
-                    className="h-11 w-full rounded-xl border-[#232327] bg-[#18181D] px-5 text-xs font-semibold text-neutral-200 hover:border-[#34343B] hover:text-white sm:w-auto"
+                    className="h-11 w-full rounded-xl border-[#2C2C34] bg-[#18181D] px-5 text-xs font-semibold text-neutral-200 hover:border-[#3E3E4A] hover:text-white sm:w-auto"
                   >
                     <Swords className="mr-1.5 h-3.5 w-3.5" />
                     {launchingChamber ? "Opening room..." : "Apply in room"}
@@ -222,7 +217,7 @@ export function CourseRoadmap({
                 <button
                   type="button"
                   onClick={() => onStartLesson(selectedLesson.id)}
-                  className="inline-flex h-11 w-full flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-6 text-sm font-semibold text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent-hover)] active:scale-[0.98] sm:w-auto"
+                  className="spar-volt-btn inline-flex h-11 w-full flex-1 items-center justify-center gap-2 px-6 text-sm sm:w-auto"
                 >
                   {isSelectedDone ? (
                     <>

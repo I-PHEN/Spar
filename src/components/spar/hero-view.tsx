@@ -6,6 +6,7 @@ import { useEffect, useState, useRef } from "react";
 import { ArrowRight, Play, Volume2, VolumeX, X } from "lucide-react";
 import { SparringMockup } from "./sparring-mockup";
 import { SparLogo } from "./spar-logo";
+import { Kwesi } from "./kwesi-mascot";
 
 interface HeroViewProps {
   onEnter: () => void;
@@ -117,7 +118,7 @@ export function HeroView({ onEnter }: HeroViewProps) {
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between">
           <div className="flex items-center gap-3">
             <SparLogo size="md" />
-            <span className="text-base font-semibold tracking-tight text-[var(--text-primary)]">
+            <span className="font-display text-base font-bold tracking-tight text-[var(--text-primary)]">
               Spar
             </span>
           </div>
@@ -131,7 +132,7 @@ export function HeroView({ onEnter }: HeroViewProps) {
             </button>
             <button
               onClick={onEnter}
-              className="inline-flex h-10 items-center justify-center rounded-full bg-[#F5F5F7] px-5 text-sm font-semibold text-[#0A0A0E] transition-colors hover:bg-white"
+              className="spar-white-btn inline-flex h-10 items-center justify-center rounded-full px-5 text-sm font-semibold"
             >
               Get Started
             </button>
@@ -158,11 +159,11 @@ export function HeroView({ onEnter }: HeroViewProps) {
             The room before the real room.
           </p>
 
-          {/* Single Matte CTA */}
+          {/* Single Volt CTA */}
           <div className="mt-7 flex items-center justify-center">
             <button
               onClick={onEnter}
-              className="group inline-flex h-13 items-center gap-2 rounded-full bg-[#F5F5F7] px-9 text-base font-semibold text-[#0A0A0E] transition-colors hover:bg-white"
+              className="spar-volt-btn group inline-flex h-13 items-center gap-2 rounded-full px-9 text-base font-bold text-[#0B0D06]"
             >
               Get Started
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -173,17 +174,24 @@ export function HeroView({ onEnter }: HeroViewProps) {
         {/* Focused Quote Band between CTA and 60s Demo */}
         <div className="mx-auto mt-8 w-full max-w-3xl sm:mt-10">
           <HeroHighlight containerClassName="py-8 sm:py-10">
-            <h2 className="mx-auto max-w-2xl px-4 text-center text-xl font-semibold leading-relaxed tracking-tight text-[var(--text-secondary)] sm:text-2xl sm:leading-snug lg:text-[1.75rem]">
+            <h2 className="font-display mx-auto max-w-2xl px-4 text-center text-xl font-bold leading-relaxed tracking-tight text-[var(--text-secondary)] sm:text-2xl sm:leading-snug lg:text-[1.75rem]">
               Don&apos;t rehearse in your head. Survive{" "}
               <Highlight>the hardest question in the room</Highlight> first.
             </h2>
           </HeroHighlight>
         </div>
 
+        <Kwesi
+          pose="hype"
+          size="sm"
+          line="Step into the ring. I'm in your corner — they're across the table."
+          className="mx-auto mt-6 justify-center"
+        />
+
         {/* Sleek Single 16:9 60s Demo Video Frame (scroll autoplay) */}
         <div
           ref={demoSectionRef}
-          className="mx-auto mt-6 w-full max-w-3xl overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-1)] sm:mt-8"
+          className="spar-chunky-card mx-auto mt-6 w-full max-w-3xl overflow-hidden sm:mt-8"
         >
           <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-4 py-2.5">
             <span className="text-[11px] font-medium text-[var(--text-secondary)]">
@@ -438,7 +446,7 @@ export function DemoShowcaseModal({
           <button
             type="button"
             onClick={onEnter}
-            className="inline-flex items-center gap-2 rounded-full bg-[#F5F5F7] px-5 py-2 text-xs font-semibold text-[#0A0A0E] transition-colors hover:bg-white"
+            className="spar-volt-btn inline-flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold text-[#0B0D06]"
           >
             Try Spar Live Now
             <ArrowRight className="h-3.5 w-3.5" />
@@ -556,17 +564,17 @@ function HeroSolidVoiceVisualizer() {
       >
         <defs>
           <radialGradient id="voice-orb-outer" cx="38%" cy="32%" r="72%">
-            <stop offset="0%" stopColor="#1E3A8A" />
-            <stop offset="100%" stopColor="#172554" />
+            <stop offset="0%" stopColor="#3B4F11" />
+            <stop offset="100%" stopColor="#1A2407" />
           </radialGradient>
           <radialGradient id="voice-orb-mid" cx="36%" cy="30%" r="70%">
-            <stop offset="0%" stopColor="#2F65F6" />
-            <stop offset="100%" stopColor="#1D4ED8" />
+            <stop offset="0%" stopColor="#C6FF3D" />
+            <stop offset="100%" stopColor="#6B8E1A" />
           </radialGradient>
           <radialGradient id="voice-orb-core" cx="35%" cy="30%" r="72%">
-            <stop offset="0%" stopColor="#EFF6FF" />
-            <stop offset="46%" stopColor="#60A5FA" />
-            <stop offset="100%" stopColor="#2563EB" />
+            <stop offset="0%" stopColor="#F4FFCC" />
+            <stop offset="46%" stopColor="#D4FF66" />
+            <stop offset="100%" stopColor="#84CC16" />
           </radialGradient>
         </defs>
 
@@ -606,7 +614,7 @@ function HeroIsometricCarousel({
   return (
     <div className="flex flex-col items-center">
       {/* Top cycling headline with 60fps vertical GPU slot-roller */}
-      <h1 className="flex flex-wrap items-center justify-center gap-x-[0.26em] text-center text-[28px] font-bold tracking-tight text-[var(--text-primary)] sm:text-6xl sm:leading-[1.32]">
+      <h1 className="font-display flex flex-wrap items-center justify-center gap-x-[0.26em] text-center text-[28px] font-bold tracking-tight text-[var(--text-primary)] sm:text-6xl sm:leading-[1.32]">
         <span className="leading-[1.32]">Your </span>
         <span
           className="relative inline-block h-[1.32em] overflow-hidden align-bottom"
@@ -693,7 +701,7 @@ function HeroIsometricCarousel({
       </div>
 
       {/* Bottom completion headline */}
-      <p className="text-center text-[32px] font-bold tracking-tight text-[var(--text-primary)] sm:text-6xl sm:leading-[1.12]">
+      <p className="font-display text-center text-[32px] font-bold tracking-tight text-[var(--text-primary)] sm:text-6xl sm:leading-[1.12]">
         all in one room.
       </p>
     </div>
@@ -805,8 +813,8 @@ function IsometricStageObject({
             <stop offset="100%" stopColor="#07070A" />
           </linearGradient>
           <linearGradient id="p-blue-front" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#3B82F6" />
-            <stop offset="100%" stopColor="#1D4ED8" />
+            <stop offset="0%" stopColor="#C6FF3D" />
+            <stop offset="100%" stopColor="#6B8E1A" />
           </linearGradient>
           <radialGradient id="p-orb-cobalt" cx="35%" cy="28%" r="65%">
             <stop offset="0%" stopColor="#93C5FD" />
@@ -833,11 +841,11 @@ function IsometricStageObject({
         {/* Solid 3D Extruded Chart Columns inside Screen */}
         <polygon points="68,96 82,93 82,72 68,75" fill="#1E3A8A" />
         <polygon points="82,93 88,90 88,69 82,72" fill="#172554" />
-        <polygon points="92,91 106,88 106,54 92,57" fill="#1D4ED8" />
-        <polygon points="106,88 112,85 112,51 106,54" fill="#1E3A8A" />
+        <polygon points="92,91 106,88 106,54 92,57" fill="#6B8E1A" />
+        <polygon points="106,88 112,85 112,51 106,54" fill="#4D6810" />
         <polygon points="116,86 130,83 130,36 116,39" fill="url(#p-blue-front)" />
-        <polygon points="116,39 130,36 136,33 122,36" fill="#60A5FA" />
-        <polygon points="130,83 136,80 136,33 130,36" fill="#1D4ED8" />
+        <polygon points="116,39 130,36 136,33 122,36" fill="#D9FF73" />
+        <polygon points="130,83 136,80 136,33 130,36" fill="#6B8E1A" />
         <polyline points="72,66 100,48 124,28 148,22" fill="none" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" />
         {/* Heavy Extruded Boardroom Table Slab */}
         <polygon points="120,114 206,146 120,178 34,146" fill="url(#p-table-top)" stroke="rgba(255,255,255,0.16)" strokeWidth="1.2" />

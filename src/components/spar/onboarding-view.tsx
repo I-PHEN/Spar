@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { PanelIntensityKey, PrimaryTrackKey } from "@/lib/user";
 import { SparLogo } from "./spar-logo";
+import { Kwesi } from "./kwesi-mascot";
 import { combineMomentDateAndTime, formatDateInputValue } from "@/lib/moment-calendar";
 
 interface OnboardingViewProps {
@@ -214,7 +215,7 @@ export function OnboardingView({
         className="pointer-events-none absolute top-0 left-1/2 h-[400px] w-[600px] -translate-x-1/2 opacity-20"
         style={{
           background:
-            "radial-gradient(ellipse at center, rgba(147,180,255,0.1) 0%, transparent 70%)",
+            "radial-gradient(ellipse at center, rgba(198,255,61,0.08) 0%, transparent 70%)",
         }}
       />
 
@@ -238,7 +239,7 @@ export function OnboardingView({
                   className={cn(
                     "h-1 rounded-full transition-all duration-300",
                     i === step
-                      ? "w-10 bg-white"
+                      ? "w-10 bg-[#C6FF3D]"
                       : i < step
                       ? "w-6 bg-neutral-400"
                       : "w-6 bg-neutral-800"
@@ -255,7 +256,13 @@ export function OnboardingView({
           <div className="min-h-[320px]">
             {step === 0 && (
               <div>
-                <h2 className="text-center text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+                <Kwesi
+                  pose="hype"
+                  size="sm"
+                  line="Welcome to the gym. Tell me what you're preparing for and I'll set your corner."
+                  className="mb-5 justify-center"
+                />
+                <h2 className="font-display text-center text-2xl font-bold tracking-tight text-white sm:text-3xl">
                   What are you preparing for?
                 </h2>
                 <p className="mt-2 text-center text-sm text-neutral-400">
@@ -290,10 +297,10 @@ export function OnboardingView({
                         type="button"
                         onClick={() => setSelectedTrack(track.id)}
                         className={cn(
-                          "flex flex-col items-start rounded-xl border p-4 text-left transition-all",
+                          "flex flex-col items-start p-4 text-left",
                           active
-                            ? "border-[var(--accent)] bg-[var(--accent)]/12 shadow-[0_0_0_1px_var(--accent)]"
-                            : "border-[#232327] bg-[#121215] hover:border-[#34343B] hover:bg-[#18181D]"
+                            ? "spar-chunky-card-volt"
+                            : "spar-chunky-card spar-chunky-card-interactive"
                         )}
                       >
                         <div className="mb-2 flex items-center gap-2">
@@ -319,7 +326,13 @@ export function OnboardingView({
 
             {step === 1 && (
               <div>
-                <h2 className="text-center text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+                <Kwesi
+                  pose="listening"
+                  size="sm"
+                  line="Pick how hard the panel pushes. You can dial this up or down anytime."
+                  className="mb-5 justify-center"
+                />
+                <h2 className="font-display text-center text-2xl font-bold tracking-tight text-white sm:text-3xl">
                   How should the panel challenge you?
                 </h2>
                 <p className="mt-2 text-center text-sm text-neutral-400">
@@ -336,10 +349,10 @@ export function OnboardingView({
                         type="button"
                         onClick={() => setSelectedIntensity(style.id)}
                         className={cn(
-                          "flex w-full items-start gap-3.5 rounded-xl border p-4 text-left transition-all",
+                          "flex w-full items-start gap-3.5 p-4 text-left",
                           active
-                            ? "border-[var(--accent)] bg-[var(--accent)]/12 shadow-[0_0_0_1px_var(--accent)]"
-                            : "border-[#232327] bg-[#121215] hover:border-[#34343B] hover:bg-[#18181D]"
+                            ? "spar-chunky-card-volt"
+                            : "spar-chunky-card spar-chunky-card-interactive"
                         )}
                       >
                         <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04]">
@@ -442,7 +455,7 @@ export function OnboardingView({
                 type="button"
                 onClick={step === 0 ? handleStep1Next : handleFinish}
                 disabled={saving}
-                className="flex items-center gap-2 rounded-full bg-white px-6 h-10 text-xs font-semibold text-black hover:bg-neutral-200 transition-all disabled:opacity-50"
+                className="spar-volt-btn flex items-center gap-2 rounded-2xl px-6 h-11 text-xs font-bold text-[#0B0D06] disabled:opacity-50"
               >
                 {step === 0 ? "Continue" : "Finish Setup"}
                 <ArrowRight className="h-3.5 w-3.5" />

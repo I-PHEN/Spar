@@ -51,8 +51,7 @@ export function InlineRoadmapTrack({
   return (
     <div
       className={cn(
-        "relative rounded-2xl border border-[var(--border-subtle)] bg-[#0d0d12] p-5 sm:p-6 overflow-hidden",
-        "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)]",
+        "spar-chunky-card relative p-5 sm:p-6 overflow-hidden",
         className
       )}
     >
@@ -131,7 +130,7 @@ export function InlineRoadmapTrack({
               >
                 {/* Mastered Badge */}
                 {state === "mastered" && (
-                  <div className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-black shadow-md">
+                  <div className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#C6FF3D] text-[#0B0D06] shadow-md">
                     <Check className="h-3 w-3 stroke-[3]" />
                   </div>
                 )}
@@ -156,7 +155,7 @@ export function InlineRoadmapTrack({
                       state === "up_next"
                         ? "bg-[var(--accent)]/15 text-[var(--accent)]"
                         : state === "mastered"
-                        ? "bg-emerald-500/10 text-emerald-400"
+                        ? "bg-[#C6FF3D]/12 text-[#C6FF3D]"
                         : "bg-white/[0.05] text-neutral-400"
                     )}
                   >
@@ -171,7 +170,7 @@ export function InlineRoadmapTrack({
                       className={cn(
                         "h-full rounded-full transition-all duration-300",
                         state === "mastered"
-                          ? "w-full bg-emerald-400"
+                          ? "w-full bg-[#C6FF3D]"
                           : state === "up_next"
                           ? "w-1/3 bg-[var(--accent)]"
                           : "w-0"

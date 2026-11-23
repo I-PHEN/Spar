@@ -32,7 +32,7 @@ describe("user-preferences", () => {
     expect(parsed.primaryTrack).toBe("pitch");
     expect(parsed.panelIntensity).toBe("aggressive");
     expect(parsed.defaultMode).toBe("drill");
-    expect(parsed.accentColor).toBe("green");
+    expect(parsed.accentColor).toBe("default");
     expect(parsed.defaultAccent).toBe("british");
     expect(parsed.voiceTone).toBe("crisp");
     expect(parsed.autoMicEnabled).toBe(false);

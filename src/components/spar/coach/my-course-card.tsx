@@ -22,6 +22,7 @@ export interface MyCourseCardProps {
 export function MyCourseCard({
   course,
   completedLessonIds,
+  isHeroCourse = false,
   onSelectCourse,
   onStartOrContinueLesson,
   onRemoveCourse,
@@ -46,9 +47,16 @@ export function MyCourseCard({
   }
 
   return (
-    <div className="group relative flex flex-col justify-between overflow-hidden rounded-xl border border-[#232327] bg-[#121215] transition-colors hover:border-[#34343B]">
+    <div
+      className={cn(
+        "group relative flex flex-col justify-between overflow-hidden rounded-[24px] p-5 transition-transform",
+        isHeroCourse
+          ? "spar-chunky-card-volt"
+          : "spar-chunky-card spar-chunky-card-interactive",
+      )}
+    >
       {/* Three-dot context menu */}
-      <div className="absolute right-2.5 top-2.5 z-20">
+      <div className="absolute right-3.5 top-3.5 z-20">
         <div className="relative">
           <button
             type="button"
@@ -69,7 +77,7 @@ export function MyCourseCard({
               />
               <div
                 role="menu"
-                className="absolute right-0 top-8 z-40 w-52 rounded-xl border border-[#232327] bg-[#18181D] p-1.5"
+                className="absolute right-0 top-8 z-40 w-52 rounded-2xl border-2 border-[var(--border-strong)] bg-[#141418] p-1.5 shadow-[0_6px_0_0_#060608]"
               >
                 <button
                   type="button"
@@ -90,19 +98,19 @@ export function MyCourseCard({
       </div>
 
       {/* Primary Card Body */}
-      <div className="flex flex-1 flex-col justify-between p-4">
-        <div className="space-y-3">
+      <div className="flex flex-1 flex-col justify-between">
+        <div className="space-y-3.5">
           {/* Header row: compact icon + title + 1-line description */}
-          <div className="flex items-start gap-3 pr-7">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#232327] bg-[#18181D]">
-              {getCourseEmblemIcon(course.category, "h-4 w-4 text-[var(--accent-text)]")}
+          <div className="flex items-start gap-3 pr-8">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-[#C6FF3D]/40 bg-[#1B210D] text-[#C6FF3D]">
+              {getCourseEmblemIcon(course.category, "h-4.5 w-4.5 text-[#C6FF3D]")}
             </div>
 
             <div className="min-w-0 flex-1">
               <button
                 type="button"
                 onClick={() => onSelectCourse(course.id)}
-                className="block w-full truncate text-left text-sm font-semibold tracking-tight text-[var(--text-primary)] hover:underline focus-visible:outline-none sm:text-base"
+                className="block w-full truncate text-left font-display text-base font-bold tracking-tight text-[var(--text-primary)] hover:underline focus-visible:outline-none sm:text-lg"
               >
                 {course.title}
               </button>
@@ -121,21 +129,13 @@ export function MyCourseCard({
                 </strong>
                 <span className="sr-only"> ({completedCount} of {totalCount} completed)</span>
               </span>
-              <span
-                className={cn(
-                  "font-mono tabular-nums font-semibold",
-                  progressPct === 100 ? "text-emerald-400" : "text-white"
-                )}
-              >
+              <span className="font-mono tabular-nums font-bold text-[#C6FF3D]">
                 {progressPct}%
               </span>
             </div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full border border-[#232327] bg-[#0B0B0D]">
+            <div className="h-2 w-full overflow-hidden rounded-full border border-[#2C2C34] bg-[#0B0B0D]">
               <div
-                className={cn(
-                  "h-full rounded-full transition-all duration-300",
-                  progressPct === 100 ? "bg-emerald-400" : "bg-[var(--accent)]"
-                )}
+                className="h-full rounded-full bg-[#C6FF3D] transition-all duration-300"
                 style={{ width: `${progressPct}%` }}
               />
             </div>
@@ -143,11 +143,11 @@ export function MyCourseCard({
         </div>
 
         {/* Compact Horizontal Actions */}
-        <div className="mt-3.5 flex items-center gap-2">
+        <div className="mt-4 flex items-center gap-2.5">
           <button
             type="button"
             onClick={handleContinue}
-            className="inline-flex h-8.5 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[var(--accent)] px-4 text-xs font-semibold text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent-hover)] active:scale-[0.98] sm:flex-initial"
+            className="spar-white-btn inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl px-4 text-xs sm:flex-initial"
           >
             <Play className="h-3 w-3 fill-current" />
             {completedCount === 0 ? "Start" : "Continue"}
@@ -156,7 +156,7 @@ export function MyCourseCard({
           <button
             type="button"
             onClick={() => onSelectCourse(course.id)}
-            className="inline-flex h-8.5 flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#232327] bg-[#18181D] px-3.5 text-xs font-semibold text-[var(--text-secondary)] transition-colors hover:border-[#34343B] hover:text-white focus-visible:outline-none sm:flex-initial"
+            className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#2C2C34] bg-[#18181D] px-3.5 text-xs font-semibold text-[var(--text-secondary)] transition-colors hover:border-[#3E3E4A] hover:text-white focus-visible:outline-none sm:flex-initial"
           >
             <span>Roadmap</span>
             <ArrowRight className="h-3 w-3 text-[var(--text-tertiary)]" />

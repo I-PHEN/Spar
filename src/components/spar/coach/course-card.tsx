@@ -14,15 +14,15 @@ export interface CourseCardProps {
 function getCategoryIcon(category: string) {
   const lower = category.toLowerCase();
   if (lower.includes("pressure") || lower.includes("recovery")) {
-    return <Zap className="h-4 w-4 text-white" />;
+    return <Zap className="h-4 w-4 text-[#C6FF3D]" />;
   }
   if (lower.includes("q&a") || lower.includes("defense")) {
-    return <Shield className="h-4 w-4 text-white" />;
+    return <Shield className="h-4 w-4 text-[#C6FF3D]" />;
   }
   if (lower.includes("communication") || lower.includes("vocal")) {
-    return <MessageSquare className="h-4 w-4 text-white" />;
+    return <MessageSquare className="h-4 w-4 text-[#C6FF3D]" />;
   }
-  return <Compass className="h-4 w-4 text-white" />;
+  return <Compass className="h-4 w-4 text-[#C6FF3D]" />;
 }
 
 export function CourseCard({
@@ -58,21 +58,21 @@ export function CourseCard({
           onSelectCourse(course.id);
         }
       }}
-      className="group relative flex flex-col justify-between rounded-2xl border border-white/10 bg-[#121212] p-5 sm:p-6 text-left transition-all duration-200 hover:border-white/25 hover:bg-[#161616] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 cursor-pointer shadow-lg"
+      className="spar-chunky-card spar-chunky-card-interactive group relative flex flex-col justify-between p-5 sm:p-6 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C6FF3D]/60 cursor-pointer"
     >
       <div>
-        {/* Top Row: Clean tactile icon badge + Category pill */}
+        {/* Top Row: Clean tactile icon badge + Difficulty pill */}
         <div className="flex items-center justify-between gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.05] transition-colors group-hover:border-white/20 group-hover:bg-white/[0.08]">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border-2 border-[#C6FF3D]/40 bg-[#1B210D]">
             {getCategoryIcon(course.category)}
           </div>
-          <span className="rounded-md border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] font-mono text-neutral-300">
+          <span className="rounded-md border border-[#2C2C34] bg-[#18181D] px-2.5 py-0.5 text-[11px] font-mono text-neutral-300">
             {course.difficulty}
           </span>
         </div>
 
         {/* Course Title */}
-        <h3 className="mt-3.5 text-base sm:text-lg font-bold tracking-tight text-white group-hover:text-white">
+        <h3 className="mt-4 font-display text-base sm:text-lg font-bold tracking-tight text-white">
           {course.title}
         </h3>
 
@@ -87,7 +87,7 @@ export function CourseCard({
             <div className="flex items-center justify-between text-xs text-neutral-400 mb-1">
               <span>
                 {isCompleted ? (
-                  <span className="inline-flex items-center gap-1 text-white font-medium text-xs">
+                  <span className="inline-flex items-center gap-1 text-[#C6FF3D] font-medium text-xs">
                     <CheckCircle2 className="h-3 w-3" />
                     Completed
                   </span>
@@ -97,13 +97,13 @@ export function CourseCard({
                   </span>
                 )}
               </span>
-              <span className="font-mono tabular-nums text-neutral-300 text-xs">
+              <span className="font-mono tabular-nums text-[#C6FF3D] font-bold text-xs">
                 {progressPct}%
               </span>
             </div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.08]">
+            <div className="h-2 w-full overflow-hidden rounded-full border border-[#2C2C34] bg-[#0B0B0D]">
               <div
-                className="h-full rounded-full bg-white transition-all duration-300"
+                className="h-full rounded-full bg-[#C6FF3D] transition-all duration-300"
                 style={{ width: `${progressPct}%` }}
               />
             </div>
@@ -124,7 +124,7 @@ export function CourseCard({
           </span>
         </div>
 
-        <span className="inline-flex shrink-0 items-center gap-1 text-xs font-bold text-white transition-colors group-hover:text-neutral-200">
+        <span className="inline-flex shrink-0 items-center gap-1 text-xs font-bold text-[#C6FF3D] transition-colors group-hover:text-white">
           {actionLabel}
           <ArrowRight className="h-3.5 w-3.5 shrink-0 transition-transform group-hover:translate-x-0.5" />
         </span>

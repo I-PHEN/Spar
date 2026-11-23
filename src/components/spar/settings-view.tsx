@@ -9,18 +9,12 @@ import {
   LogOut,
   Mic,
   MicOff,
-  Palette,
   Search,
   SlidersHorizontal,
   User,
   Volume2,
   X,
 } from "lucide-react";
-import {
-  ACCENT_THEME_LIST,
-  applyAccentTheme,
-  type AccentThemeKey,
-} from "@/lib/accent-themes";
 import { DOMAIN_PRESET_LIST, type DomainKey } from "@/lib/domains";
 import {
   DEFAULT_USER_PREFERENCES,
@@ -35,7 +29,7 @@ import {
 import { VOICE_TONE_LIST, type VoiceToneKey } from "@/lib/voice-accents";
 import { cn } from "@/lib/utils";
 
-export type SettingsTabKey = "account" | "appearance" | "defaults" | "audio";
+export type SettingsTabKey = "account" | "defaults" | "audio";
 
 export interface SettingsViewProps {
   open?: boolean;
@@ -71,13 +65,6 @@ const SETTINGS_TABS: Array<{
     label: "Account",
     icon: User,
     keywords: "account profile display name email sync cloud local sign out log out",
-  },
-  {
-    key: "appearance",
-    label: "Appearance",
-    icon: Palette,
-    keywords:
-      "appearance accent color colour theme default blue green yellow pink orange display",
   },
   {
     key: "defaults",
@@ -205,7 +192,6 @@ export function SettingsView({
           const synced = writeStoredUserPreferences(d.preferences);
           prefsRef.current = synced;
           setPrefs(synced);
-          applyAccentTheme(synced.accentColor);
         }
       })
       .catch(() => {})
@@ -312,9 +298,6 @@ export function SettingsView({
     });
     prefsRef.current = nextPrefs;
     setPrefs(nextPrefs);
-    if (patch.accentColor !== undefined) {
-      applyAccentTheme(nextPrefs.accentColor);
-    }
 
     if (
       patch.defaultDomain !== undefined ||
@@ -512,14 +495,14 @@ export function SettingsView({
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-dialog-title"
-        className="flex h-[100dvh] w-full flex-col overflow-hidden bg-[#1C1C1F] text-[#F4F4F5] sm:h-[580px] sm:max-h-[86vh] sm:max-w-[780px] sm:flex-row sm:rounded-2xl sm:border sm:border-[#2C2C31] sm:shadow-2xl"
+        className="flex h-[100dvh] w-full flex-col overflow-hidden bg-[#1C1C1F] text-[#F4F4F5] sm:h-[580px] sm:max-h-[86vh] sm:max-w-[780px] sm:flex-row sm:rounded-[24px] sm:border-2 sm:border-[var(--border-strong)] sm:shadow-[0_6px_0_0_#060608]"
       >
         {/* Left Navigation Rail (Solid Charcoal) */}
         <aside className="flex shrink-0 flex-col border-b border-[#26262A] bg-[#141416] sm:w-[228px] sm:border-b-0 sm:border-r">
           <div className="flex items-center justify-between px-4 pt-4 pb-3">
             <h1
               id="settings-dialog-title"
-              className="text-[15px] font-semibold tracking-tight text-[#F4F4F5]"
+              className="font-display text-[16px] font-bold tracking-tight text-[#F4F4F5]"
             >
               Settings
             </h1>
@@ -544,7 +527,7 @@ export function SettingsView({
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search"
                 aria-label="Search settings"
-                className="h-8 w-full rounded-lg border border-[#2C2C31] bg-[#1E1E22] pl-8 pr-3 text-xs text-[#F4F4F5] placeholder:text-[#71717A] focus:border-[#52525B] focus:outline-none"
+                className="h-8 w-full rounded-lg border border-[#2C2C31] bg-[#1E1E22] pl-8 pr-3 text-xs text-[#F4F4F5] placeholder:text-[#71717A] focus:border-[#C6FF3D]/70 focus:outline-none"
               />
             </div>
           </div>
@@ -563,16 +546,16 @@ export function SettingsView({
                   onClick={() => setActiveTab(tab.key)}
                   aria-current={selected ? "page" : undefined}
                   className={cn(
-                    "flex shrink-0 items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium transition-colors",
+                    "flex shrink-0 items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left text-[13px] font-medium transition-colors",
                     selected
-                      ? "bg-[#2A2A2E] text-[#F4F4F5]"
-                      : "text-[#A1A1AA] hover:bg-[#1E1E22] hover:text-[#F4F4F5]",
+                      ? "border-[#C6FF3D]/45 bg-[#2A2A2E] text-[#F4F4F5]"
+                      : "border-transparent text-[#A1A1AA] hover:bg-[#1E1E22] hover:text-[#F4F4F5]",
                   )}
                 >
                   <Icon
                     className={cn(
                       "h-4 w-4 shrink-0",
-                      selected ? "text-[#F4F4F5]" : "text-[#8E8E98]",
+                      selected ? "text-[#C6FF3D]" : "text-[#8E8E98]",
                     )}
                   />
                   <span>{tab.label}</span>
@@ -590,7 +573,7 @@ export function SettingsView({
         {/* Right Content Pane (Shows one category at a time) */}
         <div className="flex min-w-0 flex-1 flex-col bg-[#1C1C1F]">
           <header className="flex shrink-0 items-center justify-between border-b border-[#26262A] px-6 py-4">
-            <h2 className="text-[15px] font-semibold tracking-tight text-[#F4F4F5]">
+            <h2 className="font-display text-[16px] font-bold tracking-tight text-[#F4F4F5]">
               {activeTabMeta.label}
             </h2>
 
@@ -654,16 +637,16 @@ export function SettingsView({
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Your name"
-                      className="h-9 min-w-0 flex-1 rounded-lg border border-[#34343A] bg-[#25252A] px-3 text-xs text-[#F4F4F5] placeholder:text-[#71717A] focus:border-[#52525B] focus:outline-none"
+                      className="h-9 min-w-0 flex-1 rounded-lg border border-[#34343A] bg-[#25252A] px-3 text-xs text-[#F4F4F5] placeholder:text-[#71717A] focus:border-[#C6FF3D]/70 focus:outline-none"
                     />
                     <button
                       type="submit"
                       disabled={savingName || !nameDirty}
                       className={cn(
-                        "inline-flex h-9 shrink-0 items-center justify-center rounded-lg px-3.5 text-xs font-medium transition-colors",
+                        "inline-flex h-9 shrink-0 items-center justify-center px-3.5 text-xs",
                         nameDirty && !savingName
-                          ? "bg-[var(--accent)] text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)]"
-                          : "cursor-not-allowed border border-[#2C2C31] bg-[#25252A] text-[#71717A]",
+                          ? "spar-white-btn rounded-lg"
+                          : "cursor-not-allowed rounded-lg border border-[#2C2C31] bg-[#25252A] font-medium text-[#71717A]",
                       )}
                     >
                       {savingName ? "Saving" : "Save"}
@@ -721,95 +704,7 @@ export function SettingsView({
               </div>
             )}
 
-            {/* Tab 2: Appearance */}
-            {activeTab === "appearance" && (
-              <div className="divide-y divide-[#26262A]">
-                <div className="space-y-4 py-4 first:pt-1">
-                  <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-[#F4F4F5]">
-                        Accent color
-                      </p>
-                      <p className="mt-0.5 text-xs text-[#8E8E98]">
-                        Display color used for primary actions, focus rings, and active selections.
-                      </p>
-                    </div>
-                    <span className="text-xs font-medium text-[#A1A1AA]">
-                      {ACCENT_THEME_LIST.find((t) => t.key === prefs.accentColor)
-                        ?.label ?? "Default"}
-                    </span>
-                  </div>
-
-                  <div
-                    role="radiogroup"
-                    aria-label="Accent color"
-                    className="grid grid-cols-2 gap-2 sm:grid-cols-3"
-                  >
-                    {ACCENT_THEME_LIST.map((theme) => {
-                      const selected = prefs.accentColor === theme.key;
-                      return (
-                        <button
-                          key={theme.key}
-                          type="button"
-                          role="radio"
-                          aria-checked={selected}
-                          disabled={loading}
-                          onClick={() =>
-                            void updatePreference({
-                              accentColor: theme.key as AccentThemeKey,
-                            })
-                          }
-                          className={cn(
-                            "flex items-center justify-between gap-2.5 rounded-xl border px-3.5 py-2.5 text-left text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
-                            selected
-                              ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[#F4F4F5]"
-                              : "border-[#2A2A2E] bg-[#161619] text-[#D4D4D8] hover:border-[#3A3A42] hover:bg-[#1E1E22] hover:text-white",
-                          )}
-                        >
-                          <span className="flex items-center gap-2.5">
-                            <span
-                              aria-hidden="true"
-                              className="h-3.5 w-3.5 shrink-0 rounded-full border border-white/15"
-                              style={{ backgroundColor: theme.swatch }}
-                            />
-                            <span>{theme.label}</span>
-                          </span>
-                          <Check
-                            className={cn(
-                              "h-3.5 w-3.5 shrink-0 transition-opacity",
-                              selected
-                                ? "text-[var(--accent-text)] opacity-100"
-                                : "opacity-0",
-                            )}
-                          />
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-[#F4F4F5]">
-                      Live accent preview
-                    </p>
-                    <p className="mt-0.5 text-xs text-[#8E8E98]">
-                      Applies immediately across buttons, switches, and progress indicators.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-lg border border-[var(--accent)] bg-[var(--accent-soft)] px-2.5 py-1 text-xs font-medium text-[var(--accent-text)]">
-                      Active filter
-                    </span>
-                    <span className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-[var(--accent-foreground)]">
-                      Start session
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Tab 3: Room Defaults */}
+            {/* Tab 2: Room Defaults */}
             {activeTab === "defaults" && (
               <div className="divide-y divide-[#26262A]">
                 <div className="flex flex-col gap-3 py-4 first:pt-1 sm:flex-row sm:items-center sm:justify-between">
@@ -818,7 +713,7 @@ export function SettingsView({
                       Subject domain
                     </p>
                     <p className="mt-0.5 text-xs text-[#8E8E98]">
-                      Default domain in Practice and track order in Coach.
+                      Default domain in Practice and track order in Learn.
                     </p>
                   </div>
                   <div className="inline-flex flex-wrap rounded-lg border border-[#2C2C31] bg-[#141416] p-1">
@@ -835,10 +730,10 @@ export function SettingsView({
                             })
                           }
                           className={cn(
-                            "rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
+                            "rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
                             active
-                              ? "bg-[#2C2C32] text-[#F4F4F5]"
-                              : "text-[#8E8E98] hover:text-[#F4F4F5]",
+                              ? "border-[#C6FF3D]/55 bg-[#C6FF3D]/14 text-[#FFFFFF]"
+                              : "border-transparent text-[#8E8E98] hover:text-[#F4F4F5]",
                           )}
                         >
                           {domain.shortLabel}
@@ -869,10 +764,10 @@ export function SettingsView({
                             void updatePreference({ defaultMode: mode.key })
                           }
                           className={cn(
-                            "rounded-md px-3.5 py-1.5 text-xs font-medium transition-colors",
+                            "rounded-md border px-3.5 py-1.5 text-xs font-medium transition-colors",
                             active
-                              ? "bg-[#2C2C32] text-[#F4F4F5]"
-                              : "text-[#8E8E98] hover:text-[#F4F4F5]",
+                              ? "border-[#C6FF3D]/55 bg-[#C6FF3D]/14 text-[#FFFFFF]"
+                              : "border-transparent text-[#8E8E98] hover:text-[#F4F4F5]",
                           )}
                         >
                           {mode.label}
@@ -903,10 +798,10 @@ export function SettingsView({
                             void updatePreference({ panelIntensity: item.key })
                           }
                           className={cn(
-                            "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                            "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
                             active
-                              ? "bg-[#2C2C32] text-[#F4F4F5]"
-                              : "text-[#8E8E98] hover:text-[#F4F4F5]",
+                              ? "border-[#C6FF3D]/55 bg-[#C6FF3D]/14 text-[#FFFFFF]"
+                              : "border-transparent text-[#8E8E98] hover:text-[#F4F4F5]",
                           )}
                         >
                           {item.label}
@@ -918,7 +813,7 @@ export function SettingsView({
               </div>
             )}
 
-            {/* Tab 4: Audio & Mic */}
+            {/* Tab 3: Audio & Mic */}
             {activeTab === "audio" && (
               <div className="divide-y divide-[#26262A]">
                 <div className="flex flex-col gap-3 py-4 first:pt-1 sm:flex-row sm:items-center sm:justify-between">
@@ -944,10 +839,10 @@ export function SettingsView({
                             })
                           }
                           className={cn(
-                            "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                            "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
                             active
-                              ? "bg-[#2C2C32] text-[#F4F4F5]"
-                              : "text-[#8E8E98] hover:text-[#F4F4F5]",
+                              ? "border-[#C6FF3D]/55 bg-[#C6FF3D]/14 text-[#FFFFFF]"
+                              : "border-transparent text-[#8E8E98] hover:text-[#F4F4F5]",
                           )}
                         >
                           {tone.label}

@@ -89,6 +89,34 @@ describe("SessionHistoryCard", () => {
     expect(m).not.toContain("Read debrief");
   });
 
+  test("renders discrete Fight Night tactile cards with solid fighter medallions and Volt badges (no emerald green)", () => {
+    const m = renderToStaticMarkup(
+      <SessionHistoryCard
+        session={{
+          ...session,
+          skills: { clarity: 60, recovery: 60, concision: 60, presence: 60, evidence: 60 },
+        }}
+        onOpenDebrief={() => {}}
+      />,
+    );
+    expect(m).toContain("spar-stat-tile");
+    expect(m).toContain("spar-chunky-card-interactive");
+    expect(m).toContain("oklch(0.72 0.19 250)"); // Solid Ada medallion accent
+    expect(m).toContain("#C6FF3D"); // Electric Volt score pill >= 60
+    expect(m).not.toContain("emerald-"); // Zero generic SaaS emerald green
+
+    const lowScore = renderToStaticMarkup(
+      <SessionHistoryCard
+        session={{
+          ...session,
+          skills: { clarity: 40, recovery: 40, concision: 40, presence: 40, evidence: 40 },
+        }}
+        onOpenDebrief={() => {}}
+      />,
+    );
+    expect(lowScore).toContain("#FF5A1F"); // Arena Ember warning pill < 50
+  });
+
   test("renders discreet delete button outside the card debrief button when onDelete is provided", () => {
     const m = renderToStaticMarkup(
       <SessionHistoryCard
@@ -138,6 +166,12 @@ describe("HomeView", () => {
     expect(markup).not.toContain("border-l-[#2F65F6]");
   });
 
+  test("omits redundant beta WhatsApp banner above session card on minimal Home", () => {
+    expect(markup).not.toContain("Join WhatsApp");
+    expect(markup).not.toContain("Dismiss beta WhatsApp banner");
+    expect(markup).not.toContain("Join the Spar WhatsApp group");
+  });
+
   test("includes quick timeframe pills and equal-height launcher without mode toggle or repeat clutter", () => {
     expect(markup).toContain("max-w-5xl");
     expect(markup).toContain("items-stretch");
@@ -158,6 +192,9 @@ describe("HomeView", () => {
     expect(source).not.toContain("MagicCard");
     expect(source).not.toContain("Across the table");
     expect(source).not.toContain("Repeat last");
+    expect(source).not.toContain("Email confirmation summary");
+    expect(source).toContain("triggerMomentIcsDownload");
+    expect(source).toContain("Add to calendar");
   });
 
   test("includes collapsible recent sessions header and clear action", () => {
@@ -165,13 +202,18 @@ describe("HomeView", () => {
     expect(markup).toContain("Recent sessions");
   });
 
-  test("uses Option 1 single-surface compact solid palette with zero double frames or lighting", () => {
-    expect(markup).toContain("bg-[#151518]");
-    expect(markup).toContain("border-[#232327]");
-    expect(markup).toContain("rounded-xl");
+  test("uses Flight Night chunky stat tiles and chunky recent ledger without card frames or gradients", () => {
+    expect(markup).toContain("spar-stat-tile");
+    expect(markup).toContain("spar-chunky-card");
     expect(markup).not.toContain('data-slot="card-frame"');
     expect(markup).not.toContain("radial-gradient");
     expect(markup).not.toContain("min-h-[224px]");
+  });
+
+  test("renders Fight Night Volt primary launcher card and Kwesi corner coach in header", () => {
+    expect(markup).toContain("spar-chunky-card-volt");
+    expect(markup).toContain("spar-volt-btn");
+    expect(markup).toContain("kwesi-avatar");
   });
 });
 

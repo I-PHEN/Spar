@@ -8,6 +8,7 @@ import {
   type DefaultDomainKey,
 } from "@/lib/user-preferences";
 import { useEnrolledCourses } from "@/lib/use-enrolled-courses";
+import { Kwesi } from "../kwesi-mascot";
 import { MyCourseCard } from "./my-course-card";
 import { BrowseCoursesPanel } from "./browse-courses-panel";
 
@@ -129,8 +130,8 @@ export function CourseCatalog({
       <div className="mx-auto max-w-5xl space-y-6">
         {/* 1. Minimal Header */}
         <header className="flex items-center justify-between gap-4">
-          <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-3xl">
-            Coach
+          <h1 className="font-display text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl">
+            Learn
           </h1>
 
           {/* Primary Header Browse Button */}
@@ -138,9 +139,9 @@ export function CourseCatalog({
             type="button"
             onClick={handleOpenBrowse}
             aria-label="Browse full course catalog"
-            className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-xl border border-[#232327] bg-[#18181D] px-3.5 text-xs font-semibold text-white transition-colors hover:border-[#34343B] hover:bg-[#202026] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/50"
+            className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-xl border border-[#26262E] bg-[#18181D] px-3.5 text-xs font-semibold text-white transition-colors hover:border-[#3A3A44] hover:bg-[#202026] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C6FF3D]/60"
           >
-            <Compass className="h-4 w-4 text-[var(--accent-text)]" />
+            <Compass className="h-4 w-4 text-[#C6FF3D]" />
             <span>Browse courses</span>
           </button>
         </header>
@@ -149,17 +150,15 @@ export function CourseCatalog({
         <section aria-label="My courses" className="space-y-4">
           {/* Empty State */}
           {enrolledCourses.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-[#232327] bg-[#121215] px-5 py-9 text-center">
-              <div className="mb-3.5 flex h-11 w-11 items-center justify-center rounded-xl border border-[#232327] bg-[#18181D] text-[var(--accent-text)]">
-                <Compass className="h-5 w-5" />
-              </div>
-              <h2 className="text-base font-semibold text-white sm:text-lg">
+            <div className="spar-chunky-card flex flex-col items-center justify-center px-5 py-10 text-center">
+              <Kwesi pose="hype" variant="cornerman" size="sm" className="mb-3" />
+              <h2 className="font-display text-lg font-bold text-white">
                 No courses added yet
               </h2>
               <button
                 type="button"
                 onClick={handleOpenBrowse}
-                className="mt-4 inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-4 text-xs font-semibold text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent-hover)] active:scale-[0.98]"
+                className="spar-white-btn mt-4 inline-flex h-10 items-center justify-center gap-2 px-4 text-xs"
               >
                 <Compass className="h-4 w-4" />
                 <span>Browse courses</span>
@@ -172,9 +171,9 @@ export function CourseCatalog({
                       key={c.id}
                       type="button"
                       onClick={() => enrollCourse(c.id)}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#232327] bg-[#18181D] px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:border-[#34343B] hover:text-white"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#26262E] bg-[#18181D] px-3 py-1.5 text-xs text-neutral-300 transition-colors hover:border-[#C6FF3D]/50 hover:text-white"
                     >
-                      <Plus className="h-3 w-3 text-[var(--accent-text)]" />
+                      <Plus className="h-3 w-3 text-[#C6FF3D]" />
                       <span>{c.title}</span>
                     </button>
                   ))}
@@ -182,11 +181,12 @@ export function CourseCatalog({
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              {enrolledCourses.map((course) => (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {enrolledCourses.map((course, idx) => (
                 <MyCourseCard
                   key={course.id}
                   course={course}
+                  isHeroCourse={idx === 0}
                   completedLessonIds={completedLessonIds}
                   onSelectCourse={onSelectCourse}
                   onStartOrContinueLesson={onStartOrContinueLesson}

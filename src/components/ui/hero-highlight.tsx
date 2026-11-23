@@ -152,7 +152,7 @@ export function Highlight({ children, className }: HighlightProps) {
         display: "inline",
       }}
       className={cn(
-        "relative rounded-md bg-gradient-to-r from-[#2F65F6]/35 to-[#1D4ED8]/45 px-2 py-0.5 text-[#F5F5F7] [box-decoration-break:clone]",
+        "relative rounded-md bg-gradient-to-r from-[#C6FF3D]/30 to-[#6B8E1A]/40 px-2 py-0.5 text-[#F5F5F7] [box-decoration-break:clone]",
         className,
       )}
     >

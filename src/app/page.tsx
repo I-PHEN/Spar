@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Nav, type NavView } from "@/components/spar/nav";
 import { HeroView } from "@/components/spar/hero-view";
 import { AuthView } from "@/components/spar/auth-view";
 import { OnboardingView } from "@/components/spar/onboarding-view";
-import { HomeView } from "@/components/spar/home-view";
+import { clearHomeViewCache, HomeView } from "@/components/spar/home-view";
 import { PracticeView } from "@/components/spar/practice-view";
 import { SparringRoom } from "@/components/spar/sparring-room";
 import { DebriefView } from "@/components/spar/debrief-view";
@@ -14,9 +14,11 @@ import {
   type SettingsTabKey,
 } from "@/components/spar/settings-view";
 import {
+  clearCoachViewCache,
   CoachView,
   type ActiveCourseLessonContext,
 } from "@/components/spar/coach-view";
+import type { Course, LessonCompletion } from "@/lib/courses";
 import { sessionLabel } from "@/lib/session-label";
 import {
   parseSupabaseHashCallback,
@@ -74,6 +76,26 @@ export default function Page() {
   const [coachReturnCourseId, setCoachReturnCourseId] = useState<string | null>(
     null
   );
+  const [coachCourses, setCoachCourses] = useState<Course[] | null>(null);
+  const [coachCompletions, setCoachCompletions] = useState<LessonCompletion[] | null>(
+    null
+  );
+
+  const preloadLearnData = useCallback(() => {
+    Promise.all([
+      fetch("/api/coach/courses").then((r) => (r.ok ? r.json() : null)),
+      fetch("/api/coach/progress").then((r) => (r.ok ? r.json() : null)),
+    ])
+      .then(([cData, pData]) => {
+        if (Array.isArray(cData?.courses)) {
+          setCoachCourses(cData.courses);
+        }
+        if (Array.isArray(pData?.completions)) {
+          setCoachCompletions(pData.completions);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Load user session (and exchange any Supabase OAuth / email verification callback)
   useEffect(() => {
@@ -199,6 +221,7 @@ export default function Page() {
                 : "onboarding"
               : prev
           );
+          preloadLearnData();
         } else if (d?.name && d.name !== "Founder") {
           setUserName(d.name);
         }
@@ -239,6 +262,10 @@ export default function Page() {
       // Ignore storage access errors
     }
     applyAccentTheme("default");
+    clearHomeViewCache();
+    clearCoachViewCache();
+    setCoachCourses(null);
+    setCoachCompletions(null);
     setSettingsOpen(false);
     setIsAuthenticated(false);
     setHasCompletedOnboarding(false);
@@ -308,6 +335,7 @@ export default function Page() {
         : hasCompletedOnboarding;
     setHasCompletedOnboarding(doneOnboarding);
     syncUserFromServer(Boolean(enteredName && enteredName.trim()));
+    preloadLearnData();
     setView(doneOnboarding ? "home" : "onboarding");
   }
 
@@ -348,7 +376,9 @@ export default function Page() {
                 lessonId: lessonToRecord.lessonId,
                 sessionId: endedSessionId,
               }),
-            }).catch(() => {});
+            })
+              .then(() => preloadLearnData())
+              .catch(() => {});
           }
         })
         .catch(() => {});
@@ -493,8 +523,14 @@ export default function Page() {
         {view === "coach" && (
           <CoachView
             key={coachReturnCourseId ?? "catalog"}
+            initialCourses={coachCourses ?? undefined}
+            initialCompletions={coachCompletions ?? undefined}
             initialScreen={coachReturnCourseId ? "roadmap" : "catalog"}
             initialSelectedCourseId={coachReturnCourseId ?? undefined}
+            onDataSynced={(nextCourses, nextCompletions) => {
+              setCoachCourses(nextCourses);
+              setCoachCompletions(nextCompletions);
+            }}
             onSessionCreated={handleSessionCreated}
           />
         )}

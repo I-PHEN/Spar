@@ -51,22 +51,29 @@ export function PanelistPresence({
   const isStage = variant === "stage";
   const isPortrait = variant === "portrait" || isStage;
 
-  // Avatar block: dark slate tinted with the persona's accent. Speaking adds a
-  // calm acoustic ring + breathing scale so it feels alive face-to-face.
+  // Solid tactile fighter medallion: 100% solid persona hue with dark ink initials,
+  // 3px border + 4px bottom ledge. Speaking adds a clean luminous ring; agitation/barge-in flashes Ember.
+  const isHeated = aboutToInterrupt || interrupted;
   const avatarStyle = {
-    background: `color-mix(in oklab, ${accent} ${status === "speaking" ? "20%" : "14%"}, oklch(0.16 0 0))`,
-    color: `color-mix(in oklab, ${accent} 62%, oklch(0.94 0 0))`,
-    boxShadow:
-      status === "speaking"
-        ? `inset 0 0 0 1.5px color-mix(in oklab, ${accent} 48%, transparent), 0 0 0 8px color-mix(in oklab, ${accent} 8%, transparent)`
-        : `inset 0 0 0 1px color-mix(in oklab, ${accent} 24%, transparent)`,
+    background: accent,
+    color: "#0B0B0D",
+    borderColor: isHeated
+      ? "#FF5A1F"
+      : status === "speaking"
+        ? "#FFFFFF"
+        : "rgba(255, 255, 255, 0.28)",
+    boxShadow: isHeated
+      ? "0 4px 0 0 #992B07, 0 0 0 6px rgba(255, 90, 31, 0.25)"
+      : status === "speaking"
+        ? `0 4px 0 0 rgba(0, 0, 0, 0.6), 0 0 0 6px color-mix(in oklab, ${accent} 32%, transparent)`
+        : "0 4px 0 0 rgba(0, 0, 0, 0.6)",
   };
 
   const avatarClass = cn(
-    "spar-presence-avatar relative inline-flex select-none items-center justify-center rounded-full font-semibold tracking-wide transition-[box-shadow,background] duration-300",
+    "spar-presence-avatar relative inline-flex select-none items-center justify-center rounded-full border-[3px] font-display font-extrabold tracking-tight transition-[box-shadow,background,border-color] duration-300",
     isStage
-      ? "h-28 w-28 text-2xl sm:h-32 sm:w-32 sm:text-3xl"
-      : "h-20 w-20 text-lg sm:h-24 sm:w-24 sm:text-xl",
+      ? "h-28 w-28 text-3xl sm:h-32 sm:w-32 sm:text-4xl"
+      : "h-20 w-20 text-xl sm:h-24 sm:w-24 sm:text-2xl",
     status === "listening" && "spar-presence-breathe",
     status === "speaking" && "spar-presence-speaking",
     aboutToInterrupt && "spar-pulse",
@@ -87,7 +94,7 @@ export function PanelistPresence({
       <div className={cn(isPortrait ? "mt-4" : "min-w-0 flex-1")}>
         <p
           className={cn(
-            "font-medium leading-tight text-white",
+            "font-display font-bold leading-tight text-white",
             isStage ? "text-lg sm:text-xl" : isPortrait ? "text-base" : "truncate text-sm",
           )}
         >

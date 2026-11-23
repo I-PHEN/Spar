@@ -311,13 +311,13 @@ export function AuthView({
       <div className="w-full max-w-md">
         <div className="mb-6 flex items-center justify-center gap-2.5">
           <SparLogo size="md" />
-          <span className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
+          <span className="font-display text-lg font-bold tracking-tight text-[var(--text-primary)]">
             Spar
           </span>
         </div>
 
-        <div className="rounded-xl border border-[#232327] bg-[var(--surface-1)] p-7 sm:p-8">
-          <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">
+        <div className="spar-chunky-card bg-[var(--surface-1)] p-7 sm:p-8">
+          <h1 className="font-display text-xl font-bold tracking-tight text-[var(--text-primary)]">
             {cardHeading}
           </h1>
           <p className="mt-1 mb-6 text-sm leading-relaxed text-[var(--text-secondary)]">
@@ -376,7 +376,7 @@ export function AuthView({
                   setEmail(pendingConfirmEmail);
                   switchMode("signin");
                 }}
-                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[var(--accent)] text-sm font-medium text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent-hover)]"
+                className="spar-white-btn flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm disabled:opacity-60"
               >
                 <span>I&apos;ve confirmed — Sign In</span>
                 <ArrowRight className="h-4 w-4" />
@@ -485,7 +485,7 @@ export function AuthView({
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="How the panel addresses you"
-                      className="h-11 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)] px-3.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--border-strong)] focus:outline-none"
+                      className="h-11 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)] px-3.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[#C6FF3D]/70 focus:outline-none"
                     />
                   </div>
                 )}
@@ -506,7 +506,7 @@ export function AuthView({
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="name@domain.com"
                       autoFocus
-                      className="h-11 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)] px-3.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--border-strong)] focus:outline-none"
+                      className="h-11 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)] px-3.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[#C6FF3D]/70 focus:outline-none"
                     />
                   </div>
                 )}
@@ -542,7 +542,7 @@ export function AuthView({
                             ? "At least 6 characters"
                             : "Optional in local mode"
                         }
-                        className="h-11 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)] pl-3.5 pr-10 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--border-strong)] focus:outline-none"
+                        className="h-11 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)] pl-3.5 pr-10 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[#C6FF3D]/70 focus:outline-none"
                       />
                       <button
                         type="button"
@@ -575,7 +575,7 @@ export function AuthView({
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Re-enter your new password"
-                      className="h-11 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)] px-3.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[var(--border-strong)] focus:outline-none"
+                      className="h-11 w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-base)] px-3.5 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:border-[#C6FF3D]/70 focus:outline-none"
                     />
                   </div>
                 )}
@@ -583,7 +583,7 @@ export function AuthView({
                 <button
                   type="submit"
                   disabled={loading || googleLoading}
-                  className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#F5F5F7] text-sm font-semibold text-[#0A0A0E] transition-colors hover:bg-white disabled:opacity-60"
+                  className="spar-white-btn flex h-11 w-full items-center justify-center gap-2 rounded-xl text-sm disabled:opacity-60"
                 >
                   {loading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />

@@ -72,6 +72,7 @@ import {
   MAX_SEATS,
   type PanelSeat,
 } from "./panel-seats";
+import { Kwesi } from "./kwesi-mascot";
 
 interface PracticeViewProps {
   onSessionCreated: (
@@ -484,7 +485,7 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
 
         {/* Minimal Header */}
         <div className="mb-6 flex items-center justify-between gap-4">
-          <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)] sm:text-3xl">
+          <h1 className="font-display text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl">
             Configure the room
           </h1>
           <button
@@ -498,7 +499,7 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
         </div>
 
         {/* 01 Defend Section Card */}
-        <div className="rounded-xl border border-[#232327] bg-[#121215] p-6 sm:p-7">
+        <div className="spar-chunky-card p-6 sm:p-7">
           <DefendSection
             hasMaterial={hasMaterial}
             setHasMaterial={setHasMaterial}
@@ -529,7 +530,7 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
         </div>
 
         {/* 02 Mode Section Card */}
-        <div className="mt-5 rounded-xl border border-[#232327] bg-[#121215] p-6 sm:p-7">
+        <div className="spar-chunky-card mt-5 p-6 sm:p-7">
           <ModeSection
             experience={experience}
             selectExperience={selectExperience}
@@ -541,7 +542,7 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
         </div>
 
         {/* 03 Panel Section Card */}
-        <div className="mt-5 rounded-xl border border-[#232327] bg-[#121215] p-6 sm:p-7">
+        <div className="spar-chunky-card mt-5 p-6 sm:p-7">
           <PanelSection
             seats={seats}
             setSeats={setSeats}
@@ -550,7 +551,7 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
         </div>
 
         {/* Consolidated Optional Settings Disclosure */}
-        <div className="mt-5 rounded-xl border border-[#232327] bg-[#121215] px-6 py-4">
+        <div className="spar-chunky-card mt-5 px-6 py-4">
           <button
             type="button"
             onClick={() => setShowRoomDetails((v) => !v)}
@@ -617,27 +618,35 @@ export function PracticeView({ onSessionCreated, onCancel }: PracticeViewProps) 
 
         {/* Sticky start bar */}
         <div className="sticky bottom-16 md:bottom-0 z-30 -mx-4 sm:-mx-6 mt-7">
-          <div className="border-t border-[#232327] bg-[#0B0B0D] px-4 py-3.5 sm:px-6">
-            <div className="flex flex-col items-stretch gap-1 sm:flex-row sm:items-center sm:justify-between">
-              {!canStart && disabledReason ? (
-                <p className="text-center text-xs text-[var(--text-tertiary)] sm:text-left">
-                  {disabledReason}
-                </p>
-              ) : (
-                <span className="hidden sm:inline-flex items-center gap-1 rounded-md border border-[#232327] bg-[#18181D] px-2 py-1 text-[10px] font-mono text-[var(--text-tertiary)]">
-                  Ctrl ↵
-                </span>
-              )}
+          <div className="border-t border-[#232327] bg-[#0B0B0D]/95 px-4 py-3.5 backdrop-blur-md sm:px-6">
+            <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <Kwesi
+                  pose={canStart ? "hype" : "thinking"}
+                  size="sm"
+                  showNameBadge={false}
+                  line={
+                    !canStart && disabledReason
+                      ? disabledReason
+                      : "Gloves up. Lead with your sharpest claim."
+                  }
+                />
+                {canStart && (
+                  <span className="hidden sm:inline-flex shrink-0 items-center gap-1 rounded-md border border-[#232327] bg-[#18181D] px-2 py-1 text-[10px] font-mono text-[var(--text-tertiary)]">
+                    Ctrl ↵
+                  </span>
+                )}
+              </div>
 
               <button
                 type="button"
                 onClick={handleStart}
                 disabled={!canStart}
                 className={cn(
-                  "flex h-11 w-full items-center justify-center gap-2 rounded-xl px-6 text-sm font-medium transition-colors sm:w-auto",
+                  "flex h-11 w-full shrink-0 items-center justify-center gap-2 px-6 text-sm transition-colors sm:w-auto",
                   canStart
-                    ? "bg-[var(--accent)] text-[var(--accent-foreground)] hover:bg-[var(--accent-hover)]"
-                    : "cursor-not-allowed border border-[#232327] bg-[#18181D] text-[var(--text-tertiary)]",
+                    ? "spar-volt-btn"
+                    : "cursor-not-allowed rounded-2xl border-2 border-[#232327] bg-[#18181D] font-medium text-[var(--text-tertiary)]",
                 )}
               >
                 {creating ? (
@@ -1137,10 +1146,10 @@ function ModeSection({
                 }
               }}
               className={cn(
-                "w-full cursor-pointer rounded-xl border p-4 sm:p-5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-white/20",
+                "w-full cursor-pointer p-4 sm:p-5 text-left outline-none focus-visible:ring-2 focus-visible:ring-white/20",
                 isSelected
-                  ? "border-[var(--accent)] bg-[#16161D]"
-                  : "border-[#232327] bg-[#0B0B0D] hover:border-[var(--border-strong)] hover:bg-[#18181D]",
+                  ? "spar-chunky-card-volt bg-[#16161D]"
+                  : "spar-chunky-card spar-chunky-card-interactive bg-[#0B0B0D]",
               )}
             >
               <div className="flex items-start justify-between gap-3">
@@ -1342,6 +1351,14 @@ function PanelSection({
   );
 }
 
+const SEAT_MEDALLION_HEX: Record<ArchetypeKey, string> = {
+  skeptic: "#4EA8FF",
+  nitpicker: "#FFB020",
+  so_what: "#2CE0D0",
+  timekeeper: "#B86BFF",
+  ally: "#FF6B8A",
+};
+
 function SeatCard({
   seat,
   index,
@@ -1373,13 +1390,14 @@ function SeatCard({
     <button
       type="button"
       onClick={onClick}
-      className="group relative flex min-h-[144px] w-[210px] flex-col justify-between rounded-xl border border-[var(--border-subtle)] bg-[#16161D] p-4 text-left transition-colors hover:border-[var(--accent-border)] hover:bg-[#191922]"
+      className="spar-chunky-card spar-chunky-card-interactive group relative flex min-h-[144px] w-[210px] flex-col justify-between bg-[#16161D] p-4 text-left"
     >
       <div>
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2.5">
             <div
-              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-[var(--accent-border)] bg-[#1E1E28] text-xs font-semibold text-white"
+              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border-2 border-white/25 font-display text-xs font-extrabold text-[#0B0B0D] shadow-[0_2px_0_0_rgba(0,0,0,0.6)]"
+              style={{ backgroundColor: SEAT_MEDALLION_HEX[seat.archetype] }}
               aria-hidden
             >
               {def.initials}
@@ -1455,11 +1473,11 @@ function SeatEditor({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent
         className={cn(
-          "bg-[var(--surface-1)] border-[var(--border-subtle)] text-[var(--text-primary)] shadow-2xl p-0 overflow-hidden flex flex-col",
+          "bg-[#141418] border-2 border-[var(--border-strong)] text-[var(--text-primary)] shadow-[0_6px_0_0_#060608] p-0 overflow-hidden flex flex-col",
           // Mobile Phone: Full-width slide-up bottom sheet
           "max-sm:top-auto max-sm:bottom-0 max-sm:left-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:max-w-full max-sm:rounded-t-[24px] max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 max-sm:max-h-[90vh]",
-          // Desktop: Centered elevated card
-          "sm:max-w-md sm:rounded-[20px] sm:border"
+          // Desktop: Centered chunky card
+          "sm:max-w-md sm:rounded-[24px]"
         )}
       >
         {/* Mobile Grab Handle Bar */}
@@ -1469,7 +1487,7 @@ function SeatEditor({
 
         {/* Header */}
         <DialogHeader className="px-6 pt-5 pb-3 border-b border-white/[0.06] shrink-0">
-          <DialogTitle className="text-lg font-bold text-white tracking-tight">
+          <DialogTitle className="font-display text-lg font-bold text-white tracking-tight">
             Configure Seat {seatIndex + 1}
           </DialogTitle>
         </DialogHeader>
@@ -1485,7 +1503,7 @@ function SeatEditor({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={ARCHETYPES[archetype].defaultName}
-              className="bg-[var(--surface-2)] border-[var(--border-subtle)] text-white placeholder:text-[var(--text-tertiary)] focus:border-[var(--accent)] focus-visible:ring-1 focus-visible:ring-[var(--accent)] rounded-xl h-11 text-sm"
+              className="bg-[#0B0B0D] border-[var(--border-subtle)] text-white placeholder:text-[var(--text-tertiary)] focus:border-[#C6FF3D]/70 focus-visible:ring-0 rounded-xl h-11 text-sm"
             />
           </div>
 
@@ -1580,7 +1598,7 @@ function SeatEditor({
         </div>
 
         {/* Sticky Action Footer (Always pinned at the bottom on mobile & desktop) */}
-        <div className="sticky bottom-0 bg-[var(--surface-1)]/95 backdrop-blur-md border-t border-white/[0.06] px-6 py-4 flex items-center justify-between gap-3 shrink-0">
+        <div className="sticky bottom-0 bg-[#141418]/95 backdrop-blur-md border-t border-white/[0.06] px-6 py-4 flex items-center justify-between gap-3 shrink-0">
           {canRemove && seat.filled && (
             <button
               type="button"
@@ -1594,7 +1612,7 @@ function SeatEditor({
           <button
             type="button"
             onClick={handleSave}
-            className="ml-auto inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[var(--accent)] px-5 text-xs font-medium text-[var(--accent-foreground)] transition-colors hover:bg-[var(--accent-hover)]"
+            className="spar-white-btn ml-auto inline-flex h-10 items-center justify-center gap-2 rounded-xl px-5 text-xs"
           >
             Save Configuration
           </button>
@@ -1615,7 +1633,7 @@ function SectionHeader({ number, title }: { number: string; title: string }) {
       >
         {number}
       </span>
-      <h2 className="text-base font-semibold tracking-tight text-[var(--text-primary)]">
+      <h2 className="font-display text-base font-bold tracking-tight text-[var(--text-primary)]">
         {title}
       </h2>
     </div>

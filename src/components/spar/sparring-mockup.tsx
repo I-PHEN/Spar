@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
  * Respects prefers-reduced-motion (freezes animations on a calm still frame).
  */
 
-const ADA_ACCENT = "oklch(0.68 0.13 250)";
+const ADA_ACCENT = "oklch(0.72 0.19 250)";
 
 const CHALLENGE = "Hold on. Drop the qualifier. Say it directly.";
 

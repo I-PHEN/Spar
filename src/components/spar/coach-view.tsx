@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowLeft,
@@ -9,7 +9,6 @@ import {
   CheckCircle2,
   Compass,
   Flame,
-  GraduationCap,
   Play,
   Radio,
   ShieldAlert,
@@ -18,7 +17,6 @@ import {
   Target,
   XCircle,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ARCHETYPES } from "@/lib/personas";
 import { sessionLabel } from "@/lib/session-label";
@@ -41,52 +39,9 @@ import {
 import { CourseCatalog } from "./coach/course-catalog";
 import { CourseRoadmap } from "./coach/course-roadmap";
 import { LessonPlayer } from "./coach/lesson-player";
+import { Kwesi } from "./kwesi-mascot";
 
 export type BriefingSlideIndex = number;
-
-const SLIDE_STEPS: Array<{
-  index: BriefingSlideIndex;
-  stepNum: string;
-  label: string;
-  short: string;
-  accent: string;
-}> = [
-  {
-    index: 0,
-    stepNum: "01",
-    label: "1. The Trap",
-    short: "The Trap",
-    accent: "text-neutral-300 border-white/20",
-  },
-  {
-    index: 1,
-    stepNum: "02",
-    label: "2. Mental Model",
-    short: "The Rule",
-    accent: "text-white border-white/30",
-  },
-  {
-    index: 2,
-    stepNum: "03",
-    label: "3. The Tape",
-    short: "The Tape",
-    accent: "text-neutral-200 border-white/20",
-  },
-  {
-    index: 3,
-    stepNum: "04",
-    label: "4. Chamber Drill",
-    short: "Chamber",
-    accent: "text-white border-white/30",
-  },
-  {
-    index: 4,
-    stepNum: "✦",
-    label: "5. Real-World Transfer",
-    short: "Real World",
-    accent: "text-white border-white/40",
-  },
-];
 
 // ─── Tactical Vector Diagrams & Custom Partner Visual Renderer ──────────────
 
@@ -94,357 +49,267 @@ function BuiltInTacticalDiagram({ preset }: { preset: DiagramPreset }) {
   switch (preset) {
     case "bluf-pyramid":
       return (
-        <svg
-          viewBox="0 0 520 190"
-          className="w-full h-auto select-none"
+        <div
           role="img"
           aria-label="Comparison between chronological buildup and Bottom-Line Up Front pyramid"
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2 select-none"
         >
-          <defs>
-            <pattern id="bluf-grid" width="20" height="20" patternUnits="userSpaceOnUse">
-              <path
-                d="M 20 0 L 0 0 0 20"
-                fill="none"
-                stroke="rgba(255,255,255,0.03)"
-                strokeWidth="1"
-              />
-            </pattern>
-          </defs>
-          <rect width="520" height="190" rx="12" fill="#0b0b0c" />
-          <rect width="520" height="190" rx="12" fill="url(#bluf-grid)" />
+          {/* Trap side */}
+          <div className="rounded-2xl border-2 border-[#FF5A1F]/45 bg-[#1B100C] p-4 space-y-2">
+            <p className="font-display text-[11px] font-bold uppercase tracking-wider text-[#FF5A1F]">
+              Chronological Trap
+            </p>
+            <div className="rounded-lg border border-white/10 bg-[#141418] px-3 py-2 text-xs text-neutral-300">
+              0–20s · Backstory buildup
+            </div>
+            <div className="rounded-lg border border-white/10 bg-[#141418] px-3 py-2 text-xs text-neutral-300">
+              20–35s · Process excuses
+            </div>
+            <div className="rounded-lg border border-dashed border-[#FF5A1F] bg-[#FF5A1F]/15 px-3 py-2 text-xs font-semibold text-[#FFB599]">
+              Cut off before point lands
+            </div>
+          </div>
 
-          {/* Left: The Backstory Spiral */}
-          <g transform="translate(24, 22)">
-            <text x="0" y="12" fill="#f87171" fontSize="10" fontFamily="monospace" fontWeight="700">
-              ✕ CHRONOLOGICAL TRAP
-            </text>
-            <rect
-              x="0"
-              y="24"
-              width="210"
-              height="28"
-              rx="6"
-              fill="rgba(239,68,68,0.08)"
-              stroke="rgba(239,68,68,0.25)"
-            />
-            <text x="12" y="42" fill="#d4d4d8" fontSize="11">
-              0–20s: Historical backstory...
-            </text>
-
-            <rect
-              x="0"
-              y="60"
-              width="210"
-              height="28"
-              rx="6"
-              fill="rgba(239,68,68,0.08)"
-              stroke="rgba(239,68,68,0.25)"
-            />
-            <text x="12" y="78" fill="#d4d4d8" fontSize="11">
-              20–35s: Process excuses...
-            </text>
-
-            <rect
-              x="0"
-              y="96"
-              width="210"
-              height="32"
-              rx="6"
-              fill="rgba(239,68,68,0.18)"
-              stroke="#ef4444"
-              strokeDasharray="4 3"
-            />
-            <text x="12" y="116" fill="#fca5a5" fontSize="11" fontWeight="600">
-              ⚡ Interrupted before point lands
-            </text>
-          </g>
-
-          {/* Divider */}
-          <line x1="260" y1="20" x2="260" y2="170" stroke="rgba(255,255,255,0.08)" />
-
-          {/* Right: BLUF Executive Structure */}
-          <g transform="translate(284, 22)">
-            <text x="0" y="12" fill="#34d399" fontSize="10" fontFamily="monospace" fontWeight="700">
-              ✓ EXECUTIVE BLUF PROTOCOL
-            </text>
-            <rect
-              x="0"
-              y="24"
-              width="212"
-              height="34"
-              rx="6"
-              fill="rgba(16,185,129,0.16)"
-              stroke="#10b981"
-            />
-            <text x="12" y="45" fill="#ffffff" fontSize="11" fontWeight="700">
-              0–5s: Direct Verdict + Exact Metric
-            </text>
-
-            <rect
-              x="16"
-              y="66"
-              width="180"
-              height="28"
-              rx="6"
-              fill="rgba(16,185,129,0.08)"
-              stroke="rgba(16,185,129,0.35)"
-            />
-            <text x="28" y="84" fill="#d1fae5" fontSize="11">
-              5–15s: Two concrete drivers
-            </text>
-
-            <rect
-              x="42"
-              y="102"
-              width="128"
-              height="26"
-              rx="6"
-              fill="rgba(255,255,255,0.04)"
-              stroke="rgba(255,255,255,0.18)"
-            />
-            <text x="58" y="119" fill="#a1a1aa" fontSize="10" fontFamily="monospace">
-              15s: Full Stop (Yield)
-            </text>
-          </g>
-        </svg>
+          {/* Winning Move side */}
+          <div className="rounded-2xl border-2 border-[#C6FF3D]/60 bg-[#171A10] p-4 flex flex-col items-center space-y-2 shadow-[0_3px_0_0_#3A4A10]">
+            <p className="self-start font-display text-[11px] font-bold uppercase tracking-wider text-[#C6FF3D]">
+              Executive BLUF Pyramid
+            </p>
+            <div className="w-full rounded-xl border border-[#C6FF3D] bg-[#C6FF3D] px-3 py-2.5 text-center text-xs font-bold text-[#0B0D06]">
+              0–5s · Verdict + Exact Metric
+            </div>
+            <div className="w-[86%] rounded-lg border border-[#C6FF3D]/40 bg-[#1F2612] px-3 py-2 text-center text-xs font-medium text-neutral-100">
+              5–15s · 2 concrete drivers
+            </div>
+            <div className="w-[66%] rounded-lg border border-white/15 bg-[#141418] px-3 py-1.5 text-center text-[11px] text-neutral-400">
+              15s · Full stop
+            </div>
+          </div>
+        </div>
       );
 
     case "assumption-floor":
       return (
-        <svg
-          viewBox="0 0 520 185"
-          className="w-full h-auto select-none"
+        <div
           role="img"
           aria-label="Break-even downside floor compared against live pilot baseline"
+          className="space-y-3.5 select-none"
         >
-          <rect width="520" height="185" rx="12" fill="#0b0b0c" />
-          <g transform="translate(28, 24)">
-            <text x="0" y="10" fill="#38bdf8" fontSize="10" fontFamily="monospace" fontWeight="700">
-              DOWNSIDE BUFFER GEOMETRY · ENTERPRISE CONVERSION
-            </text>
+          <p className="font-display text-[11px] font-bold uppercase tracking-wider text-[#C6FF3D]">
+            Downside Buffer Geometry
+          </p>
 
-            {/* Pilot Baseline Bar */}
-            <text x="0" y="44" fill="#e4e4e7" fontSize="11" fontWeight="600">
-              Live Pilot Cohort (n=40)
-            </text>
-            <rect x="165" y="30" width="260" height="22" rx="4" fill="rgba(16,185,129,0.2)" stroke="#10b981" />
-            <text x="435" y="45" fill="#34d399" fontSize="12" fontFamily="monospace" fontWeight="700">
-              34%
-            </text>
+          <div className="space-y-2.5">
+            <div>
+              <div className="mb-1 flex justify-between text-xs">
+                <span className="font-medium text-white">Live Pilot Cohort (n=40)</span>
+                <span className="font-display font-bold text-[#C6FF3D] tabular-nums">34%</span>
+              </div>
+              <div className="h-3 w-full overflow-hidden rounded-full bg-[#1C1C22]">
+                <div className="h-full w-[85%] rounded-full bg-[#C6FF3D]" />
+              </div>
+            </div>
 
-            {/* Model Target Bar */}
-            <text x="0" y="82" fill="#a1a1aa" fontSize="11">
-              Plan Assumption
-            </text>
-            <rect x="165" y="68" width="225" height="22" rx="4" fill="rgba(56,189,248,0.15)" stroke="#38bdf8" />
-            <text x="400" y="83" fill="#7dd3fc" fontSize="12" fontFamily="monospace">
-              30%
-            </text>
+            <div>
+              <div className="mb-1 flex justify-between text-xs">
+                <span className="text-neutral-300">Plan Assumption</span>
+                <span className="font-mono text-neutral-200 tabular-nums">30%</span>
+              </div>
+              <div className="h-3 w-full overflow-hidden rounded-full bg-[#1C1C22]">
+                <div className="h-full w-[75%] rounded-full bg-white/70" />
+              </div>
+            </div>
 
-            {/* Break-Even Floor Bar */}
-            <text x="0" y="120" fill="#fca5a5" fontSize="11" fontWeight="600">
-              Break-Even Downside Floor
-            </text>
-            <rect x="165" y="106" width="108" height="22" rx="4" fill="rgba(244,63,94,0.18)" stroke="#f43f5e" />
-            <text x="282" y="121" fill="#fda4af" fontSize="12" fontFamily="monospace" fontWeight="700">
-              14% (Floor)
-            </text>
+            <div>
+              <div className="mb-1 flex justify-between text-xs">
+                <span className="font-medium text-[#FFB599]">Break-Even Floor</span>
+                <span className="font-display font-bold text-[#FF5A1F] tabular-nums">14%</span>
+              </div>
+              <div className="h-3 w-full overflow-hidden rounded-full bg-[#1C1C22]">
+                <div className="h-full w-[35%] rounded-full bg-[#FF5A1F]" />
+              </div>
+            </div>
+          </div>
 
-            {/* Safety Buffer Bracket */}
-            <path d="M 273 136 L 425 136" stroke="#10b981" strokeWidth="1.5" strokeDasharray="3 3" />
-            <text x="305" y="150" fill="#34d399" fontSize="10" fontFamily="monospace">
-              ▲ 2.4x Safety Buffer Above Floor
-            </text>
-          </g>
-        </svg>
+          <div className="flex items-center justify-between rounded-xl border border-[#C6FF3D]/35 bg-[#171A10] px-3.5 py-2 text-xs">
+            <span className="text-neutral-300">Safety headroom above break-even</span>
+            <span className="font-display font-bold text-[#C6FF3D]">2.4× buffer</span>
+          </div>
+        </div>
       );
 
     case "stakeholder-delta":
       return (
-        <svg
-          viewBox="0 0 520 175"
-          className="w-full h-auto select-none"
+        <div
           role="img"
           aria-label="Stakeholder value bridge translating technical features into quantified delta"
+          className="grid grid-cols-1 gap-3 sm:grid-cols-3 select-none"
         >
-          <rect width="520" height="175" rx="12" fill="#0b0b0c" />
-          <g transform="translate(22, 26)">
-            <rect x="0" y="16" width="142" height="96" rx="10" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.12)" />
-            <text x="14" y="40" fill="#a1a1aa" fontSize="9" fontFamily="monospace">
-              01 · STAKEHOLDER
-            </text>
-            <text x="14" y="64" fill="#ffffff" fontSize="13" fontWeight="700">
+          <div className="rounded-2xl border border-[#2C2C34] bg-[#141418] p-4">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
+              1 · Stakeholder
+            </span>
+            <p className="mt-1.5 font-display text-sm font-bold text-white">
               Bank Compliance
-            </text>
-            <text x="14" y="82" fill="#d4d4d8" fontSize="11">
+            </p>
+            <p className="mt-1 text-xs text-neutral-400">
               Mid-market audit lead
-            </text>
+            </p>
+          </div>
 
-            <path d="M 148 64 L 178 64" stroke="#f59e0b" strokeWidth="2" />
-
-            <rect x="184" y="16" width="142" height="96" rx="10" fill="rgba(239,68,68,0.07)" stroke="rgba(239,68,68,0.3)" />
-            <text x="198" y="40" fill="#fca5a5" fontSize="9" fontFamily="monospace">
-              02 · BASELINE PAIN
-            </text>
-            <text x="198" y="66" fill="#f87171" fontSize="18" fontFamily="monospace" fontWeight="700">
+          <div className="rounded-2xl border border-[#FF5A1F]/45 bg-[#1B100C] p-4">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#FF5A1F]">
+              2 · Baseline Pain
+            </span>
+            <p className="mt-1.5 font-display text-xl font-bold text-[#FFB599] tabular-nums">
               18 hrs/wk
-            </text>
-            <text x="198" y="86" fill="#d4d4d8" fontSize="11">
-              Manual wire log review
-            </text>
+            </p>
+            <p className="mt-1 text-xs text-neutral-300">
+              Manual wire review
+            </p>
+          </div>
 
-            <path d="M 332 64 L 362 64" stroke="#10b981" strokeWidth="2" />
-
-            <rect x="368" y="16" width="130" height="96" rx="10" fill="rgba(16,185,129,0.12)" stroke="#10b981" />
-            <text x="382" y="40" fill="#6ee7b7" fontSize="9" fontFamily="monospace">
-              03 · AFTER DELTA
-            </text>
-            <text x="382" y="66" fill="#34d399" fontSize="18" fontFamily="monospace" fontWeight="700">
+          <div className="rounded-2xl border-2 border-[#C6FF3D]/60 bg-[#171A10] p-4 shadow-[0_3px_0_0_#3A4A10]">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#C6FF3D]">
+              3 · After Delta
+            </span>
+            <p className="mt-1.5 font-display text-xl font-bold text-[#C6FF3D] tabular-nums">
               20 mins
-            </text>
-            <text x="382" y="86" fill="#e4e4e7" fontSize="11">
+            </p>
+            <p className="mt-1 text-xs text-neutral-100">
               0 false negatives
-            </text>
-          </g>
-        </svg>
+            </p>
+          </div>
+        </div>
       );
 
     case "zero-cushion":
       return (
-        <svg
-          viewBox="0 0 520 170"
-          className="w-full h-auto select-none"
+        <div
           role="img"
           aria-label="Removing verbal qualifiers increases executive conviction"
+          className="space-y-3 select-none"
         >
-          <rect width="520" height="170" rx="12" fill="#0b0b0c" />
-          <g transform="translate(24, 24)">
-            <text x="0" y="12" fill="#f87171" fontSize="10" fontFamily="monospace" fontWeight="700">
-              BEFORE · HEDGED SIGNAL (CREDIBILITY LOSS)
-            </text>
-            <rect x="0" y="22" width="472" height="38" rx="8" fill="rgba(239,68,68,0.08)" stroke="rgba(239,68,68,0.25)" />
-            <text x="14" y="45" fill="#fca5a5" fontSize="12" textDecoration="line-through">
-              “I think we should probably be fine because we sort of tested...”
-            </text>
+          <div className="rounded-2xl border border-[#FF5A1F]/45 bg-[#1B100C] p-4">
+            <span className="font-display text-[11px] font-bold uppercase tracking-wider text-[#FF5A1F]">
+              Before · Hedged opener
+            </span>
+            <p className="mt-1.5 text-sm text-[#FFB599] line-through">
+              “I think we should probably be fine because we sort of tested…”
+            </p>
+          </div>
 
-            <text x="0" y="86" fill="#34d399" fontSize="10" fontFamily="monospace" fontWeight="700">
-              AFTER · SURGICAL DECLARATIVE
-            </text>
-            <rect x="0" y="96" width="472" height="40" rx="8" fill="rgba(16,185,129,0.14)" stroke="#10b981" />
-            <text x="14" y="121" fill="#ffffff" fontSize="12" fontWeight="700">
-              “Yes. We load-tested all core endpoints at 15x peak volume with zero lag.”
-            </text>
-          </g>
-        </svg>
+          <div className="rounded-2xl border-2 border-[#C6FF3D]/65 bg-[#171A10] p-4 shadow-[0_3px_0_0_#3A4A10]">
+            <span className="font-display text-[11px] font-bold uppercase tracking-wider text-[#C6FF3D]">
+              After · Clean declarative
+            </span>
+            <p className="mt-1.5 text-sm font-semibold text-white">
+              “Yes. We load-tested all core endpoints at 15× peak volume with zero lag.”
+            </p>
+          </div>
+        </div>
       );
 
     case "word-ceiling":
       return (
-        <svg
-          viewBox="0 0 520 175"
-          className="w-full h-auto select-none"
+        <div
           role="img"
           aria-label="15-word executive attention ceiling curve"
+          className="space-y-3 select-none"
         >
-          <rect width="520" height="175" rx="12" fill="#0b0b0c" />
-          <g transform="translate(28, 22)">
-            <text x="0" y="12" fill="#fbbf24" fontSize="10" fontFamily="monospace" fontWeight="700">
-              BOARDROOM ATTENTION DECAY BY WORD COUNT
-            </text>
-            {/* Optimal Zone */}
-            <rect x="0" y="26" width="215" height="98" rx="8" fill="rgba(16,185,129,0.09)" stroke="rgba(16,185,129,0.35)" />
-            <text x="14" y="48" fill="#34d399" fontSize="11" fontFamily="monospace" fontWeight="700">
-              1–15 WORDS · PEAK AUTHORITY
-            </text>
-            <text x="14" y="70" fill="#e4e4e7" fontSize="11">
-              Subject → Active Verb → Metric
-            </text>
-            <text x="14" y="92" fill="#a1a1aa" fontSize="10">
-              Clean full stop invites pull questions
-            </text>
+          <p className="font-display text-[11px] font-bold uppercase tracking-wider text-[#C6FF3D]">
+            Executive Attention Window
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border-2 border-[#C6FF3D]/60 bg-[#171A10] p-4 shadow-[0_3px_0_0_#3A4A10]">
+              <div className="flex items-center justify-between">
+                <span className="font-display text-sm font-bold text-[#C6FF3D]">
+                  1–15 words
+                </span>
+                <span className="rounded-full bg-[#C6FF3D] px-2 py-0.5 text-[10px] font-bold text-[#0B0D06]">
+                  Peak
+                </span>
+              </div>
+              <p className="mt-2 text-xs font-medium text-white">
+                Subject → Verb → Metric
+              </p>
+              <p className="mt-1 text-xs text-neutral-300">
+                Clean full stop invites pull questions
+              </p>
+            </div>
 
-            {/* Ramble Zone */}
-            <rect x="230" y="26" width="234" height="98" rx="8" fill="rgba(239,68,68,0.08)" stroke="rgba(239,68,68,0.28)" />
-            <text x="244" y="48" fill="#f87171" fontSize="11" fontFamily="monospace" fontWeight="700">
-              25+ WORDS · INTERRUPTION ZONE
-            </text>
-            <text x="244" y="70" fill="#d4d4d8" fontSize="11">
-              Thinking out loud &amp; multi-topic drift
-            </text>
-            <text x="244" y="92" fill="#fca5a5" fontSize="10">
-              Timekeeper cuts mic &amp; resets frame
-            </text>
-          </g>
-        </svg>
+            <div className="rounded-2xl border border-[#FF5A1F]/45 bg-[#1B100C] p-4">
+              <div className="flex items-center justify-between">
+                <span className="font-display text-sm font-bold text-[#FF5A1F]">
+                  25+ words
+                </span>
+                <span className="rounded-full bg-[#FF5A1F]/20 px-2 py-0.5 text-[10px] font-bold text-[#FFB599]">
+                  Drift
+                </span>
+              </div>
+              <p className="mt-2 text-xs font-medium text-[#FFB599]">
+                Thinking out loud &amp; qualifiers
+              </p>
+              <p className="mt-1 text-xs text-neutral-400">
+                Panelist cuts off mid-sentence
+              </p>
+            </div>
+          </div>
+        </div>
       );
 
     case "steelman-moat":
       return (
-        <svg
-          viewBox="0 0 520 175"
-          className="w-full h-auto select-none"
+        <div
           role="img"
           aria-label="Conceding surface layer to anchor on deep structural moat"
+          className="space-y-3 select-none"
         >
-          <rect width="520" height="175" rx="12" fill="#0b0b0c" />
-          <g transform="translate(24, 22)">
-            <rect x="0" y="14" width="472" height="44" rx="8" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.15)" strokeDasharray="4 3" />
-            <text x="16" y="34" fill="#a1a1aa" fontSize="10" fontFamily="monospace">
-              SURFACE LAYER (CONCEDE QUICKLY)
-            </text>
-            <text x="16" y="50" fill="#e4e4e7" fontSize="12">
-              “The workflow UI is easy to copy in 60 days...”
-            </text>
+          <div className="rounded-2xl border border-dashed border-[#3A3A44] bg-[#141418] p-4">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-neutral-400">
+              1 · Surface layer (concede fast)
+            </span>
+            <p className="mt-1 text-sm text-neutral-200">
+              “The workflow UI is easy to copy in 60 days…”
+            </p>
+          </div>
 
-            <rect x="0" y="70" width="472" height="62" rx="8" fill="rgba(56,189,248,0.12)" stroke="#38bdf8" />
-            <text x="16" y="92" fill="#7dd3fc" fontSize="10" fontFamily="monospace" fontWeight="700">
-              STRUCTURAL MOAT (IRREPLACEABLE ASSET)
-            </text>
-            <text x="16" y="114" fill="#ffffff" fontSize="12" fontWeight="700">
-              “...but our dataset comes from 400 exclusive clinics (18-month lock-in).”
-            </text>
-          </g>
-        </svg>
+          <div className="rounded-2xl border-2 border-[#C6FF3D]/65 bg-[#171A10] p-4 shadow-[0_3px_0_0_#3A4A10]">
+            <span className="font-display text-[11px] font-bold uppercase tracking-wider text-[#C6FF3D]">
+              2 · Structural moat (anchor here)
+            </span>
+            <p className="mt-1 text-sm font-semibold text-white">
+              “…but our dataset comes from 400 exclusive clinics (18-month lock-in).”
+            </p>
+          </div>
+        </div>
       );
 
     case "onset-latency":
       return (
-        <svg
-          viewBox="0 0 520 165"
-          className="w-full h-auto select-none"
+        <div
           role="img"
           aria-label="Two-second vocal onset window timeline"
+          className="space-y-3 select-none"
         >
-          <rect width="520" height="165" rx="12" fill="#0b0b0c" />
-          <g transform="translate(24, 24)">
-            <text x="0" y="12" fill="#34d399" fontSize="10" fontFamily="monospace" fontWeight="700">
-              VOCAL ONSET LATENCY WINDOW
-            </text>
-            <rect x="0" y="28" width="120" height="54" rx="8" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.15)" />
-            <text x="14" y="50" fill="#a1a1aa" fontSize="10" fontFamily="monospace">
-              0.0s – 1.0s
-            </text>
-            <text x="14" y="68" fill="#ffffff" fontSize="12" fontWeight="600">
-              Silent Breath
-            </text>
-
-            <rect x="132" y="28" width="175" height="54" rx="8" fill="rgba(16,185,129,0.16)" stroke="#10b981" />
-            <text x="146" y="50" fill="#6ee7b7" fontSize="10" fontFamily="monospace" fontWeight="700">
-              1.0s – 2.0s · ONSET
-            </text>
-            <text x="146" y="68" fill="#ffffff" fontSize="12" fontWeight="700">
-              Lead with Anchor Noun
-            </text>
-
-            <rect x="319" y="28" width="153" height="54" rx="8" fill="rgba(239,68,68,0.1)" stroke="rgba(239,68,68,0.3)" />
-            <text x="331" y="50" fill="#fca5a5" fontSize="10" fontFamily="monospace">
-              &gt; 3.5s · DANGER
-            </text>
-            <text x="331" y="68" fill="#f87171" fontSize="11">
-              “Um, great question...”
-            </text>
-          </g>
-        </svg>
+          <p className="font-display text-[11px] font-bold uppercase tracking-wider text-[#C6FF3D]">
+            2-Second Recovery Timeline
+          </p>
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+            <div className="rounded-2xl border border-[#2C2C34] bg-[#141418] p-3.5">
+              <span className="font-mono text-[10px] text-neutral-400">0.0s – 1.0s</span>
+              <p className="mt-1 font-display text-sm font-bold text-white">Silent breath</p>
+            </div>
+            <div className="rounded-2xl border-2 border-[#C6FF3D]/65 bg-[#171A10] p-3.5 shadow-[0_3px_0_0_#3A4A10]">
+              <span className="font-mono text-[10px] font-bold text-[#C6FF3D]">1.0s – 2.0s · ONSET</span>
+              <p className="mt-1 font-display text-sm font-bold text-white">Anchor noun</p>
+            </div>
+            <div className="rounded-2xl border border-[#FF5A1F]/45 bg-[#1B100C] p-3.5">
+              <span className="font-mono text-[10px] font-bold text-[#FF5A1F]">&gt; 3.5s · DANGER</span>
+              <p className="mt-1 text-xs font-medium text-[#FFB599]">“Um, great question…”</p>
+            </div>
+          </div>
+        </div>
       );
 
     default:
@@ -632,90 +497,62 @@ export function ExecutiveBriefingDeck({
       : null;
 
   return (
-    <div className="w-full max-w-[1040px] h-[640px] flex flex-col rounded-2xl border border-white/10 bg-[#121212] overflow-hidden shadow-[0_32px_100px_rgba(0,0,0,0.8)] mx-auto">
-      {/* Top Stage Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] bg-[#121212] px-5 py-4 sm:px-7">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded bg-white/[0.06] px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.16em] text-neutral-300">
-              {course.title}
-            </span>
-            <span className="text-[11px] font-mono text-neutral-500">
-              · {lesson.durationMinutes} min masterclass
-            </span>
-            {isCompleted && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/[0.06] px-2.5 py-0.5 text-[10px] font-semibold text-white">
-                <CheckCircle2 className="h-3 w-3" />
-                Mastered
+    <div className="spar-chunky-card w-full max-w-[1040px] h-[640px] flex flex-col overflow-hidden mx-auto">
+      {/* Top Stage Header + Single Continuous Progress Bar */}
+      <div className="border-b border-[#232327] bg-[#121216] px-5 py-4 sm:px-7 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-md border border-[#2C2C34] bg-[#18181D] px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.16em] text-neutral-300">
+                {course.title}
               </span>
-            )}
+              <span className="text-[11px] font-mono text-neutral-500">
+                · {lesson.durationMinutes} min masterclass
+              </span>
+              {isCompleted && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-[#C6FF3D]/40 bg-[#C6FF3D]/12 px-2.5 py-0.5 text-[10px] font-semibold text-[#C6FF3D]">
+                  <CheckCircle2 className="h-3 w-3" />
+                  Mastered
+                </span>
+              )}
+            </div>
+            <h3 className="mt-1 truncate font-display text-lg font-bold tracking-tight text-white sm:text-xl">
+              {lesson.title}
+            </h3>
           </div>
-          <h3 className="mt-1 truncate text-lg font-bold tracking-tight text-white sm:text-xl">
-            {lesson.title}
-          </h3>
+
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[#2C2C34] bg-[#18181D] px-3.5 py-2 text-xs font-medium text-neutral-300 transition-colors hover:border-[#3E3E4A] hover:text-white"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Back to roadmap
+            </button>
+          )}
         </div>
 
-        {onClose && (
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-3.5 py-2 text-xs font-medium text-neutral-300 transition-colors hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Back to roadmap
-          </button>
-        )}
-      </div>
-
-      {/* Interactive Slide Stepper */}
-      <div
-        role="tablist"
-        aria-label="Lesson briefing slides"
-        className="flex overflow-x-auto border-b border-white/[0.07] bg-[#0e0e0e]"
-      >
-        {deckSteps.map((step, pos) => {
-          const active = currentSlide === step.index;
-          const passed = currentStepPos > pos;
-          return (
-            <button
-              key={step.index}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => setSlide(step.index)}
-              className={cn(
-                "group relative flex flex-1 min-w-[110px] items-center justify-center gap-2 px-3 py-3.5 text-xs transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/40",
-                active
-                  ? "bg-white/[0.04] text-white font-semibold"
-                  : passed
-                  ? "text-neutral-300 hover:bg-white/[0.02]"
-                  : "text-neutral-500 hover:bg-white/[0.02] hover:text-neutral-300"
-              )}
-            >
-              <span
-                className={cn(
-                  "hidden h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-mono sm:inline-flex",
-                  active
-                    ? step.accent
-                    : passed
-                    ? "border-white/40 bg-white/10 text-white"
-                    : "border-white/10 text-neutral-500"
-                )}
-              >
-                {passed ? "✓" : step.stepNum}
-              </span>
-              <span className="hidden md:inline truncate">{step.label}</span>
-              <span className="md:hidden truncate">{step.short}</span>
-              {active && (
-                <span className="absolute inset-x-0 bottom-0 h-0.5 bg-white" />
-              )}
-            </button>
-          );
-        })}
+        {/* Single Continuous Undivided Electric Volt Progress Bar */}
+        <div
+          role="progressbar"
+          aria-label="Lesson briefing progress"
+          aria-valuenow={Math.round(((currentStepPos + 1) / Math.max(1, deckSteps.length)) * 100)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          className="h-2 w-full overflow-hidden rounded-full border border-[#26262E] bg-[#0B0B0D]"
+        >
+          <div
+            className="h-full rounded-full bg-[#C6FF3D] transition-all duration-300 ease-out"
+            style={{
+              width: `${Math.round(((currentStepPos + 1) / Math.max(1, deckSteps.length)) * 100)}%`,
+            }}
+          />
+        </div>
       </div>
 
       {/* Animated Stage Body (Scrollable inside fixed 640px stage) */}
-      <div className="flex-1 min-h-0 overflow-y-auto p-6 sm:p-8 flex flex-col justify-between bg-gradient-to-b from-[#111114] to-[#0c0c0e]">
+      <div className="flex-1 min-h-0 overflow-y-auto p-6 sm:p-8 flex flex-col justify-between bg-[#0E0E12]">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={`${lesson.id}-slide-${currentSlide}`}
@@ -1130,10 +967,11 @@ export function ExecutiveBriefingDeck({
                 {/* Launch Chamber CTA Bar */}
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                   {onLaunchDrill && (
-                    <Button
+                    <button
+                      type="button"
                       onClick={() => onLaunchDrill(course, lesson)}
                       disabled={launching}
-                      className="bg-white text-black hover:bg-neutral-200 font-bold text-xs sm:text-sm px-6 py-3 h-auto shadow-[0_0_25px_rgba(255,255,255,0.2)]"
+                      className="spar-volt-btn inline-flex items-center px-6 py-3 text-xs sm:text-sm"
                     >
                       <Play className="mr-2 h-4 w-4 fill-current" />
                       {launching
@@ -1141,7 +979,7 @@ export function ExecutiveBriefingDeck({
                         : previewMode
                         ? "Test Drill in Chamber →"
                         : "Enter Drill Chamber →"}
-                    </Button>
+                    </button>
                   )}
 
                   {!previewMode && onMarkComplete && !isCompleted && (
@@ -1243,42 +1081,27 @@ export function ExecutiveBriefingDeck({
             type="button"
             disabled={!prevStep}
             onClick={() => prevStep && setSlide(prevStep.index)}
-            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-neutral-300 transition-colors hover:bg-white/[0.06] hover:text-white disabled:opacity-30 disabled:pointer-events-none"
+            className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-[#2C2C34] bg-[#18181D] px-3.5 text-xs font-medium text-neutral-300 transition-colors hover:border-[#3E3E4A] hover:text-white disabled:opacity-30 disabled:pointer-events-none"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             Previous slide
           </button>
 
-          <div className="flex items-center gap-2">
-            {deckSteps.map((s, pos) => (
-              <button
-                key={s.index}
-                type="button"
-                aria-label={`Go to ${s.label}`}
-                onClick={() => setSlide(s.index)}
-                className={cn(
-                  "h-1.5 rounded-full transition-all",
-                  currentSlide === s.index
-                    ? "w-6 bg-white"
-                    : currentStepPos > pos
-                    ? "w-2 bg-white/60"
-                    : "w-2 bg-white/20"
-                )}
-              />
-            ))}
-          </div>
+          <span className="text-xs font-mono text-neutral-400 tabular-nums">
+            {currentStepPos + 1} / {deckSteps.length}
+          </span>
 
           {nextStep ? (
             <button
               type="button"
               onClick={() => setSlide(nextStep.index)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-white px-4 py-2 text-xs font-semibold text-black transition-colors hover:bg-neutral-200"
+              className="spar-volt-btn inline-flex h-10 items-center gap-1.5 px-5 text-xs"
             >
               Next: {nextStep.short}
               <ArrowRight className="h-3.5 w-3.5" />
             </button>
           ) : (
-            <span className="text-[11px] font-mono text-white font-medium">
+            <span className="text-[11px] font-mono text-[#C6FF3D] font-semibold">
               Ready for Real World
             </span>
           )}
@@ -1312,6 +1135,17 @@ export interface CoachViewProps {
   initialScreen?: CoachScreen;
   initialSelectedCourseId?: string;
   initialActiveLessonId?: string | null;
+  onDataSynced?: (courses: Course[], completions: LessonCompletion[]) => void;
+}
+
+let clientCoachCache: {
+  courses: Course[];
+  completions: LessonCompletion[];
+} | null = null;
+
+/** Clears cached Learn courses/progress on sign-out. */
+export function clearCoachViewCache() {
+  clientCoachCache = null;
 }
 
 export function CoachView({
@@ -1321,17 +1155,18 @@ export function CoachView({
   initialScreen = "catalog",
   initialSelectedCourseId,
   initialActiveLessonId = null,
+  onDataSynced,
 }: CoachViewProps) {
-  const [courses, setCourses] = useState<Course[]>(
-    initialCourses ?? DEFAULT_COURSES
-  );
-  const [completions, setCompletions] = useState<LessonCompletion[]>(
-    initialCompletions ?? []
-  );
+  const isBrowser = typeof window !== "undefined";
+  const seedCourses = initialCourses ?? (isBrowser ? clientCoachCache?.courses : DEFAULT_COURSES) ?? null;
+  const seedCompletions = initialCompletions ?? (isBrowser ? clientCoachCache?.completions : []) ?? [];
+
+  const [courses, setCourses] = useState<Course[] | null>(seedCourses);
+  const [completions, setCompletions] = useState<LessonCompletion[]>(seedCompletions);
   const [screen, setScreen] = useState<CoachScreen>(initialScreen);
   const [selectedCourseId, setSelectedCourseId] = useState<string>(
     initialSelectedCourseId ??
-      (initialCourses ?? DEFAULT_COURSES)[0]?.id ??
+      seedCourses?.[0]?.id ??
       "boardroom-curveballs"
   );
   const [activeLessonId, setActiveLessonId] = useState<string | null>(
@@ -1339,9 +1174,17 @@ export function CoachView({
   );
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
+  const onDataSyncedRef = useRef(onDataSynced);
+  useEffect(() => {
+    onDataSyncedRef.current = onDataSynced;
+  });
+
+  const hasInitialSnapshotRef = useRef(
+    Boolean(initialCourses && initialCompletions),
+  );
 
   useEffect(() => {
-    if (initialCourses && initialCompletions) return;
+    if (hasInitialSnapshotRef.current && !onDataSyncedRef.current) return;
     let cancelled = false;
 
     async function load() {
@@ -1351,20 +1194,33 @@ export function CoachView({
           fetch("/api/coach/progress"),
         ]);
         if (cancelled) return;
+        let nextCourses = clientCoachCache?.courses ?? DEFAULT_COURSES;
+        let nextCompletions = clientCoachCache?.completions ?? [];
+
         if (coursesRes.ok) {
           const cData = await coursesRes.json();
-          if (Array.isArray(cData.courses) && cData.courses.length > 0) {
-            setCourses(cData.courses);
+          if (Array.isArray(cData.courses)) {
+            nextCourses = cData.courses;
           }
         }
         if (progressRes.ok) {
           const pData = await progressRes.json();
           if (Array.isArray(pData.completions)) {
-            setCompletions(pData.completions);
+            nextCompletions = pData.completions;
           }
         }
+
+        clientCoachCache = {
+          courses: nextCourses,
+          completions: nextCompletions,
+        };
+        setCourses(nextCourses);
+        setCompletions(nextCompletions);
+        onDataSyncedRef.current?.(nextCourses, nextCompletions);
       } catch {
-        // Fallback to seeded DEFAULT_COURSES
+        if (!cancelled) {
+          setCourses((prev) => prev ?? DEFAULT_COURSES);
+        }
       }
     }
 
@@ -1372,7 +1228,7 @@ export function CoachView({
     return () => {
       cancelled = true;
     };
-  }, [initialCourses, initialCompletions]);
+  }, []);
 
   const completedLessonIds = useMemo(
     () => new Set(completions.map((c) => c.lessonId)),
@@ -1380,7 +1236,7 @@ export function CoachView({
   );
 
   const selectedCourse = useMemo(
-    () => courses.find((c) => c.id === selectedCourseId) ?? courses[0] ?? null,
+    () => (courses ? courses.find((c) => c.id === selectedCourseId) ?? courses[0] ?? null : null),
     [courses, selectedCourseId]
   );
 
@@ -1407,12 +1263,21 @@ export function CoachView({
       const data = await res.json();
       if (Array.isArray(data.completions)) {
         setCompletions(data.completions);
+        if (courses) {
+          clientCoachCache = { courses, completions: data.completions };
+          onDataSynced?.(courses, data.completions);
+        }
       }
     } catch {
-      setCompletions((prev) => [
-        ...prev,
+      const next = [
+        ...completions,
         { courseId, lessonId, completedAt: new Date().toISOString() },
-      ]);
+      ];
+      setCompletions(next);
+      if (courses) {
+        clientCoachCache = { courses, completions: next };
+        onDataSynced?.(courses, next);
+      }
     }
   }
 
@@ -1460,22 +1325,48 @@ export function CoachView({
     }
   }
 
+  if (courses === null) {
+    return (
+      <div className="bg-[var(--bg-base)] text-[var(--text-primary)]">
+        <div className="mx-auto max-w-5xl px-5 pb-16 pt-7 sm:px-8 sm:pt-10 space-y-6">
+          <div className="flex items-center justify-between gap-4">
+            <h1 className="font-display text-2xl font-bold tracking-tight text-[var(--text-primary)] sm:text-3xl">
+              Learn
+            </h1>
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="spar-chunky-card h-44 animate-pulse" />
+            <div className="spar-chunky-card h-44 animate-pulse" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (courses.length === 0 || !selectedCourse) {
     return (
-      <div className="mx-auto max-w-4xl px-6 py-16 text-center">
-        <GraduationCap className="mx-auto h-8 w-8 text-neutral-500" />
-        <h1 className="mt-4 text-xl font-semibold text-white">
+      <div className="mx-auto max-w-4xl px-6 py-16 text-center flex flex-col items-center">
+        <Kwesi pose="hype" variant="cornerman" size="sm" />
+        <h1 className="font-display mt-4 text-xl font-bold text-white">
           No courses published yet
         </h1>
         <p className="mt-1 text-xs text-neutral-400">
-          Courses published by your coaching team will appear here.
+          Courses published to Learn will appear here.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 pb-32 sm:px-6 sm:py-10 md:pb-16 space-y-6">
+    <div
+      className={cn(
+        screen === "catalog"
+          ? "mx-auto max-w-5xl px-5 pb-16 pt-7 sm:px-8 sm:pt-10 space-y-6"
+          : screen === "roadmap"
+            ? "mx-auto max-w-6xl space-y-6"
+            : ""
+      )}
+    >
       {launchError && (
         <div
           role="alert"

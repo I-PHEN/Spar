@@ -129,14 +129,14 @@ export function LessonFeedback({
       </div>
 
       {/* Action Buttons */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-white/[0.08]">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 pt-3 border-t border-white/[0.08]">
         <div className="flex items-center gap-2">
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={onRetry}
-            className="rounded-full border-white/15 bg-transparent text-xs text-white hover:bg-white/[0.06] h-8 px-3.5"
+            className="rounded-xl border-[#2C2C34] bg-[#18181D] text-xs text-white hover:border-[#3E3E4A] hover:bg-[#22222A] h-9 px-3.5"
           >
             <RotateCcw className="mr-1.5 h-3 w-3" />
             Retry
@@ -149,7 +149,7 @@ export function LessonFeedback({
               size="sm"
               disabled={launchingChamber}
               onClick={onLaunchChamber}
-              className="rounded-full border-white/15 bg-white/[0.04] text-xs text-white hover:bg-white/[0.09] h-8 px-3.5"
+              className="rounded-xl border-[#C6FF3D]/45 bg-[#C6FF3D]/10 text-xs text-[#C6FF3D] hover:bg-[#C6FF3D]/20 h-9 px-3.5"
             >
               <Play className="mr-1.5 h-3 w-3 fill-current" />
               Role-Play Room
@@ -157,16 +157,15 @@ export function LessonFeedback({
           )}
         </div>
 
-        <Button
+        <button
           type="button"
-          size="sm"
           onClick={onCompleteLesson}
-          className="rounded-full bg-white text-black hover:bg-neutral-200 text-xs font-bold h-8 px-4 shadow-md"
+          className="spar-volt-btn inline-flex h-10 items-center justify-center gap-1.5 px-5 text-xs sm:text-sm"
         >
-          <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-          Complete Lesson
-          <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
-        </Button>
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          <span>Complete Lesson</span>
+          <ArrowRight className="h-3.5 w-3.5" />
+        </button>
       </div>
     </div>
   );
