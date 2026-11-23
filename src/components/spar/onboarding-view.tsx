@@ -1,9 +1,11 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useState } from "react";
 import {
   ArrowRight,
   ArrowLeft,
+  Check,
   MessageSquareText,
   Briefcase,
   GraduationCap,
@@ -16,7 +18,6 @@ import { cn } from "@/lib/utils";
 import type { PanelIntensityKey, PrimaryTrackKey } from "@/lib/user";
 import { SparLogo } from "./spar-logo";
 import { Kwesi } from "./kwesi-mascot";
-import { combineMomentDateAndTime, formatDateInputValue } from "@/lib/moment-calendar";
 
 interface OnboardingViewProps {
   onComplete: (data: { name: string }) => void;
@@ -31,6 +32,7 @@ interface TrackOption {
   domain: "sparring" | "commercial" | "academic" | "interview";
   title: string;
   desc: string;
+  accentColor: string;
   icon: typeof MessageSquareText;
 }
 
@@ -40,6 +42,7 @@ const TRACK_OPTIONS: TrackOption[] = [
     domain: "sparring",
     title: "Debate & Arguments",
     desc: "Sharpen arguments, rebuttals, and thinking on your feet",
+    accentColor: "#FF5A1F",
     icon: MessageSquareText,
   },
   {
@@ -47,6 +50,7 @@ const TRACK_OPTIONS: TrackOption[] = [
     domain: "commercial",
     title: "Pitches & Presentations",
     desc: "Defend a startup pitch, proposal, or board deck",
+    accentColor: "#38BDF8",
     icon: Briefcase,
   },
   {
@@ -54,6 +58,7 @@ const TRACK_OPTIONS: TrackOption[] = [
     domain: "academic",
     title: "Academic & Research",
     desc: "Prepare for a thesis defense, viva, or seminar Q&A",
+    accentColor: "#FACC15",
     icon: GraduationCap,
   },
   {
@@ -61,6 +66,7 @@ const TRACK_OPTIONS: TrackOption[] = [
     domain: "interview",
     title: "Interviews & Career",
     desc: "Practice tough behavioral or technical interviews",
+    accentColor: "#A78BFA",
     icon: Users,
   },
 ];
@@ -70,6 +76,7 @@ interface PanelStyleOption {
   title: string;
   badge?: string;
   desc: string;
+  accentColor: string;
   icon: typeof ShieldCheck;
 }
 
@@ -78,6 +85,7 @@ const PANEL_STYLE_OPTIONS: PanelStyleOption[] = [
     id: "gentle",
     title: "Supportive & Constructive",
     desc: "Fair pushback that helps me build confidence and structure",
+    accentColor: "#34D399",
     icon: ShieldCheck,
   },
   {
@@ -85,15 +93,55 @@ const PANEL_STYLE_OPTIONS: PanelStyleOption[] = [
     title: "Direct & Challenging",
     badge: "Recommended",
     desc: "Tough follow-ups that test my logic and proof",
+    accentColor: "#C6FF3D",
     icon: Flame,
   },
   {
     id: "aggressive",
     title: "Fast-Paced Pressure",
     desc: "Quick interruptions that train me to speak concisely",
+    accentColor: "#FF5A1F",
     icon: Zap,
   },
 ];
+
+const SELECTED_CARD_CLASS =
+  "spar-chunky-card-volt border-[#C6FF3D] bg-[#1A2408] ring-2 ring-[#C6FF3D]/40 shadow-[0_5px_0_0_#6B8E1A,0_0_24px_-4px_rgba(198,255,61,0.35)]";
+
+const UNSELECTED_CARD_CLASS =
+  "spar-chunky-card spar-chunky-card-interactive opacity-80 hover:opacity-100 border-[#282831] bg-[#121215]";
+
+function getIconTileStyle(accentColor: string, active: boolean): CSSProperties {
+  if (active) {
+    return {
+      backgroundColor: accentColor,
+      borderColor: accentColor,
+      color: "#0B0D06",
+    };
+  }
+  return {
+    backgroundColor: `${accentColor}1A`,
+    borderColor: `${accentColor}4D`,
+    color: accentColor,
+  };
+}
+
+function SelectionIndicator({ active }: { active: boolean }) {
+  if (active) {
+    return (
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#C6FF3D] px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#0B0D06]">
+        <Check className="h-3 w-3 stroke-[3]" />
+        Selected
+      </span>
+    );
+  }
+  return (
+    <span
+      aria-hidden="true"
+      className="h-5 w-5 shrink-0 rounded-full border-2 border-[#383842] bg-[#0B0B0D]"
+    />
+  );
+}
 
 export function OnboardingView({
   onComplete,
@@ -105,8 +153,6 @@ export function OnboardingView({
   const [selectedTrack, setSelectedTrack] = useState<PrimaryTrackKey>("debate");
   const [selectedIntensity, setSelectedIntensity] =
     useState<PanelIntensityKey>("moderate");
-  const [momentTitle, setMomentTitle] = useState("");
-  const [momentDate, setMomentDate] = useState("");
   const [saving, setSaving] = useState(false);
 
   const activeTrack =
@@ -118,28 +164,6 @@ export function OnboardingView({
 
   function handleStep1Skip() {
     setStep(1);
-  }
-
-  async function saveUpcomingMoment() {
-    if (!momentTitle.trim()) return;
-
-    const fallbackDate = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
-    const safeDate =
-      (momentDate ? combineMomentDateAndTime(momentDate) : null) ??
-      fallbackDate.toISOString();
-
-    try {
-      await fetch("/api/upcoming-moment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: momentTitle.trim(),
-          date: safeDate,
-        }),
-      });
-    } catch {
-      // Non-blocking
-    }
   }
 
   async function handleFinish() {
@@ -165,9 +189,6 @@ export function OnboardingView({
     } catch {
       // Continue cleanly even if write lags
     }
-
-    // Persist upcoming moment AFTER /api/user guarantees user cookie/record exists
-    await saveUpcomingMoment();
 
     try {
       if (typeof window !== "undefined") {
@@ -208,22 +229,42 @@ export function OnboardingView({
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-background">
-      {/* Ambient glow */}
+    <div className="relative flex min-h-screen flex-col overflow-x-clip bg-[var(--bg-base)] text-[var(--text-primary)]">
+      {/* Vibrant Fight Night multi-point backdrop */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute top-0 left-1/2 h-[400px] w-[600px] -translate-x-1/2 opacity-20"
-        style={{
-          background:
-            "radial-gradient(ellipse at center, rgba(198,255,61,0.08) 0%, transparent 70%)",
-        }}
-      />
+        className="pointer-events-none absolute inset-0 overflow-hidden"
+      >
+        <div
+          className="absolute -top-24 left-1/2 h-[440px] w-[760px] -translate-x-1/2 rounded-full blur-3xl"
+          style={{
+            background:
+              "radial-gradient(ellipse at center, rgba(198,255,61,0.18) 0%, transparent 70%)",
+          }}
+        />
+        <div
+          className="absolute top-1/4 -right-24 h-[380px] w-[420px] rounded-full blur-3xl"
+          style={{
+            background:
+              "radial-gradient(ellipse at center, rgba(255,90,31,0.09) 0%, transparent 70%)",
+          }}
+        />
+        <div
+          className="absolute bottom-0 -left-24 h-[360px] w-[420px] rounded-full blur-3xl"
+          style={{
+            background:
+              "radial-gradient(ellipse at center, rgba(56,189,248,0.08) 0%, transparent 70%)",
+          }}
+        />
+      </div>
 
       {/* Minimal header — logo only */}
       <header className="relative z-20 flex items-center justify-center px-6 py-5">
         <div className="flex items-center gap-2.5">
-          <SparLogo size="sm" />
-          <span className="font-semibold tracking-tight text-white">Spar</span>
+          <SparLogo size="md" />
+          <span className="font-display text-base font-bold tracking-tight text-white">
+            Spar
+          </span>
         </div>
       </header>
 
@@ -237,17 +278,17 @@ export function OnboardingView({
                 <span
                   key={i}
                   className={cn(
-                    "h-1 rounded-full transition-all duration-300",
+                    "h-1.5 rounded-full transition-all duration-300",
                     i === step
                       ? "w-10 bg-[#C6FF3D]"
                       : i < step
-                      ? "w-6 bg-neutral-400"
-                      : "w-6 bg-neutral-800"
+                      ? "w-6 bg-[#6B8E1A]"
+                      : "w-6 bg-[#26262E]"
                   )}
                 />
               ))}
             </div>
-            <p className="text-[10px] uppercase tracking-[0.2em] text-neutral-500 font-medium">
+            <p className="inline-flex items-center rounded-full border border-[#C6FF3D]/40 bg-[#C6FF3D]/12 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-[#C6FF3D]">
               Step {step + 1} of 2 · {STEP_LABELS[step]}
             </p>
           </div>
@@ -265,14 +306,14 @@ export function OnboardingView({
                 <h2 className="font-display text-center text-2xl font-bold tracking-tight text-white sm:text-3xl">
                   What are you preparing for?
                 </h2>
-                <p className="mt-2 text-center text-sm text-neutral-400">
+                <p className="mt-2 text-center text-sm text-[var(--text-secondary)]">
                   Pick your main track so Spar tailors your panel and defaults automatically.
                 </p>
 
                 <div className="mt-6">
                   <label
                     htmlFor="user-name"
-                    className="mb-1.5 block text-[10px] uppercase tracking-wider text-neutral-400 font-medium"
+                    className="mb-1.5 block font-mono text-[10px] font-bold uppercase tracking-wider text-neutral-400"
                   >
                     Your name
                   </label>
@@ -283,11 +324,11 @@ export function OnboardingView({
                     onChange={(e) => setName(e.target.value)}
                     placeholder="How the panel should address you"
                     autoFocus
-                    className="w-full rounded-lg border border-[#232327] bg-[#0B0B0D] px-3.5 h-11 text-sm text-white placeholder:text-neutral-600 focus:border-[#34343B] focus:outline-none"
+                    className="w-full rounded-xl border-2 border-[#2A2A33] bg-[#101014] px-4 h-12 text-sm text-white placeholder:text-neutral-500 transition-colors focus:border-[#C6FF3D] focus:bg-[#14170E] focus:outline-none focus:ring-2 focus:ring-[#C6FF3D]/25"
                   />
                 </div>
 
-                <div className="mt-5 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {TRACK_OPTIONS.map((track) => {
                     const Icon = track.icon;
                     const active = selectedTrack === track.id;
@@ -295,26 +336,37 @@ export function OnboardingView({
                       <button
                         key={track.id}
                         type="button"
+                        aria-pressed={active}
+                        data-selected={active ? "true" : "false"}
                         onClick={() => setSelectedTrack(track.id)}
                         className={cn(
-                          "flex flex-col items-start p-4 text-left",
-                          active
-                            ? "spar-chunky-card-volt"
-                            : "spar-chunky-card spar-chunky-card-interactive"
+                          "flex flex-col items-start p-4 text-left cursor-pointer",
+                          active ? SELECTED_CARD_CLASS : UNSELECTED_CARD_CLASS
                         )}
                       >
-                        <div className="mb-2 flex items-center gap-2">
-                          <Icon
-                            className={cn(
-                              "h-4 w-4",
-                              active ? "text-[var(--accent)]" : "text-neutral-400"
-                            )}
-                          />
-                          <span className="text-sm font-semibold text-white">
-                            {track.title}
+                        <div className="mb-3 flex w-full items-center justify-between gap-2">
+                          <span
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border-2 transition-colors"
+                            style={getIconTileStyle(track.accentColor, active)}
+                          >
+                            <Icon className="h-4 w-4" />
                           </span>
+                          <SelectionIndicator active={active} />
                         </div>
-                        <p className="text-xs leading-relaxed text-neutral-400">
+                        <span
+                          className={cn(
+                            "text-sm font-bold tracking-tight",
+                            active ? "font-display text-[#C6FF3D]" : "text-white"
+                          )}
+                        >
+                          {track.title}
+                        </span>
+                        <p
+                          className={cn(
+                            "mt-1 text-xs leading-relaxed",
+                            active ? "text-neutral-200" : "text-neutral-400"
+                          )}
+                        >
                           {track.desc}
                         </p>
                       </button>
@@ -335,11 +387,11 @@ export function OnboardingView({
                 <h2 className="font-display text-center text-2xl font-bold tracking-tight text-white sm:text-3xl">
                   How should the panel challenge you?
                 </h2>
-                <p className="mt-2 text-center text-sm text-neutral-400">
+                <p className="mt-2 text-center text-sm text-[var(--text-secondary)]">
                   Choose the default pressure level for your rooms. You can change this anytime in Settings.
                 </p>
 
-                <div className="mt-6 space-y-2.5">
+                <div className="mt-6 space-y-3">
                   {PANEL_STYLE_OPTIONS.map((style) => {
                     const Icon = style.icon;
                     const active = selectedIntensity === style.id;
@@ -347,75 +399,49 @@ export function OnboardingView({
                       <button
                         key={style.id}
                         type="button"
+                        aria-pressed={active}
+                        data-selected={active ? "true" : "false"}
                         onClick={() => setSelectedIntensity(style.id)}
                         className={cn(
-                          "flex w-full items-start gap-3.5 p-4 text-left",
-                          active
-                            ? "spar-chunky-card-volt"
-                            : "spar-chunky-card spar-chunky-card-interactive"
+                          "flex w-full items-center gap-3.5 p-4 text-left cursor-pointer",
+                          active ? SELECTED_CARD_CLASS : UNSELECTED_CARD_CLASS
                         )}
                       >
-                        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04]">
-                          <Icon
-                            className={cn(
-                              "h-4 w-4",
-                              active ? "text-[var(--accent)]" : "text-neutral-400"
-                            )}
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold text-white">
+                        <span
+                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 transition-colors"
+                          style={getIconTileStyle(style.accentColor, active)}
+                        >
+                          <Icon className="h-4 w-4" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className={cn(
+                                "text-sm font-bold tracking-tight",
+                                active ? "font-display text-[#C6FF3D]" : "text-white"
+                              )}
+                            >
                               {style.title}
                             </span>
                             {style.badge && (
-                              <span className="rounded-full bg-[var(--accent)]/15 px-2 py-0.5 text-[10px] font-semibold text-[var(--accent)]">
+                              <span className="rounded-full border border-[#C6FF3D]/40 bg-[#C6FF3D]/15 px-2 py-0.5 text-[10px] font-bold text-[#C6FF3D]">
                                 {style.badge}
                               </span>
                             )}
                           </div>
-                          <p className="mt-0.5 text-xs leading-relaxed text-neutral-400">
+                          <p
+                            className={cn(
+                              "mt-0.5 text-xs leading-relaxed",
+                              active ? "text-neutral-200" : "text-neutral-400"
+                            )}
+                          >
                             {style.desc}
                           </p>
                         </div>
+                        <SelectionIndicator active={active} />
                       </button>
                     );
                   })}
-                </div>
-
-                {/* Optional upcoming event */}
-                <div className="mt-6 rounded-xl border border-[#232327] bg-[#121215] p-4">
-                  <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
-                    Upcoming Moment (optional)
-                  </p>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div>
-                      <label htmlFor="moment-title" className="sr-only">
-                        Moment title
-                      </label>
-                      <input
-                        id="moment-title"
-                        type="text"
-                        value={momentTitle}
-                        onChange={(e) => setMomentTitle(e.target.value)}
-                        placeholder="e.g. Finals, Thesis Defense, Series A Pitch"
-                        className="w-full rounded-lg border border-[#232327] bg-[#0B0B0D] px-3 h-10 text-xs text-white placeholder:text-neutral-600 focus:border-[#34343B] focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="moment-date" className="sr-only">
-                        Target date
-                      </label>
-                      <input
-                        id="moment-date"
-                        type="date"
-                        min={formatDateInputValue(new Date())}
-                        value={momentDate}
-                        onChange={(e) => setMomentDate(e.target.value)}
-                        className="w-full rounded-lg border border-[#232327] bg-[#0B0B0D] px-3 h-10 text-xs text-white placeholder:text-neutral-600 focus:border-[#34343B] focus:outline-none [color-scheme:dark]"
-                      />
-                    </div>
-                  </div>
                 </div>
               </div>
             )}
@@ -427,7 +453,7 @@ export function OnboardingView({
               <button
                 type="button"
                 onClick={onBack}
-                className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
+                className="flex items-center gap-1.5 text-xs font-medium text-neutral-400 hover:text-white transition-colors"
               >
                 <ArrowLeft className="h-3.5 w-3.5" /> Back
               </button>
@@ -435,7 +461,7 @@ export function OnboardingView({
               <button
                 type="button"
                 onClick={() => setStep(0)}
-                className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
+                className="flex items-center gap-1.5 text-xs font-medium text-neutral-400 hover:text-white transition-colors"
               >
                 <ArrowLeft className="h-3.5 w-3.5" /> Back
               </button>
@@ -446,7 +472,7 @@ export function OnboardingView({
                 <button
                   type="button"
                   onClick={handleStep1Skip}
-                  className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
+                  className="text-xs font-medium text-neutral-400 hover:text-white transition-colors"
                 >
                   Skip
                 </button>

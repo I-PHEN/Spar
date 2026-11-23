@@ -16,7 +16,7 @@ import { db } from "@/lib/db";
 
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 
-export async function GET(req?: NextRequest) {
+export async function GET(req: NextRequest) {
   const hasCookie = Boolean(req?.cookies?.get(SPAR_USER_COOKIE)?.value);
   const userId = await getDefaultUserId();
   const user = await db.user.findUnique({ where: { id: userId } });

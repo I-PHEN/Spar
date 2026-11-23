@@ -1,4 +1,5 @@
-export const WHATSAPP_COMMUNITY_FALLBACK_URL = "https://chat.whatsapp.com/";
+export const WHATSAPP_COMMUNITY_FALLBACK_URL =
+  "https://chat.whatsapp.com/FJRK385Epgn5axutA0BXzz";
 
 export function getWhatsAppCommunityUrl(): string {
   return (
